@@ -1,4 +1,4 @@
-"""Punto de entrada WSGI para el proyecto Poki Koa (Mamoru).
+"""Punto de entrada WSGI para el proyecto Poki Koa.
 
 WSGI (Web Server Gateway Interface) es el estándar que permite a servidores
 web como Gunicorn o uWSGI comunicarse con la aplicación Django en producción.

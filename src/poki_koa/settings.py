@@ -1,4 +1,4 @@
-"""Configuración del proyecto Django para Poki Koa (Mamoru).
+"""Configuración del proyecto Django para Poki Koa.
 
 Este archivo centraliza todos los ajustes del proyecto:
 - Base de datos (SQLite para desarrollo)
@@ -21,7 +21,7 @@ sys.path.append(str(BASE_DIR))
 
 # CLAVE SECRETA — Solo válida para desarrollo local.
 # En producción debe definirse como variable de entorno y nunca subirse al repositorio.
-SECRET_KEY = "django-insecure-mamoru-clave-de-desarrollo-local"
+SECRET_KEY = "django-insecure-poki-koa-clave-de-desarrollo-local"
 
 # Modo depuración: muestra errores detallados. Debe ser False en producción.
 DEBUG = True

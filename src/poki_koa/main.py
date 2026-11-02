@@ -1,12 +1,12 @@
-"""Punto de entrada principal del proyecto Mamoru / Poki Koa.
+"""Punto de entrada principal del proyecto Poki Koa.
 
 Este módulo define la función `main()` que actúa como punto de entrada del
-comando `mamoru` registrado en pyproject.toml. Permite ejecutar cualquier
+comando `poki_koa` registrado en pyproject.toml. Permite ejecutar cualquier
 comando de gestión de Django directamente desde la raíz del proyecto usando:
 
-    uv run mamoru             → Inicia el servidor de desarrollo
-    uv run mamoru migrate     → Aplica las migraciones de base de datos
-    uv run mamoru test        → Ejecuta la suite de pruebas unitarias
+    uv run poki_koa             → Inicia el servidor de desarrollo
+    uv run poki_koa migrate     → Aplica las migraciones de base de datos
+    uv run poki_koa test        → Ejecuta la suite de pruebas unitarias
 """
 
 import os

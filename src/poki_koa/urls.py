@@ -1,4 +1,4 @@
-"""Configuración de URLs principal del proyecto Poki Koa (Mamoru).
+"""Configuración de URLs principal del proyecto Poki Koa.
 
 Define dos grupos de rutas:
 - /admin/    → Panel de administración de Django

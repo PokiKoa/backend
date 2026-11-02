@@ -65,7 +65,7 @@ class AlertAdmin(admin.ModelAdmin):
         }
         bg, fg = colors.get(obj.severity, ("#f1f5f9", "#334155"))
         return format_html(
-            '<span style="background:{};color:{};padding:3px 9px;border-radius:999px;font-weight:700;font-size:0.75rem;">{}</span>',
+            '<span style="background:{};color:{};padding:3px 9px;border-radius:0.5rem;font-weight:700;font-size:0.75rem;">{}</span>',
             bg,
             fg,
             obj.get_severity_display().upper(),
@@ -80,7 +80,7 @@ class AlertAdmin(admin.ModelAdmin):
         }
         bg, fg = colors.get(obj.status, ("#f1f5f9", "#334155"))
         return format_html(
-            '<span style="background:{};color:{};padding:3px 9px;border-radius:999px;font-weight:700;font-size:0.75rem;">{}</span>',
+            '<span style="background:{};color:{};padding:3px 9px;border-radius:0.5rem;font-weight:700;font-size:0.75rem;">{}</span>',
             bg,
             fg,
             obj.get_status_display(),

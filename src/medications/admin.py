@@ -30,7 +30,7 @@ class MedicationCatalogItemAdmin(admin.ModelAdmin):
         else:
             bg, fg, label = "#d1fae5", "#065f46", f"{obj.stock} disponibles"
         return format_html(
-            '<span style="background:{};color:{};padding:3px 9px;border-radius:999px;font-weight:700;font-size:0.75rem;">{}</span>',
+            '<span style="background:{};color:{};padding:3px 9px;border-radius:0.5rem;font-weight:700;font-size:0.75rem;">{}</span>',
             bg,
             fg,
             label,
@@ -67,7 +67,7 @@ class PrescriptionAdmin(admin.ModelAdmin):
         }
         bg, fg = colors.get(obj.status, ("#f1f5f9", "#334155"))
         return format_html(
-            '<span style="background:{};color:{};padding:3px 9px;border-radius:999px;font-weight:700;font-size:0.75rem;">{}</span>',
+            '<span style="background:{};color:{};padding:3px 9px;border-radius:0.5rem;font-weight:700;font-size:0.75rem;">{}</span>',
             bg,
             fg,
             obj.get_status_display(),

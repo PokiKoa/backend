@@ -67,7 +67,7 @@ uv run ruff check src                    # verifica linter y estilo
 - [x] **Fase 1:** Tag `entrega2`, rama `rewrite/v2`, ADR de IncuNest (`ADR-001` a `ADR-003`) y esquema de datos (`DATA_SCHEMA.md`).
 - [x] **Fase 2:** Cuentas, roles, autenticación JWT, bloqueo, rate limiting y auditoría (`accounts`, `audit`).
 - [x] **Fase 3:** Pacientes (alta, edición, egreso lógico), planes de cuidado, observaciones y cunas (`patients`, `devices`).
-- [ ] **Fase 4:** Ingesta de telemetría con histórico y motor de alertas (`vitals`, `alerts`).
+- [x] **Fase 4:** Ingesta de telemetría con histórico y motor de alertas (`vitals`, `alerts`).
 - [ ] **Fase 5:** Tiempo real por WebSocket autenticado (Django Channels + Redis).
 - [ ] **Fase 6:** Catálogo de medicamentos con stock, prescripciones y administración atómica (`medications`).
 - [ ] **Fase 7:** CI (GitHub Actions) y Docker (`Dockerfile`, `docker-compose.yml`).

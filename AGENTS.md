@@ -70,4 +70,4 @@ uv run ruff check src                    # verifica linter y estilo
 - [x] **Fase 4:** Ingesta de telemetría con histórico y motor de alertas (`vitals`, `alerts`).
 - [x] **Fase 5:** Tiempo real por WebSocket autenticado (Django Channels + Redis).
 - [x] **Fase 6:** Catálogo de medicamentos con stock, prescripciones y administración atómica (`medications`).
-- [ ] **Fase 7:** CI (GitHub Actions) y Docker (`Dockerfile`, `docker-compose.yml`).
+- [x] **Fase 7:** CI (GitHub Actions) y Docker (`Dockerfile`, `docker-compose.yml`).

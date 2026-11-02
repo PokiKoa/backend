@@ -32,6 +32,8 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "accounts.apps.AccountsConfig",
     "audit.apps.AuditConfig",
+    "devices.apps.DevicesConfig",
+    "patients.apps.PatientsConfig",
 ]
 
 MIDDLEWARE = [
@@ -134,6 +136,10 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAuthenticated"],
     "SCHEMA_PATH_PREFIX": r"/api/v1",
+    "ENUM_NAME_OVERRIDES": {
+        "DischargeOutcomeEnum": "patients.models.DischargeOutcome",
+        "DischargeCauseEnum": "patients.models.DischargeCause",
+    },
 }
 
 REDIS_URL = env("REDIS_URL", default="")

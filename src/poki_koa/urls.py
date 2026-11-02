@@ -14,6 +14,8 @@ api_v1_patterns = [
     ),
     path("", include("accounts.urls")),
     path("", include("audit.urls")),
+    path("", include("devices.urls")),
+    path("", include("patients.urls")),
 ]
 
 urlpatterns = [

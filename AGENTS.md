@@ -42,7 +42,8 @@ Ejecutar desde la raíz del repositorio:
 uv sync                                  # instala dependencias desde uv.lock
 uv run poki_koa migrate                  # aplica migraciones
 uv run poki_koa makemigrations --check   # verifica que no falten migraciones
-uv run poki_koa test                     # ejecuta la suite de pruebas actual
+uv run pytest                            # ejecuta la suite de pruebas con pytest
+uv run poki_koa test                     # ejecuta la suite de pruebas de Django
 uv run ruff check src                    # verifica linter y estilo
 ```
 
@@ -64,7 +65,7 @@ uv run ruff check src                    # verifica linter y estilo
 ## 6. Estado de fases de reescritura (`rewrite/v2`)
 
 - [x] **Fase 1:** Tag `entrega2`, rama `rewrite/v2`, ADR de IncuNest (`ADR-001` a `ADR-003`) y esquema de datos (`DATA_SCHEMA.md`).
-- [ ] **Fase 2:** Cuentas, roles, autenticación JWT, bloqueo, rate limiting y auditoría (`accounts`, `audit`).
+- [x] **Fase 2:** Cuentas, roles, autenticación JWT, bloqueo, rate limiting y auditoría (`accounts`, `audit`).
 - [ ] **Fase 3:** Pacientes (alta, edición, egreso lógico), planes de cuidado, observaciones y cunas (`patients`, `devices`).
 - [ ] **Fase 4:** Ingesta de telemetría con histórico y motor de alertas (`vitals`, `alerts`).
 - [ ] **Fase 5:** Tiempo real por WebSocket autenticado (Django Channels + Redis).

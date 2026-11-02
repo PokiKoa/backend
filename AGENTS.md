@@ -60,13 +60,13 @@ uv run ruff check src                    # verifica linter y estilo
 - Comentarios en español, solo cuando expliquen un *porqué* no obvio (sin docstrings redundantes).
 - Una sola fuente de verdad por regla de negocio (p. ej. rangos de signos vitales).
 - Si una prueba falla, corrige la causa; no relajes aserciones para que pasen.
-- Toda tarea debe separarse en commits pequeños y comprensibles; nunca envíes todo en un solo commit.
+- Toda tarea debe separarse en commits pequeños y comprensibles en español; nunca envíes todo en un solo commit.
 
 ## 6. Estado de fases de reescritura (`rewrite/v2`)
 
 - [x] **Fase 1:** Tag `entrega2`, rama `rewrite/v2`, ADR de IncuNest (`ADR-001` a `ADR-003`) y esquema de datos (`DATA_SCHEMA.md`).
 - [x] **Fase 2:** Cuentas, roles, autenticación JWT, bloqueo, rate limiting y auditoría (`accounts`, `audit`).
-- [ ] **Fase 3:** Pacientes (alta, edición, egreso lógico), planes de cuidado, observaciones y cunas (`patients`, `devices`).
+- [x] **Fase 3:** Pacientes (alta, edición, egreso lógico), planes de cuidado, observaciones y cunas (`patients`, `devices`).
 - [ ] **Fase 4:** Ingesta de telemetría con histórico y motor de alertas (`vitals`, `alerts`).
 - [ ] **Fase 5:** Tiempo real por WebSocket autenticado (Django Channels + Redis).
 - [ ] **Fase 6:** Catálogo de medicamentos con stock, prescripciones y administración atómica (`medications`).

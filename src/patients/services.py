@@ -340,8 +340,10 @@ def discharge_patient(
             updated_at=timezone.now(),
         )
         from alerts.services import resolve_patient_alerts_on_discharge
+        from medications.services import cancel_pending_prescriptions_on_discharge
 
         resolve_patient_alerts_on_discharge(patient=locked_patient, actor=actor)
+        cancel_pending_prescriptions_on_discharge(patient=locked_patient)
 
         record_audit_event(
             action=AuditAction.DISCHARGE,

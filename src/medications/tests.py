@@ -322,11 +322,19 @@ class MedicationsEndpointTests(APITestCase):
         self.assertEqual(cancel_res.status_code, status.HTTP_200_OK)
         self.assertEqual(cancel_res.data["status"], PrescriptionStatus.CANCELLED)
 
-        # Farmacéutico repone stock mediante update_catalog_item / PATCH
+        # Farmacéutico repone stock y actualiza metadatos mediante PATCH
         self.client.force_authenticate(user=self.pharmacist)
         patch_res = self.client.patch(
             f"/api/v1/medication-catalog/{med_id}/",
-            {"stock": 25},
+            {
+                "name": "Ampicilina Sódica 500mg",
+                "active_ingredient": "Ampicilina",
+                "concentration_mg": "500.50",
+                "unit": "vial",
+                "stock": 25,
+                "min_stock_alert": 8,
+                "is_active": True,
+            },
             format="json",
         )
         self.assertEqual(patch_res.status_code, status.HTTP_200_OK)

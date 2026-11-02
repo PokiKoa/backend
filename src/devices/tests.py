@@ -160,6 +160,19 @@ class DevicesEndpointTests(APITestCase):
         )
         crib2_id = c2_res.data["id"]
 
+        # Admin actualiza metadatos y rota API key por endpoint
+        patch_crib = self.client.patch(
+            f"/api/v1/cribs/{crib2_id}/",
+            {"code": "C-202B", "name": "Cuna 2 Bis", "location": "UCI-C"},
+            format="json",
+        )
+        self.assertEqual(patch_crib.status_code, status.HTTP_200_OK)
+        self.assertEqual(patch_crib.data["code"], "C-202B")
+
+        rot_res = self.client.post(f"/api/v1/cribs/{crib2_id}/rotate-key/")
+        self.assertEqual(rot_res.status_code, status.HTTP_200_OK)
+        self.assertIn("api_key", rot_res.data)
+
         # Admitir un paciente sin cuna inicial
         patient = admit_patient(
             actor=self.neonatologist,

@@ -397,11 +397,35 @@ class PatientsEndpointTests(APITestCase):
 
         cp_patch = self.client.patch(
             f"/api/v1/care-plans/{cp_id}/",
-            {"frequency": "Cada 2 horas"},
+            {"frequency": "Cada 2 horas", "status": CarePlanStatus.SUSPENDED},
             format="json",
         )
         self.assertEqual(cp_patch.status_code, status.HTTP_200_OK)
         self.assertEqual(cp_patch.data["frequency"], "Cada 2 horas")
+        self.assertEqual(cp_patch.data["status"], CarePlanStatus.SUSPENDED)
+
+        # Actualizar múltiples campos del paciente por PATCH
+        crib2, _ = create_crib(actor=self.admin, code="C-402", name="Cuna 402")
+        self.client.force_authenticate(user=self.neo)
+        pat_patch = self.client.patch(
+            f"/api/v1/patients/{patient_id}/",
+            {
+                "full_name": "RN Martín González R.",
+                "sex": "M",
+                "birth_date": today_str,
+                "gestational_age_weeks": "34.0",
+                "current_weight_g": 2050,
+                "diagnosis": "Prematuridad moderada en evolución favorable",
+                "attending_physician_id": None,
+                "crib_id": crib2.id,
+            },
+            format="json",
+        )
+        self.assertEqual(pat_patch.status_code, status.HTTP_200_OK)
+        self.assertEqual(pat_patch.data["full_name"], "RN Martín González R.")
+        self.assertEqual(pat_patch.data["crib_code"], "C-402")
+        self.assertIsNone(pat_patch.data["attending_physician"])
+        self.client.force_authenticate(user=self.nurse)
 
         # Crear y filtrar observación clínica por API
         obs_post = self.client.post(

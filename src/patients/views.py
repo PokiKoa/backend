@@ -172,6 +172,58 @@ class PatientViewSet(
             status=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        summary="Lista el historial de signos vitales registrados para el paciente",
+    )
+    @action(detail=True, methods=["get"], url_path="vitals")
+    def vitals(self, request: Request, pk=None) -> Response:
+        from vitals.serializers import VitalSignReadingSerializer
+        from vitals.views import VitalSignReadingFilter
+
+        patient = self.get_object()
+        qs = patient.vital_readings.select_related("crib", "patient").all()
+        filtered_qs = VitalSignReadingFilter(request.query_params, queryset=qs).qs
+        page = self.paginate_queryset(filtered_qs)
+        if page is not None:
+            serializer = VitalSignReadingSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        return Response(
+            VitalSignReadingSerializer(filtered_qs, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        summary="Consulta o personaliza los umbrales de alerta clínica para el paciente",
+    )
+    @action(detail=True, methods=["get", "put", "patch"], url_path="alert-thresholds")
+    def alert_thresholds(self, request: Request, pk=None) -> Response:
+        from alerts.serializers import (
+            AlertThresholdConfigSerializer,
+            AlertThresholdConfigUpdateSerializer,
+        )
+        from alerts.services import get_effective_thresholds, upsert_threshold_config
+
+        patient = self.get_object()
+        if request.method == "GET":
+            config = get_effective_thresholds(patient=patient)
+            return Response(
+                AlertThresholdConfigSerializer(config).data,
+                status=status.HTTP_200_OK,
+            )
+
+        serializer = AlertThresholdConfigUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        config = upsert_threshold_config(
+            actor=request.user,
+            patient=patient,
+            data=serializer.validated_data,
+            ip_address=get_client_ip(request),
+        )
+        return Response(
+            AlertThresholdConfigSerializer(config).data,
+            status=status.HTTP_200_OK,
+        )
+
 
 class CarePlanViewSet(
     mixins.ListModelMixin,

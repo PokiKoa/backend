@@ -34,6 +34,8 @@ INSTALLED_APPS = [
     "audit.apps.AuditConfig",
     "devices.apps.DevicesConfig",
     "patients.apps.PatientsConfig",
+    "vitals.apps.VitalsConfig",
+    "alerts.apps.AlertsConfig",
 ]
 
 MIDDLEWARE = [

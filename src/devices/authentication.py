@@ -1,5 +1,6 @@
 from typing import Any
 
+from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import BasePermission
@@ -61,3 +62,16 @@ class IsAuthenticatedDeviceForCrib(BasePermission):
             return False
         crib_id = obj.id if isinstance(obj, Crib) else getattr(obj, "crib_id", None)
         return user.crib.id == crib_id
+
+
+class DeviceApiKeyAuthenticationScheme(OpenApiAuthenticationExtension):
+    target_class = "devices.authentication.DeviceApiKeyAuthentication"
+    name = "DeviceApiKeyAuth"
+
+    def get_security_definition(self, auto_schema: Any) -> dict[str, Any]:
+        return {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-Device-Api-Key",
+            "description": "API Key por dispositivo de cuna neonatal (pk_dev_<prefix>_<secret>).",
+        }

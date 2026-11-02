@@ -6,12 +6,14 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import UserRole
 from accounts.permissions import IsAdminRole
 from audit.services import get_client_ip
 from poki_koa.exceptions import PermissionDomainError
 
+from .authentication import DeviceApiKeyAuthentication
 from .models import Crib
 from .serializers import (
     CribAssignPatientSerializer,
@@ -143,3 +145,58 @@ class CribViewSet(
             ip_address=get_client_ip(request),
         )
         return Response(CribSerializer(updated_crib).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Ingiere una lectura de telemetría o lista el historial de lecturas de la cuna",
+    )
+    @action(
+        detail=True,
+        methods=["get", "post"],
+        url_path="telemetry",
+        authentication_classes=[DeviceApiKeyAuthentication, JWTAuthentication],
+        permission_classes=[IsAuthenticated],
+    )
+    def telemetry(self, request: Request, pk=None) -> Response:
+        from alerts.serializers import AlertSerializer
+        from vitals.serializers import VitalSignReadingSerializer
+        from vitals.services import ingest_telemetry
+        from vitals.views import VitalSignReadingFilter
+
+        crib = self.get_object()
+        is_device = bool(getattr(request.user, "is_device", False))
+
+        if request.method == "GET":
+            if is_device:
+                raise PermissionDomainError(
+                    "Una credencial de dispositivo solo está autorizada para enviar telemetría."
+                )
+            qs = crib.vital_readings.select_related("crib", "patient").all()
+            filtered_qs = VitalSignReadingFilter(request.query_params, queryset=qs).qs
+            page = self.paginate_queryset(filtered_qs)
+            if page is not None:
+                serializer = VitalSignReadingSerializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            return Response(
+                VitalSignReadingSerializer(filtered_qs, many=True).data,
+                status=status.HTTP_200_OK,
+            )
+
+        if is_device and request.user.crib.id != crib.id:
+            raise PermissionDomainError(
+                "La API Key del dispositivo no corresponde a la cuna solicitada."
+            )
+
+        reading, evaluation = ingest_telemetry(
+            crib=crib,
+            payload=request.data if isinstance(request.data, dict) else {},
+            actor_user=None if is_device else request.user,
+            is_device_authenticated=is_device,
+        )
+        response_data = VitalSignReadingSerializer(reading).data
+        response_data["active_alerts"] = AlertSerializer(
+            evaluation.active_or_updated_alerts, many=True
+        ).data
+        response_data["auto_resolved_alerts"] = AlertSerializer(
+            evaluation.auto_resolved_alerts, many=True
+        ).data
+        return Response(response_data, status=status.HTTP_201_CREATED)

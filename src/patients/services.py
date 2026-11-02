@@ -334,11 +334,14 @@ def discharge_patient(
             old_crib.status = CribStatus.AVAILABLE
             old_crib.save(update_fields=["status", "updated_at"])
 
-        # Suspender planes de cuidado activos al momento del egreso
+        # Suspender planes de cuidado activos y resolver alertas pendientes al momento del egreso
         locked_patient.care_plans.filter(status=CarePlanStatus.ACTIVE).update(
             status=CarePlanStatus.COMPLETED,
             updated_at=timezone.now(),
         )
+        from alerts.services import resolve_patient_alerts_on_discharge
+
+        resolve_patient_alerts_on_discharge(patient=locked_patient, actor=actor)
 
         record_audit_event(
             action=AuditAction.DISCHARGE,

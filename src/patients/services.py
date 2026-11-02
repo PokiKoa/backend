@@ -175,11 +175,7 @@ def update_patient(
         )
 
     with transaction.atomic():
-        locked_patient = (
-            Patient.objects.select_for_update()
-            .select_related("crib", "attending_physician")
-            .get(pk=patient.pk)
-        )
+        locked_patient = Patient.objects.select_for_update().get(pk=patient.pk)
         if locked_patient.status != PatientStatus.ACTIVE:
             raise ConflictDomainError(
                 "No se pueden modificar los datos clínicos de un paciente ya egresado."
@@ -305,15 +301,15 @@ def discharge_patient(
         )
 
     with transaction.atomic():
-        locked_patient = (
-            Patient.objects.select_for_update()
-            .select_related("crib")
-            .get(pk=patient.pk)
-        )
+        locked_patient = Patient.objects.select_for_update().get(pk=patient.pk)
         if locked_patient.status != PatientStatus.ACTIVE:
             raise ConflictDomainError("El paciente ya fue egresado previamente.")
 
-        old_crib = locked_patient.crib
+        old_crib = (
+            Crib.objects.select_for_update().get(pk=locked_patient.crib_id)
+            if locked_patient.crib_id is not None
+            else None
+        )
         if outcome == DischargeOutcome.DECEASED:
             new_status = PatientStatus.DECEASED
         elif outcome == DischargeOutcome.TRANSFERRED:
@@ -381,7 +377,6 @@ def assign_patient_to_crib(
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)
         locked_patient = (
             Patient.objects.select_for_update()
-            .select_related("crib")
             .filter(pk=patient_id)
             .first()
         )
@@ -580,11 +575,7 @@ def update_care_plan(
         )
 
     with transaction.atomic():
-        locked_plan = (
-            CarePlan.objects.select_for_update()
-            .select_related("patient")
-            .get(pk=care_plan.pk)
-        )
+        locked_plan = CarePlan.objects.select_for_update().get(pk=care_plan.pk)
         changed_fields: list[str] = []
 
         for text_field in ("care_area", "intervention", "frequency"):

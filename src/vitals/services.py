@@ -37,11 +37,7 @@ def ingest_telemetry(
     validated = validate_telemetry_payload(payload)
 
     with transaction.atomic():
-        locked_crib = (
-            Crib.objects.select_for_update()
-            .select_related("current_patient")
-            .get(pk=crib.pk)
-        )
+        locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)
         if locked_crib.status == CribStatus.MAINTENANCE:
             raise ConflictDomainError(
                 "No se puede ingerir telemetría en una cuna en estado de mantenimiento."

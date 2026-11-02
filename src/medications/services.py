@@ -275,10 +275,8 @@ def administer_prescription(
         )
 
     with transaction.atomic():
-        locked_prescription = (
-            Prescription.objects.select_for_update()
-            .select_related("patient")
-            .get(pk=prescription.pk)
+        locked_prescription = Prescription.objects.select_for_update().get(
+            pk=prescription.pk
         )
         locked_medication = MedicationCatalogItem.objects.select_for_update().get(
             pk=locked_prescription.medication_id
@@ -351,10 +349,8 @@ def cancel_prescription(
         )
 
     with transaction.atomic():
-        locked_prescription = (
-            Prescription.objects.select_for_update()
-            .select_related("patient", "medication")
-            .get(pk=prescription.pk)
+        locked_prescription = Prescription.objects.select_for_update().get(
+            pk=prescription.pk
         )
         if locked_prescription.status != PrescriptionStatus.PENDING:
             raise ConflictDomainError(

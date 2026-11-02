@@ -233,6 +233,14 @@ class AccountsAndHealthEndpointTests(TestCase):
         health_res = self.client.get("/api/v1/health/")
         self.assertEqual(health_res.status_code, status.HTTP_200_OK)
         self.assertEqual(health_res.data["status"], "ok")
+        self.assertIn("components", health_res.data)
+        self.assertIn("metrics", health_res.data)
+
+        health_html = self.client.get(
+            "/api/v1/health/", HTTP_ACCEPT="text/html,application/xhtml+xml"
+        )
+        self.assertEqual(health_html.status_code, status.HTTP_200_OK)
+        self.assertContains(health_html, "Estado Operativo del Servicio")
 
         # /api/v1/schema/ requiere autenticación como todo endpoint no público
         unauth_schema = self.client.get("/api/v1/schema/")

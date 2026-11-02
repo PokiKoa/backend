@@ -2,27 +2,36 @@
 
 > **Poki** (niño/hijo) · **Koa** (alegría) — Lengua Rapa Nui
 
-Backend REST y tiempo real para monitoreo clínico en unidades de neonatología: pacientes recién nacidos, cunas e incubadoras con telemetría e historial de signos vitales, motor de alertas clínicas, planes de cuidado, medicación con control de stock, autorización por roles y auditoría clínica.
+Backend REST (`/api/v1/`) y tiempo real (`ws/v1/`) para monitoreo clínico en unidades de neonatología: pacientes recién nacidos con baja lógica en egreso, cunas/dispositivos con telemetría por API Key e historial de signos vitales, motor de alertas con umbrales configurables, evolución ponderal, planes de cuidado, observaciones clínicas, catálogo de medicamentos con stock y administración atómica, control de acceso por roles (RBAC) y auditoría clínica sin exposición de PHI.
 
 ## Stack
 
 - **Python 3.12+** · **Django 5.2+** · **Django REST Framework**
-- **PostgreSQL** (persistencia relacional) · **Django Channels + Redis** (tiempo real)
-- **OpenAPI 3** (`drf-spectacular`) · **uv** · **Ruff** · **pytest**
+- **PostgreSQL 16** (persistencia relacional) · **Django Channels + Redis 7** (tiempo real WebSocket)
+- **JWT + API Key de dispositivo + 2FA TOTP** · **OpenAPI 3** (`drf-spectacular`)
+- **uv** · **Ruff** · **pytest** + **pytest-django**
 
-## Inicio rápido
+## Ejecución con Docker Compose (recomendado)
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+## Ejecución local con `uv`
 
 ```bash
 uv sync
 uv run poki_koa migrate
-uv run poki_koa
+uv run poki_koa runserver
 ```
 
-## Verificación
+## Verificación y Pruebas
 
 ```bash
 uv run ruff check src
 uv run poki_koa makemigrations --check
+uv run pytest
 uv run poki_koa test
 ```
 

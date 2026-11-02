@@ -1,62 +1,74 @@
-name: CI — Verificación y Pruebas
+name: CI — Verificación y Pruebas (v2)
 
 on:
   push:
     branches:
       - main
-      - desarrollo
+      - "rewrite/**"
       - "feat/**"
-      - "feature/**"
       - "fix/**"
   pull_request:
     branches:
       - main
-      - desarrollo
+      - "rewrite/**"
 
 jobs:
-  test:
-    name: Linter, Migraciones, Pruebas y Cobertura
+  verify:
+    name: Ruff, Migraciones, Pytest y Cobertura
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: poki_koa
+          POSTGRES_USER: poki_koa
+          POSTGRES_PASSWORD: poki_koa_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U poki_koa -d poki_koa"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DJANGO_SETTINGS_MODULE: poki_koa.settings.dev
+      SECRET_KEY: ci-ephemeral-secret-key-not-for-production-use-0123456789
+      DATABASE_URL: postgres://poki_koa:poki_koa_ci_password@localhost:5432/poki_koa
+      REDIS_URL: redis://localhost:6379/0
 
     steps:
       - name: Clonar repositorio
         uses: actions/checkout@v4
 
-      - name: Instalar uv
+      - name: Instalar uv y Python 3.12
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          python-version: "3.12"
 
-      - name: Sincronizar dependencias
+      - name: Sincronizar dependencias desde uv.lock
         run: uv sync --locked
 
-      - name: Verificar estilo y errores con Ruff
-        run: uv run ruff check src test
+      - name: Verificar linter y estilo con Ruff
+        run: uv run ruff check src
 
-      - name: Verificar migraciones pendientes
+      - name: Verificar que no falten migraciones
         run: uv run poki_koa makemigrations --check --dry-run
 
-      - name: Ejecutar pruebas de Django con cobertura
+      - name: Ejecutar suite de pruebas con pytest y cobertura
         run: |
           uv run coverage erase
-          uv run coverage run src/manage.py test cunas -v 2
-
-      - name: Ejecutar pruebas unitarias aisladas (test/)
-        env:
-          PYTHONPATH: src
-        run: uv run coverage run -a -m unittest discover -s test -v
-
-      - name: Generar reporte de cobertura (mínimo 85%)
-        run: |
+          uv run coverage run -m pytest
           uv run coverage report -m --fail-under=85
-          uv run coverage xml -o coverage.xml
-          uv run coverage html -d htmlcov
-
-      - name: Subir reporte de cobertura
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: reporte-cobertura-hito2
-          path: |
-            coverage.xml
-            htmlcov/

@@ -3,41 +3,47 @@
 
 [project]
 name = "poki_koa"
-version = "0.1.0"
-description = "Backend Django REST para el sistema de monitoreo de cunas neonatales Poki Koa"
+version = "2.0.0"
+description = "Backend Django REST y tiempo real para el sistema de monitoreo neonatal Poki Koa"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    # Framework web principal
+    "channels>=4.3.2",
+    "channels-redis>=4.3.0",
     "django>=5.2.17",
-    # Soporte para solicitudes cross-origin (necesario para conectar con el frontend React/Vite)
     "django-cors-headers>=4.9.0",
-    # API REST: serialización, vistas y router automático
+    "django-environ>=0.14.0",
+    "django-filter>=26.2",
     "djangorestframework>=3.18.0",
+    "djangorestframework-simplejwt>=5.5.1",
+    "drf-spectacular>=0.30.0",
+    "psycopg>=3.3.6",
 ]
 
-# Define el comando de gestión Django disponible tras ejecutar `uv sync`
-# Uso: uv run poki_koa [comando django]
 [project.scripts]
 poki_koa = "poki_koa.main:main"
-make-crud = "cunas.management.commands.make_crud:main"
 
-# Sistema de construcción del paquete (requerido por uv para instalar el proyecto)
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# Indica a hatchling dónde están los paquetes Python del proyecto
 [tool.hatch.build.targets.wheel]
-packages = ["src/poki_koa", "src/cunas"]
+packages = ["src/poki_koa", "src/accounts", "src/audit"]
 
 [dependency-groups]
 dev = [
     "coverage>=7.6.0",
+    "pytest>=9.2.0",
+    "pytest-django>=4.14.0",
     "ruff>=0.16.6",
 ]
 
-# Configuración de cobertura de código (líneas, funciones y ramas)
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "poki_koa.settings.dev"
+pythonpath = ["src"]
+python_files = ["tests.py", "test_*.py"]
+addopts = "-q"
+
 [tool.coverage.run]
 branch = true
 source = ["src"]
@@ -52,7 +58,7 @@ omit = [
     "*/asgi.py",
     "*/manage.py",
     "*/poki_koa/main.py",
-    "*/settings_entregable.py",
+    "*/poki_koa/settings/*",
 ]
 
 [tool.coverage.report]
@@ -65,9 +71,5 @@ exclude_lines = [
     "\\.\\.\\.",
 ]
 
-# Ruff ignora archivos generados automaticamente por django
 [tool.ruff.lint.per-file-ignores]
 "**/migrations/*" = ["RUF012"]
-"src/cunas/models.py" = ["RUF012"]
-"src/cunas/serializers.py" = ["RUF012"]
-"src/cunas/views.py" = ["RUF012"]

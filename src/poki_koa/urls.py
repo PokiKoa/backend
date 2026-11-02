@@ -1,16 +1,22 @@
-"""Configuración de URLs principal del proyecto Poki Koa.
-
-Define dos grupos de rutas:
-- /admin/    → Panel de administración de Django
-- /api/      → Todas las rutas de la API REST (delegadas a cunas/urls.py)
-"""
-
 from django.contrib import admin
 from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+from .views import HealthCheckView
+
+api_v1_patterns = [
+    path("health/", HealthCheckView.as_view(), name="health-check"),
+    path("schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
+    path(
+        "docs/",
+        SpectacularSwaggerView.as_view(url_name="openapi-schema"),
+        name="swagger-ui",
+    ),
+    path("", include("accounts.urls")),
+    path("", include("audit.urls")),
+]
 
 urlpatterns = [
-    # Panel de administración de Django (interfaz web para gestionar la base de datos)
     path("admin/", admin.site.urls),
-    # Rutas de la API REST: delega a cunas/urls.py todo lo que empiece con /api/
-    path("api/", include("cunas.urls")),
+    path("api/v1/", include(api_v1_patterns)),
 ]

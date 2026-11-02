@@ -3,12 +3,15 @@ from typing import Any
 from django.db import transaction
 
 from accounts.models import User, UserRole
+from alerts.serializers import AlertSerializer
 from alerts.services import AlertEvaluationSummary, evaluate_reading_alerts
 from devices.models import Crib, CribStatus
 from poki_koa.exceptions import ConflictDomainError, PermissionDomainError
 
 from .models import VitalSignReading
+from .realtime import broadcast_telemetry_reading
 from .rules import validate_telemetry_payload
+from .serializers import VitalSignReadingSerializer
 
 
 def ingest_telemetry(
@@ -74,5 +77,17 @@ def ingest_telemetry(
         locked_crib.save(update_fields=update_fields)
 
         evaluation = evaluate_reading_alerts(reading=reading)
+
+    broadcast_telemetry_reading(
+        reading_data=VitalSignReadingSerializer(reading).data,
+        active_alerts_data=AlertSerializer(
+            evaluation.active_or_updated_alerts, many=True
+        ).data,
+        auto_resolved_alerts_data=AlertSerializer(
+            evaluation.auto_resolved_alerts, many=True
+        ).data,
+        crib_id=reading.crib_id,
+        patient_id=reading.patient_id,
+    )
 
     return reading, evaluation

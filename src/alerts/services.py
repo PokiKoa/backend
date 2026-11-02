@@ -318,6 +318,17 @@ def acknowledge_alert(
             ip_address=ip_address,
         )
 
+    from vitals.realtime import broadcast_alert_event
+
+    from .serializers import AlertSerializer
+
+    broadcast_alert_event(
+        event_name="alert.acknowledged",
+        alert_data=AlertSerializer(locked_alert).data,
+        crib_id=locked_alert.crib_id,
+        patient_id=locked_alert.patient_id,
+    )
+
     return locked_alert
 
 
@@ -365,6 +376,17 @@ def resolve_alert(
             ],
             ip_address=ip_address,
         )
+
+    from vitals.realtime import broadcast_alert_event
+
+    from .serializers import AlertSerializer
+
+    broadcast_alert_event(
+        event_name="alert.resolved",
+        alert_data=AlertSerializer(locked_alert).data,
+        crib_id=locked_alert.crib_id,
+        patient_id=locked_alert.patient_id,
+    )
 
     return locked_alert
 

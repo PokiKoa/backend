@@ -1,17 +1,31 @@
+import json
 from datetime import timedelta
 from decimal import Decimal
+from typing import Any
+from urllib.parse import unquote, urlparse
 
-from django.test import TestCase
+from asgiref.sync import async_to_sync, sync_to_async
+from asgiref.testing import ApplicationCommunicator
+from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.models import User, UserRole
+from alerts.services import acknowledge_alert, resolve_alert
+from audit.models import AuditAction, AuditLog
 from devices.models import CribStatus
 from devices.services import create_crib, update_crib
 from patients.services import admit_patient
+from poki_koa.asgi import application
 from poki_koa.exceptions import ConflictDomainError, DomainError, PermissionDomainError
 
+from .consumers import (
+    WS_CLOSE_FORBIDDEN,
+    WS_CLOSE_NOT_FOUND,
+    WS_CLOSE_UNAUTHORIZED,
+)
 from .models import VitalSignReading
 from .rules import SleepState, validate_telemetry_payload
 from .services import ingest_telemetry
@@ -291,3 +305,181 @@ class VitalsEndpointTests(APITestCase):
         self.crib1.refresh_from_db()
         self.assertIsNotNone(self.crib1.last_telemetry_at)
         self.assertEqual(self.crib1.status, CribStatus.OCCUPIED)
+
+
+class WebsocketCommunicator(ApplicationCommunicator):
+    def __init__(
+        self,
+        app: Any,
+        path: str,
+        headers: list[tuple[bytes, bytes]] | None = None,
+    ) -> None:
+        parsed = urlparse(path)
+        scope = {
+            "type": "websocket",
+            "path": unquote(parsed.path),
+            "query_string": parsed.query.encode("utf-8"),
+            "headers": headers or [],
+            "subprotocols": [],
+        }
+        super().__init__(app, scope)
+
+    async def connect(self, timeout: float = 1.0) -> tuple[bool, int | None]:
+        await self.send_input({"type": "websocket.connect"})
+        response = await self.receive_output(timeout)
+        if response["type"] == "websocket.close":
+            return False, response.get("code", 1000)
+        return True, response.get("subprotocol")
+
+    async def send_json_to(self, data: dict[str, Any]) -> None:
+        await self.send_input(
+            {"type": "websocket.receive", "text": json.dumps(data)}
+        )
+
+    async def receive_json_from(self, timeout: float = 1.0) -> dict[str, Any]:
+        response = await self.receive_output(timeout)
+        return json.loads(response["text"])
+
+    async def disconnect(self, code: int = 1000, timeout: float = 1.0) -> None:
+        await self.send_input({"type": "websocket.disconnect", "code": code})
+        await self.wait(timeout)
+
+
+class RealtimeWebSocketTests(TransactionTestCase):
+    def setUp(self) -> None:
+        self.admin = User.objects.create_user(
+            email="admin_ws@pokikoa.cl",
+            full_name="Admin WS",
+            password="Str0ng!Password2026",
+            role=UserRole.ADMIN,
+        )
+        self.nurse = User.objects.create_user(
+            email="nurse_ws@pokikoa.cl",
+            full_name="Enfermera WS",
+            password="Str0ng!Password2026",
+            role=UserRole.NURSE,
+        )
+        self.pharmacist = User.objects.create_user(
+            email="pharm_ws@pokikoa.cl",
+            full_name="Farmacéutico WS",
+            password="Str0ng!Password2026",
+            role=UserRole.PHARMACIST,
+        )
+        self.crib, _ = create_crib(actor=self.admin, code="C-901")
+        self.patient = admit_patient(
+            actor=self.nurse,
+            medical_record_number="RN-WS-01",
+            full_name="RN Tiempo Real",
+            sex="F",
+            birth_date=timezone.localdate(),
+            gestational_age_weeks=Decimal("34.0"),
+            birth_weight_g=2100,
+            crib_id=self.crib.id,
+        )
+
+    def test_websocket_auth_rbac_and_realtime_telemetry_alert_broadcast(self) -> None:
+        nurse_token = str(AccessToken.for_user(self.nurse))
+        pharm_token = str(AccessToken.for_user(self.pharmacist))
+
+        async def _run_scenario() -> None:
+            # 1. Conexión sin token es rechazada con 4401
+            unauth_comm = WebsocketCommunicator(
+                application, "/ws/v1/monitoring/stream/"
+            )
+            connected, close_code = await unauth_comm.connect()
+            self.assertFalse(connected)
+            self.assertEqual(close_code, WS_CLOSE_UNAUTHORIZED)
+
+            # 2. Rol no autorizado (Farmacéutico) es rechazado con 4403
+            forbidden_comm = WebsocketCommunicator(
+                application,
+                f"/ws/v1/monitoring/stream/?token={pharm_token}",
+            )
+            connected_f, close_code_f = await forbidden_comm.connect()
+            self.assertFalse(connected_f)
+            self.assertEqual(close_code_f, WS_CLOSE_FORBIDDEN)
+
+            # 3. Cuna inexistente devuelve 4404
+            not_found_comm = WebsocketCommunicator(
+                application,
+                f"/ws/v1/cribs/999999/stream/?token={nurse_token}",
+            )
+            connected_nf, close_code_nf = await not_found_comm.connect()
+            self.assertFalse(connected_nf)
+            self.assertEqual(close_code_nf, WS_CLOSE_NOT_FOUND)
+
+            # 4. Suscripción autenticada al stream de cuna (por query token) y de paciente (por cabecera Authorization)
+            crib_comm = WebsocketCommunicator(
+                application,
+                f"/ws/v1/cribs/{self.crib.id}/stream/?token={nurse_token}",
+            )
+            patient_comm = WebsocketCommunicator(
+                application,
+                f"/ws/v1/patients/{self.patient.id}/stream/",
+                headers=[(b"authorization", f"Bearer {nurse_token}".encode("latin1"))],
+            )
+
+            ok_crib, _ = await crib_comm.connect()
+            ok_patient, _ = await patient_comm.connect()
+            self.assertTrue(ok_crib)
+            self.assertTrue(ok_patient)
+
+            welcome_crib = await crib_comm.receive_json_from()
+            welcome_patient = await patient_comm.receive_json_from()
+            self.assertEqual(welcome_crib["event"], "stream.connected")
+            self.assertEqual(welcome_patient["event"], "stream.connected")
+
+            # Ping / Pong
+            await crib_comm.send_json_to({"action": "ping"})
+            pong = await crib_comm.receive_json_from()
+            self.assertEqual(pong["event"], "stream.pong")
+
+            # Ingesta de telemetría con anomalía crítica (SpO2 84%) emite eventos en tiempo real
+            _, eval_res = await sync_to_async(ingest_telemetry)(
+                crib=self.crib,
+                payload={
+                    "heart_rate": 135,
+                    "spo2": 84,
+                    "temperature": "36.8",
+                    "sleep_state": "asleep",
+                    "cannula_connected": True,
+                    "iv_line_active": True,
+                },
+                is_device_authenticated=True,
+            )
+
+            msg_crib = await crib_comm.receive_json_from()
+            msg_patient = await patient_comm.receive_json_from()
+
+            self.assertEqual(msg_crib["event"], "telemetry.reading")
+            self.assertEqual(msg_crib["reading"]["spo2"], 84)
+            self.assertEqual(len(msg_crib["active_alerts"]), 1)
+
+            self.assertEqual(msg_patient["event"], "telemetry.reading")
+            self.assertEqual(msg_patient["patient_id"], self.patient.id)
+
+            # Reconocer y resolver la alerta también se emite en tiempo real
+            alert_obj = eval_res.created_alerts[0]
+            await sync_to_async(acknowledge_alert)(actor=self.nurse, alert=alert_obj)
+            ack_event = await crib_comm.receive_json_from()
+            _ = await patient_comm.receive_json_from()
+            self.assertEqual(ack_event["event"], "alert.acknowledged")
+            self.assertEqual(ack_event["alert"]["status"], "acknowledged")
+
+            await sync_to_async(resolve_alert)(actor=self.nurse, alert=alert_obj)
+            res_event = await crib_comm.receive_json_from()
+            self.assertEqual(res_event["event"], "alert.resolved")
+            self.assertEqual(res_event["alert"]["status"], "resolved")
+
+            await crib_comm.disconnect()
+            await patient_comm.disconnect()
+
+        async_to_sync(_run_scenario)()
+
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action=AuditAction.READ,
+                resource_type="patient_stream",
+                patient_id=self.patient.id,
+            ).exists()
+        )

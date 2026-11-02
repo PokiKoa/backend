@@ -1,12 +1,21 @@
 from typing import ClassVar
 
 from django.db import connection
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import render
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from .dashboard import get_clinical_dashboard_stats
+
+
+def root_dashboard_view(request: HttpRequest) -> HttpResponse:
+    context = get_clinical_dashboard_stats()
+    return render(request, "poki_koa/home.html", context)
 
 
 class HealthCheckView(APIView):

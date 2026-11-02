@@ -2,7 +2,12 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from .views import HealthCheckView
+from .views import HealthCheckView, root_dashboard_view
+
+admin.site.site_header = "Poki Koa — Centro de Control Neonatal"
+admin.site.site_title = "Poki Koa Admin"
+admin.site.index_title = "Panel Clínico y Operativo de Neonatología"
+admin.site.site_url = "/"
 
 api_v1_patterns = [
     path("health/", HealthCheckView.as_view(), name="health-check"),
@@ -22,6 +27,7 @@ api_v1_patterns = [
 ]
 
 urlpatterns = [
+    path("", root_dashboard_view, name="root-dashboard"),
     path("admin/", admin.site.urls),
     path("api/v1/", include(api_v1_patterns)),
 ]

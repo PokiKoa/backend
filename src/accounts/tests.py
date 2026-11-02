@@ -226,6 +226,10 @@ class AccountsAndHealthEndpointTests(TestCase):
         )
 
     def test_health_check_and_openapi_schema_endpoints(self) -> None:
+        root_res = self.client.get("/")
+        self.assertEqual(root_res.status_code, status.HTTP_200_OK)
+        self.assertContains(root_res, "Poki Koa")
+
         health_res = self.client.get("/api/v1/health/")
         self.assertEqual(health_res.status_code, status.HTTP_200_OK)
         self.assertEqual(health_res.data["status"], "ok")
@@ -237,6 +241,14 @@ class AccountsAndHealthEndpointTests(TestCase):
         self.client.force_authenticate(user=self.admin)
         schema_res = self.client.get("/api/v1/schema/")
         self.assertEqual(schema_res.status_code, status.HTTP_200_OK)
+
+        self.admin.is_staff = True
+        self.admin.is_superuser = True
+        self.admin.save(update_fields=["is_staff", "is_superuser"])
+        self.client.force_login(self.admin)
+        admin_res = self.client.get("/admin/")
+        self.assertEqual(admin_res.status_code, status.HTTP_200_OK)
+        self.assertContains(admin_res, "Acciones rápidas")
 
     def test_login_refresh_me_and_logout_http_flow(self) -> None:
         login_res = self.client.post(

@@ -42,7 +42,7 @@ class LoginView(APIView):
     throttle_classes: ClassVar[list] = [LoginRateThrottle]
 
     @extend_schema(
-        summary="Inicia sesión y emite par de tokens JWT (access + refresh)",
+        summary="Inicia sesión con usuario y contraseña y emite par de tokens JWT (access + refresh)",
         request=LoginSerializer,
         responses={200: LoginResponseSerializer},
     )
@@ -50,7 +50,8 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = authenticate_user(
-            email=serializer.validated_data["email"],
+            username=serializer.validated_data.get("username"),
+            email=serializer.validated_data.get("email"),
             password=serializer.validated_data["password"],
             otp_code=serializer.validated_data.get("otp_code"),
             ip_address=get_client_ip(request),
@@ -178,8 +179,14 @@ class UserViewSet(
     serializer_class = UserSerializer
     permission_classes: ClassVar[list] = [IsAdminRole]
     filterset_fields: ClassVar[list[str]] = ["role", "shift", "is_active"]
-    search_fields: ClassVar[list[str]] = ["full_name", "email"]
-    ordering_fields: ClassVar[list[str]] = ["id", "full_name", "email", "created_at"]
+    search_fields: ClassVar[list[str]] = ["username", "full_name", "email"]
+    ordering_fields: ClassVar[list[str]] = [
+        "id",
+        "username",
+        "full_name",
+        "email",
+        "created_at",
+    ]
     ordering: ClassVar[list[str]] = ["id"]
 
     def get_serializer_class(self):
@@ -194,7 +201,8 @@ class UserViewSet(
         serializer.is_valid(raise_exception=True)
         user = create_user_by_admin(
             actor=request.user,
-            email=serializer.validated_data["email"],
+            username=serializer.validated_data.get("username"),
+            email=serializer.validated_data.get("email", ""),
             full_name=serializer.validated_data["full_name"],
             password=serializer.validated_data["password"],
             role=serializer.validated_data["role"],

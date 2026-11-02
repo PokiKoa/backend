@@ -7,12 +7,21 @@ from .models import User
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     ordering = ("id",)
-    list_display = ("id", "email", "full_name", "role", "shift", "is_active", "is_two_factor_enabled")
+    list_display = (
+        "id",
+        "username",
+        "full_name",
+        "email",
+        "role",
+        "shift",
+        "is_active",
+        "is_two_factor_enabled",
+    )
     list_filter = ("role", "shift", "is_active", "is_two_factor_enabled")
-    search_fields = ("email", "full_name")
+    search_fields = ("username", "full_name", "email")
     fieldsets = (
-        (None, {"fields": ("email", "password")}),
-        ("Información Personal", {"fields": ("full_name", "role", "shift")}),
+        (None, {"fields": ("username", "password")}),
+        ("Información Personal", {"fields": ("full_name", "email", "role", "shift")}),
         (
             "Seguridad y Acceso",
             {
@@ -34,7 +43,16 @@ class UserAdmin(BaseUserAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "full_name", "role", "shift", "password1", "password2", "is_active"),
+                "fields": (
+                    "username",
+                    "full_name",
+                    "email",
+                    "role",
+                    "shift",
+                    "password1",
+                    "password2",
+                    "is_active",
+                ),
             },
         ),
     )

@@ -12,6 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields: ClassVar[list[str]] = [
             "id",
+            "username",
             "email",
             "full_name",
             "role",
@@ -27,7 +28,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserCreateSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    username = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True, default="")
     full_name = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True, min_length=10)
     role = serializers.ChoiceField(choices=UserRole.choices, default=UserRole.NURSE)
@@ -41,7 +43,8 @@ class UserCreateSerializer(serializers.Serializer):
 
 
 class UserUpdateSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=False)
+    username = serializers.CharField(max_length=150, required=False)
+    email = serializers.EmailField(required=False, allow_blank=True)
     full_name = serializers.CharField(max_length=150, required=False)
     password = serializers.CharField(write_only=True, min_length=10, required=False)
     role = serializers.ChoiceField(choices=UserRole.choices, required=False)
@@ -56,7 +59,8 @@ class UserUpdateSerializer(serializers.Serializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    username = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, trim_whitespace=False)
     otp_code = serializers.CharField(
         required=False,

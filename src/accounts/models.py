@@ -22,20 +22,28 @@ class WorkShift(models.TextChoices):
 class UserManager(BaseUserManager["User"]):
     def create_user(
         self,
-        email: str,
-        full_name: str,
+        username: str | None = None,
+        full_name: str | None = None,
         password: str | None = None,
+        email: str = "",
         **extra_fields: Any,
     ) -> "User":
-        if not email or not email.strip():
-            raise ValueError("El correo electrónico es obligatorio.")
-        if not full_name or not full_name.strip():
+        effective_username = (username or "").strip().lower()
+        normalized_email = self.normalize_email(email.strip()).lower() if email and email.strip() else ""
+        if not effective_username and normalized_email:
+            effective_username = normalized_email.split("@")[0]
+
+        if not effective_username:
+            raise ValueError("El nombre de usuario es obligatorio.")
+
+        effective_full_name = (full_name or effective_username).strip()
+        if not effective_full_name:
             raise ValueError("El nombre completo es obligatorio.")
 
-        normalized_email = self.normalize_email(email.strip()).lower()
         user = self.model(
+            username=effective_username,
             email=normalized_email,
-            full_name=full_name.strip(),
+            full_name=effective_full_name,
             **extra_fields,
         )
         if password:
@@ -47,20 +55,28 @@ class UserManager(BaseUserManager["User"]):
 
     def create_superuser(
         self,
-        email: str,
-        full_name: str,
+        username: str,
+        full_name: str = "Administrador",
         password: str | None = None,
+        email: str = "",
         **extra_fields: Any,
     ) -> "User":
         extra_fields.setdefault("role", UserRole.ADMIN)
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_active", True)
-        return self.create_user(email=email, full_name=full_name, password=password, **extra_fields)
+        return self.create_user(
+            username=username,
+            full_name=full_name,
+            password=password,
+            email=email,
+            **extra_fields,
+        )
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    email = models.EmailField(unique=True, max_length=254)
+    username = models.CharField(max_length=150, unique=True)
+    email = models.EmailField(max_length=254, blank=True, default="", db_index=True)
     full_name = models.CharField(max_length=150)
     role = models.CharField(
         max_length=20,
@@ -88,7 +104,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects: ClassVar[UserManager] = UserManager()
 
-    USERNAME_FIELD = "email"
+    USERNAME_FIELD = "username"
     REQUIRED_FIELDS: ClassVar[list[str]] = ["full_name"]
 
     class Meta:
@@ -100,7 +116,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = "Usuarios"
 
     def __str__(self) -> str:
-        return f"{self.full_name} ({self.email})"
+        return f"{self.full_name} ({self.username})"
 
     @property
     def is_temporarily_locked(self) -> bool:

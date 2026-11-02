@@ -2,7 +2,7 @@ from datetime import timedelta
 from typing import Any
 
 from django.contrib.auth.password_validation import validate_password
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -26,6 +26,7 @@ LOCKOUT_DURATION = timedelta(minutes=15)
 def _issue_tokens_for_user(user: User) -> dict[str, str]:
     refresh = RefreshToken.for_user(user)
     refresh["role"] = user.role
+    refresh["username"] = user.username
     refresh["email"] = user.email
     refresh["full_name"] = user.full_name
     return {
@@ -67,14 +68,15 @@ def _register_failed_attempt(user: User, ip_address: str | None) -> bool:
 
 def authenticate_user(
     *,
-    email: str,
+    username: str | None = None,
+    email: str | None = None,
     password: str,
     otp_code: str | None = None,
     ip_address: str | None = None,
 ) -> dict[str, Any]:
-    normalized_email = (email or "").strip().lower()
-    if not normalized_email or not password:
-        raise DomainError("Debe proporcionar correo electrónico y contraseña.")
+    identifier = (username or email or "").strip().lower()
+    if not identifier or not password:
+        raise DomainError("Debe proporcionar usuario y contraseña.")
 
     auth_error: DomainError | None = None
     tokens: dict[str, str] = {}
@@ -84,7 +86,7 @@ def authenticate_user(
     with transaction.atomic():
         user = (
             User.objects.select_for_update()
-            .filter(email=normalized_email)
+            .filter(models.Q(username=identifier) | models.Q(email=identifier))
             .first()
         )
         if user is None:
@@ -94,7 +96,7 @@ def authenticate_user(
                 ip_address=ip_address,
             )
             auth_error = AuthenticationDomainError(
-                "Correo electrónico o contraseña incorrectos."
+                "Usuario o contraseña incorrectos."
             )
         elif user.is_temporarily_locked:
             record_audit_event(
@@ -123,7 +125,7 @@ def authenticate_user(
                 AccountLockedError()
                 if locked_now
                 else AuthenticationDomainError(
-                    "Correo electrónico o contraseña incorrectos."
+                    "Usuario o contraseña incorrectos."
                 )
             )
         elif user.is_two_factor_enabled:
@@ -269,7 +271,9 @@ def setup_two_factor(*, user: User, ip_address: str | None = None) -> dict[str, 
         )
     return {
         "secret": secret,
-        "provisioning_uri": build_provisioning_uri(secret=secret, email=user.email),
+        "provisioning_uri": build_provisioning_uri(
+            secret=secret, email=user.email or user.username
+        ),
     }
 
 
@@ -333,7 +337,8 @@ def disable_two_factor(
 def create_user_by_admin(
     *,
     actor: User,
-    email: str,
+    username: str | None = None,
+    email: str = "",
     full_name: str,
     password: str,
     role: str = UserRole.NURSE,
@@ -342,8 +347,12 @@ def create_user_by_admin(
     ip_address: str | None = None,
 ) -> User:
     normalized_email = (email or "").strip().lower()
-    if not normalized_email:
-        raise DomainError("El correo electrónico es obligatorio.")
+    normalized_username = (username or "").strip().lower()
+    if not normalized_username and normalized_email:
+        normalized_username = normalized_email.split("@")[0]
+
+    if not normalized_username:
+        raise DomainError("El nombre de usuario es obligatorio.")
     if not full_name or not full_name.strip():
         raise DomainError("El nombre completo es obligatorio.")
     if role not in set(UserRole.values):
@@ -352,12 +361,17 @@ def create_user_by_admin(
         raise DomainError("El turno especificado no es válido.")
 
     with transaction.atomic():
-        if User.objects.filter(email=normalized_email).exists():
+        if User.objects.filter(username=normalized_username).exists():
+            raise ConflictDomainError(
+                "Ya existe un usuario registrado con ese nombre de usuario."
+            )
+        if normalized_email and User.objects.filter(email=normalized_email).exists():
             raise ConflictDomainError(
                 "Ya existe un usuario registrado con ese correo electrónico."
             )
 
         candidate = User(
+            username=normalized_username,
             email=normalized_email,
             full_name=full_name.strip(),
             role=role,
@@ -374,7 +388,7 @@ def create_user_by_admin(
             resource_type="user",
             resource_id=candidate.id,
             actor_user=actor,
-            changed_fields=["email", "full_name", "role", "shift", "is_active"],
+            changed_fields=["username", "email", "full_name", "role", "shift", "is_active"],
             ip_address=ip_address,
         )
     return candidate
@@ -401,10 +415,31 @@ def update_user_by_admin(
                     "Un administrador no puede revocar su propio rol administrativo."
                 )
 
+        if "username" in data:
+            new_username = str(data["username"]).strip().lower()
+            if not new_username:
+                raise DomainError("El nombre de usuario no puede estar vacío.")
+            if new_username != locked_target.username:
+                if (
+                    User.objects.filter(username=new_username)
+                    .exclude(pk=locked_target.pk)
+                    .exists()
+                ):
+                    raise ConflictDomainError(
+                        "Ya existe otro usuario con ese nombre de usuario."
+                    )
+                locked_target.username = new_username
+                changed_fields.append("username")
+
         if "email" in data:
-            new_email = str(data["email"]).strip().lower()
+            new_email = str(data["email"] or "").strip().lower()
             if new_email != locked_target.email:
-                if User.objects.filter(email=new_email).exclude(pk=locked_target.pk).exists():
+                if (
+                    new_email
+                    and User.objects.filter(email=new_email)
+                    .exclude(pk=locked_target.pk)
+                    .exists()
+                ):
                     raise ConflictDomainError(
                         "Ya existe otro usuario con ese correo electrónico."
                     )

@@ -241,18 +241,19 @@ class AccountsAndHealthEndpointTests(TestCase):
     def test_login_refresh_me_and_logout_http_flow(self) -> None:
         login_res = self.client.post(
             "/api/v1/auth/login/",
-            {"email": self.nurse.email, "password": self.password},
+            {"username": self.nurse.username, "password": self.password},
             format="json",
         )
         self.assertEqual(login_res.status_code, status.HTTP_200_OK)
         access = login_res.data["access"]
         refresh = login_res.data["refresh"]
         self.assertEqual(login_res.data["user"]["role"], UserRole.NURSE)
+        self.assertEqual(login_res.data["user"]["username"], self.nurse.username)
 
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
         me_res = self.client.get("/api/v1/auth/me/")
         self.assertEqual(me_res.status_code, status.HTTP_200_OK)
-        self.assertEqual(me_res.data["email"], self.nurse.email)
+        self.assertEqual(me_res.data["username"], self.nurse.username)
 
         refresh_res = self.client.post(
             "/api/v1/auth/refresh/",

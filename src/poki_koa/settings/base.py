@@ -143,6 +143,17 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
+# El refresh token solo viaja en una cookie httpOnly acotada a las rutas de autenticación,
+# de modo que el JavaScript del frontend nunca lo lee (mitiga robo por XSS)
+REFRESH_COOKIE = {
+    "NAME": env("REFRESH_COOKIE_NAME", default="poki_refresh"),
+    "PATH": "/api/v1/auth/",
+    "DOMAIN": env("REFRESH_COOKIE_DOMAIN", default=None),
+    "SAMESITE": env("REFRESH_COOKIE_SAMESITE", default="Lax"),
+    "SECURE": env.bool("REFRESH_COOKIE_SECURE", default=False),
+}
+CORS_ALLOW_CREDENTIALS = True
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "Poki Koa API",
     "DESCRIPTION": "API REST y tiempo real para monitoreo clínico neonatal.",

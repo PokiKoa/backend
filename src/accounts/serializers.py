@@ -72,21 +72,11 @@ class LoginSerializer(serializers.Serializer):
 
 class LoginResponseSerializer(serializers.Serializer):
     access = serializers.CharField()
-    refresh = serializers.CharField()
     user = UserSerializer()
-
-
-class TokenRefreshRequestSerializer(serializers.Serializer):
-    refresh = serializers.CharField()
 
 
 class TokenRefreshResponseSerializer(serializers.Serializer):
     access = serializers.CharField()
-    refresh = serializers.CharField()
-
-
-class LogoutSerializer(serializers.Serializer):
-    refresh = serializers.CharField()
 
 
 class TwoFactorSetupResponseSerializer(serializers.Serializer):

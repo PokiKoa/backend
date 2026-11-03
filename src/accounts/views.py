@@ -9,13 +9,12 @@ from rest_framework.views import APIView
 
 from audit.services import get_client_ip
 
+from .cookies import clear_refresh_cookie, read_refresh_cookie, set_refresh_cookie
 from .models import User
 from .permissions import IsAdminRole
 from .serializers import (
     LoginResponseSerializer,
     LoginSerializer,
-    LogoutSerializer,
-    TokenRefreshRequestSerializer,
     TokenRefreshResponseSerializer,
     TwoFactorCodeSerializer,
     TwoFactorSetupResponseSerializer,
@@ -42,7 +41,7 @@ class LoginView(APIView):
     throttle_classes: ClassVar[list] = [LoginRateThrottle]
 
     @extend_schema(
-        summary="Inicia sesión con usuario y contraseña y emite par de tokens JWT (access + refresh)",
+        summary="Inicia sesión; entrega el access token y deja el refresh en una cookie httpOnly",
         request=LoginSerializer,
         responses={200: LoginResponseSerializer},
     )
@@ -56,14 +55,15 @@ class LoginView(APIView):
             otp_code=serializer.validated_data.get("otp_code"),
             ip_address=get_client_ip(request),
         )
-        return Response(
+        response = Response(
             {
                 "access": result["access"],
-                "refresh": result["refresh"],
                 "user": UserSerializer(result["user"]).data,
             },
             status=status.HTTP_200_OK,
         )
+        set_refresh_cookie(response, result["refresh"])
+        return response
 
 
 class RefreshTokenView(APIView):
@@ -71,36 +71,37 @@ class RefreshTokenView(APIView):
     permission_classes: ClassVar[list] = [AllowAny]
 
     @extend_schema(
-        summary="Rota el refresh token revocando el anterior y entrega nuevos tokens",
-        request=TokenRefreshRequestSerializer,
+        summary="Rota el refresh token de la cookie httpOnly y entrega un nuevo access token",
+        request=None,
         responses={200: TokenRefreshResponseSerializer},
     )
     def post(self, request: Request) -> Response:
-        serializer = TokenRefreshRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        tokens = rotate_refresh_token(
-            refresh_token_str=serializer.validated_data["refresh"]
-        )
-        return Response(tokens, status=status.HTTP_200_OK)
+        tokens = rotate_refresh_token(refresh_token_str=read_refresh_cookie(request))
+        response = Response({"access": tokens["access"]}, status=status.HTTP_200_OK)
+        set_refresh_cookie(response, tokens["refresh"])
+        return response
 
 
 class LogoutView(APIView):
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
     @extend_schema(
-        summary="Cierra sesión revocando el refresh token en la lista negra",
-        request=LogoutSerializer,
+        summary="Cierra sesión revocando el refresh token de la cookie y eliminándola",
+        request=None,
         responses={204: None},
     )
     def post(self, request: Request) -> Response:
-        serializer = LogoutSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        logout_user(
-            refresh_token_str=serializer.validated_data["refresh"],
-            actor=request.user,
-            ip_address=get_client_ip(request),
-        )
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        refresh_token = read_refresh_cookie(request)
+        # Sin cookie no hay sesión que revocar: cerrar sesión es idempotente
+        if refresh_token:
+            logout_user(
+                refresh_token_str=refresh_token,
+                actor=request.user,
+                ip_address=get_client_ip(request),
+            )
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        clear_refresh_cookie(response)
+        return response
 
 
 class CurrentUserView(APIView):

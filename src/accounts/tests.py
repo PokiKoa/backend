@@ -266,7 +266,7 @@ class AccountsAndHealthEndpointTests(TestCase):
         )
         self.assertEqual(login_res.status_code, status.HTTP_200_OK)
         access = login_res.data["access"]
-        refresh = login_res.data["refresh"]
+        self.assertNotIn("refresh", login_res.data)
         self.assertEqual(login_res.data["user"]["role"], UserRole.NURSE)
         self.assertEqual(login_res.data["user"]["username"], self.nurse.username)
 
@@ -275,27 +275,17 @@ class AccountsAndHealthEndpointTests(TestCase):
         self.assertEqual(me_res.status_code, status.HTTP_200_OK)
         self.assertEqual(me_res.data["username"], self.nurse.username)
 
-        refresh_res = self.client.post(
-            "/api/v1/auth/refresh/",
-            {"refresh": refresh},
-            format="json",
-        )
+        # El refresh viaja en la cookie httpOnly que el cliente de pruebas conserva
+        refresh_res = self.client.post("/api/v1/auth/refresh/")
         self.assertEqual(refresh_res.status_code, status.HTTP_200_OK)
-        new_refresh = refresh_res.data["refresh"]
+        new_refresh = refresh_res.cookies["poki_refresh"].value
 
-        logout_res = self.client.post(
-            "/api/v1/auth/logout/",
-            {"refresh": new_refresh},
-            format="json",
-        )
+        logout_res = self.client.post("/api/v1/auth/logout/")
         self.assertEqual(logout_res.status_code, status.HTTP_204_NO_CONTENT)
 
         # Intentar refrescar tras logout falla con 401
-        reuse_res = self.client.post(
-            "/api/v1/auth/refresh/",
-            {"refresh": new_refresh},
-            format="json",
-        )
+        self.client.cookies["poki_refresh"] = new_refresh
+        reuse_res = self.client.post("/api/v1/auth/refresh/")
         self.assertEqual(reuse_res.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(reuse_res.data["error"]["code"], "token_invalid")
 

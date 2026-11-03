@@ -109,17 +109,20 @@ class UnitOverview:
     summary: dict[str, Any] = field(default_factory=dict)
 
 
-def build_unit_overview() -> UnitOverview:
+def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
     # Consultas acotadas e independientes del número de cunas para el panel principal
     latest_reading_id = (
         VitalSignReading.objects.filter(crib=OuterRef("pk"))
         .order_by("-recorded_at", "-id")
         .values("id")[:1]
     )
+    crib_qs = Crib.objects.select_related("current_patient")
+    open_alerts = Alert.objects.filter(status__in=OPEN_ALERT_STATUSES)
+    if crib_ids is not None:
+        crib_qs = crib_qs.filter(pk__in=crib_ids)
+        open_alerts = open_alerts.filter(crib_id__in=crib_ids)
     cribs = list(
-        Crib.objects.select_related("current_patient")
-        .annotate(latest_reading_id=Subquery(latest_reading_id))
-        .order_by("code")
+        crib_qs.annotate(latest_reading_id=Subquery(latest_reading_id)).order_by("code")
     )
 
     readings = VitalSignReading.objects.select_related("crib", "patient").in_bulk(
@@ -129,8 +132,7 @@ def build_unit_overview() -> UnitOverview:
     alert_counts: dict[int, dict[str, int]] = {}
     unit_alerts = _empty_alert_counts()
     grouped = (
-        Alert.objects.filter(status__in=OPEN_ALERT_STATUSES)
-        .values("crib_id", "severity")
+        open_alerts.values("crib_id", "severity")
         .annotate(n=Count("id"))
     )
     for row in grouped:

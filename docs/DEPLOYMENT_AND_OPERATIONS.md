@@ -123,4 +123,5 @@ En [src/poki_koa/settings/prod.py](../src/poki_koa/settings/prod.py), la base de
 2. **Particionamiento / Retención de `VitalSignReading`:**
    - Si una unidad de 20 cunas envía telemetría cada 5 segundos, se generan ~345.000 lecturas por día. Los índices compuestos `(patient_id, -recorded_at)` y `(crib_id, -recorded_at)` mantienen las consultas rápidas, y a futuro en PostgreSQL se puede activar particionamiento mensual por rango sobre `recorded_at` o la extensión `TimescaleDB` sin cambiar el código de Django.
 3. **Detección periódica de cunas desconectadas (`OFFLINE`):**
-   - El comando `uv run poki_koa check_offline_cribs` (implementado en la Fase 2) puede programarse mediante un `cron` del sistema o un servicio ligero en `docker-compose.yml` cada 60 segundos para vigilar cunas que dejen de emitir señal.
+   - `uv run poki_koa check_offline_cribs --every 60` corre como proceso continuo y repite la verificación cada 60 segundos; un error transitorio de base de datos se informa sin detener el monitor. En `docker-compose.yml` lo ejecuta el servicio `offline-monitor`, que comparte la imagen y el entorno de `app`.
+   - Como corre en otro proceso, sus alertas solo llegan a los WebSockets si `REDIS_URL` está configurada (en Docker Compose ya lo está). Sin `--every`, el comando hace una sola verificación y sirve para un `cron` del sistema.

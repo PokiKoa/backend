@@ -18,6 +18,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
+Levanta PostgreSQL, Redis, la API en `http://localhost:8000` y el servicio `offline-monitor`, que cada 60 segundos marca como `offline` las cunas sin telemetría reciente y emite alertas `sensor_fault`.
+
 ## Ejecución local con `uv`
 
 ```bash

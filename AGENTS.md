@@ -44,7 +44,7 @@ uv sync                                  # instala dependencias desde uv.lock
 uv run poki_koa migrate                  # aplica migraciones
 uv run poki_koa makemigrations --check   # verifica que no falten migraciones
 uv run poki_koa seed_demo                # carga datos clínicos ficticios y usuario admin / admin2026
-uv run poki_koa check_offline_cribs      # evalúa cunas sin telemetría reciente y genera alertas
+uv run poki_koa check_offline_cribs      # evalúa cunas sin telemetría reciente y genera alertas (--every 60 para repetir)
 uv run poki_koa simulate_telemetry       # simula telemetría de cunas ocupadas contra el servidor (solo DEBUG)
 uv run uvicorn poki_koa.asgi:application --app-dir src --reload  # servidor ASGI (HTTP + WebSockets); requiere .env (cp .env.example .env)
 uv run pytest                            # ejecuta la suite de pruebas con pytest

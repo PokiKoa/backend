@@ -21,11 +21,15 @@ docker compose up --build
 ## Ejecución local con `uv`
 
 ```bash
+cp .env.example .env          # fija DJANGO_SETTINGS_MODULE=poki_koa.settings.dev
+docker compose up -d db redis # PostgreSQL y Redis locales
 uv sync
 uv run poki_koa migrate
-uv run poki_koa seed_demo   # Carga datos clínicos de prueba y superusuario admin / admin2026
-uv run poki_koa runserver
+uv run poki_koa seed_demo     # Carga datos clínicos de prueba y superusuario admin / admin2026
+uv run uvicorn poki_koa.asgi:application --app-dir src --reload  # HTTP + WebSockets
 ```
+
+Sin `.env` ni `DJANGO_SETTINGS_MODULE` exportada, `asgi.py` y `wsgi.py` cargan `settings.prod` y fallan si falta `SECRET_KEY`: es intencional para que un despliegue mal configurado nunca arranque con `DEBUG`. `uv run poki_koa runserver` no sirve WebSockets.
 
 ## Verificación y Pruebas
 

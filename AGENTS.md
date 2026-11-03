@@ -45,7 +45,7 @@ uv run poki_koa migrate                  # aplica migraciones
 uv run poki_koa makemigrations --check   # verifica que no falten migraciones
 uv run poki_koa seed_demo                # carga datos clínicos ficticios y usuario admin / admin2026
 uv run poki_koa check_offline_cribs      # evalúa cunas sin telemetría reciente y genera alertas
-uv run uvicorn poki_koa.asgi:application --app-dir src --reload  # servidor ASGI (HTTP + WebSockets)
+uv run uvicorn poki_koa.asgi:application --app-dir src --reload  # servidor ASGI (HTTP + WebSockets); requiere .env (cp .env.example .env)
 uv run pytest                            # ejecuta la suite de pruebas con pytest
 uv run poki_koa test                     # ejecuta la suite de pruebas de Django
 uv run ruff check src                    # verifica linter y estilo

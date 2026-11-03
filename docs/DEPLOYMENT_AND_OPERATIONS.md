@@ -41,7 +41,7 @@ flowchart LR
 ## 2. Cómo usar `Uvicorn` en Desarrollo y Producción
 
 ### 2.1 En desarrollo local (con recarga automática)
-Puedes usar tanto `uv run poki_koa runserver` como `uvicorn` directamente. Para probar el servidor ASGI real con recarga en caliente (`--reload`):
+Puedes usar tanto `uv run poki_koa runserver` como `uvicorn` directamente. Para probar el servidor ASGI real con recarga en caliente (`--reload`). `asgi.py` lee el archivo `.env` antes de elegir los settings, así que basta con `cp .env.example .env` (que fija `DJANGO_SETTINGS_MODULE=poki_koa.settings.dev`); sin él se cargan los settings de producción:
 
 ```bash
 uv run uvicorn poki_koa.asgi:application --app-dir src --host 127.0.0.1 --port 8000 --reload

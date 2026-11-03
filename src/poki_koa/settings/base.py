@@ -4,6 +4,8 @@ from pathlib import Path
 
 import environ
 
+from poki_koa.env import load_env_file
+
 # Raíz de src/ para que las apps de dominio sean importables directamente
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 if str(BASE_DIR) not in sys.path:
@@ -12,9 +14,7 @@ if str(BASE_DIR) not in sys.path:
 PROJECT_ROOT = BASE_DIR.parent
 
 env = environ.Env()
-env_file = PROJECT_ROOT / ".env"
-if env_file.exists():
-    environ.Env.read_env(str(env_file))
+load_env_file()
 
 INSTALLED_APPS = [
     "django.contrib.admin",

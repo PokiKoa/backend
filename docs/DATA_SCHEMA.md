@@ -15,7 +15,8 @@ erDiagram
     USER ||--o{ ALERT : "acknowledges"
     USER ||--o{ ALERT : "resolves"
     USER ||--o{ PRESCRIPTION : "prescribes"
-    USER ||--o{ PRESCRIPTION : "administers"
+    USER ||--o{ MEDICATION_ADMINISTRATION : "administers"
+    PRESCRIPTION ||--o{ MEDICATION_ADMINISTRATION : "doses"
 
     CRIB ||--o| PATIENT : "hosts (current_patient)"
     CRIB ||--o{ VITAL_SIGN_READING : "emits"
@@ -200,13 +201,25 @@ erDiagram
         string dose
         int units_per_administration ">= 1"
         string route "IV | IM | ET | PO | SC"
-        time scheduled_time
-        string status "pending | administered | cancelled"
-        bigint administered_by_id FK "nullable"
-        datetime administered_at "nullable"
-        text administration_notes
+        datetime starts_at "primera dosis, truncada al minuto"
+        int frequency_hours "nullable = dosis única; 1..168"
+        datetime ends_at "nullable; solo recurrentes, > starts_at"
+        string status "active | completed | cancelled"
+        datetime cancelled_at "nullable"
+        text cancellation_reason
         datetime created_at
         datetime updated_at
+    }
+
+    MEDICATION_ADMINISTRATION {
+        bigint id PK
+        bigint prescription_id FK
+        datetime scheduled_for "UNIQUE con prescription_id"
+        datetime administered_at
+        bigint administered_by_id FK
+        int units_deducted ">= 1"
+        text notes
+        datetime created_at
     }
 ```
 
@@ -280,8 +293,13 @@ erDiagram
   - `concentration_mg > 0` y `stock >= 0` protegidos mediante validadores y `CheckConstraint` en base de datos (`catalog_concentration_positive`, `catalog_stock_non_negative`).
 - **`Prescription`**:
   - Vincula obligatoriamente `patient` (`Patient`) con `medication` (`MedicationCatalogItem`) y `prescribed_by` (`User`).
+  - **Esquema de dosis:** las dosis se programan en `starts_at + k · frequency_hours` (k = 0, 1, 2…) hasta `ends_at`. Sin `frequency_hours` es una dosis única en `starts_at`; sin `ends_at`, la indicación recurrente sigue vigente hasta que se cancela o el paciente egresa. Los cálculos de horario viven en `medications/schedule.py` (fuente única de verdad).
+  - **Estados:** `active` (vigente) → `completed` al administrar la última dosis programada, o → `cancelled` por un neonatólogo o por el egreso del paciente.
   - **Administración transaccional (`administer_prescription`):**
     1. Dentro de `transaction.atomic()`, bloquea las filas de `Prescription` y `MedicationCatalogItem` con `select_for_update()`.
-    2. Si `prescription.status != "pending"`, aborta con `409 Conflict` (impide doble administración concurrente).
-    3. Si `medication.stock < prescription.units_per_administration`, aborta con `409 Conflict` (impide stock negativo).
-    4. Descuenta `medication.stock = F("stock") - units_per_administration`, cambia `prescription.status = "administered"`, registra `administered_by = user` y `administered_at = timezone.now()`, y emite el registro en `AuditLog`.
+    2. Si `prescription.status != "active"`, aborta con `409 Conflict`.
+    3. Resuelve la dosis: sin `scheduled_for`, toma la más reciente ya habilitada (se permite hasta 60 minutos antes de su horario); con `scheduled_for`, exige que sea un horario válido del esquema (si no, `400`) y que no esté a más de 60 minutos en el futuro (si no, `409`).
+    4. Si esa dosis ya tiene registro, aborta con `409 Conflict`. La restricción única `administration_unique_dose_slot` (`prescription_id`, `scheduled_for`) lo garantiza también en la base de datos.
+    5. Si `medication.stock < units_per_administration`, aborta con `409 Conflict` (impide stock negativo).
+    6. Descuenta stock, crea `MedicationAdministration`, marca `completed` si era la última dosis y emite el registro en `AuditLog`.
+  - **Dosis atrasadas:** `next_dose_at` es la siguiente dosis después de la última administrada, e `is_overdue` se activa 30 minutos después de su horario. Si una dosis antigua nunca se registra, se considera omitida en cuanto se administra una posterior.

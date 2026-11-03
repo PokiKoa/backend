@@ -51,6 +51,9 @@ Todos los listados aceptan además `?search=` (búsqueda textual) y `?ordering=`
 | | `status`, `sex`, `attending_physician`, `crib` | Filtros exactos. |
 | `/api/v1/vitals/` y `.../vitals/` de paciente o cuna | `recorded_after`, `recorded_before` | Ventana temporal sobre `recorded_at`. |
 | `/api/v1/medication-catalog/` | `low_stock=true` / `false` | `true`: `stock <= min_stock_alert`; `false`: stock suficiente. |
+| `/api/v1/prescriptions/` | `starts_after`, `starts_before` | Ventana temporal sobre `starts_at`. |
+| | `is_recurring=true` / `false` | Indicaciones con o sin `frequency_hours`. |
+| | `patient`, `medication`, `status`, `route`, `prescribed_by` | Filtros exactos. |
 | `/api/v1/audit-logs/` | `timestamp_after`, `timestamp_before` | Ventana temporal sobre `timestamp`. |
 
 Ejemplo: alertas abiertas de las últimas 6 horas de una cuna, más recientes primero:
@@ -95,9 +98,10 @@ GET /api/v1/alerts/?is_open=true&crib=3&triggered_after=2026-11-03T03:00:00-03:0
 | | `POST /api/v1/alerts/{id}/resolve/` | Resolución manual de una alerta. |
 | | `GET, PUT, PATCH /api/v1/alert-thresholds/default/` | Umbrales fisiológicos globales por defecto. |
 | **Farmacia** | `GET, POST, PATCH /api/v1/medication-catalog/` | Catálogo de medicamentos y gestión de stock (`pharmacist` / `admin`). |
-| | `GET, POST /api/v1/prescriptions/` | Indicaciones médicas vinculadas al catálogo. |
-| | `POST /api/v1/prescriptions/{id}/administer/` | Administración atómica con descuento de stock sin doble aplicación. |
-| | `POST /api/v1/prescriptions/{id}/cancel/` | Cancelación de indicación pendiente (`neonatologist`). |
+| | `GET, POST /api/v1/prescriptions/` | Indicaciones médicas de dosis única o recurrentes (`starts_at`, `frequency_hours`, `ends_at`). Incluye `next_dose_at`, `is_overdue`, `last_administered_slot` y `administrations_count`. |
+| | `POST /api/v1/prescriptions/{id}/administer/` | Registra una dosis (opcionalmente `scheduled_for`) con descuento atómico de stock; cada dosis solo puede registrarse una vez. |
+| | `GET /api/v1/prescriptions/{id}/administrations/` | Historial paginado de dosis administradas. |
+| | `POST /api/v1/prescriptions/{id}/cancel/` | Cancelación de una indicación vigente (`neonatologist`). |
 | **Auditoría** | `GET /api/v1/audit-logs/` | Registro inmutable de eventos clínicos y de seguridad (`admin`). |
 
 ### 2.1 Resumen de la unidad (`GET /api/v1/monitoring/overview/`)

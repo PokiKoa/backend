@@ -1,0 +1,44 @@
+{% extends "admin/index.html" %}
+{% load poki_koa_dashboard %}
+
+{% block content %}
+{% clinical_dashboard_stats as stats %}
+<div style="margin-bottom: 24px;">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px;">
+    <div style="background: var(--body-bg); border: 1px solid var(--hairline-color); border-left: 4px solid #0284c7; border-radius: 0.5rem; padding: 14px 16px;">
+      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; opacity: 0.75;">Pacientes Activos</div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: #0284c7; margin: 4px 0;">{{ stats.active_patients_count }}</div>
+      <div style="font-size: 0.8rem; opacity: 0.8;">{{ stats.discharged_patients_count }} egresos históricos</div>
+    </div>
+
+    <div style="background: var(--body-bg); border: 1px solid var(--hairline-color); border-left: 4px solid #059669; border-radius: 0.5rem; padding: 14px 16px;">
+      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; opacity: 0.75;">Cunas Ocupadas / Total</div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: #059669; margin: 4px 0;">{{ stats.occupied_cribs_count }} / {{ stats.total_cribs_count }}</div>
+      <div style="font-size: 0.8rem; opacity: 0.8;">{{ stats.available_cribs_count }} cunas disponibles</div>
+    </div>
+
+    <div style="background: var(--body-bg); border: 1px solid var(--hairline-color); border-left: 4px solid {% if stats.critical_alerts_count > 0 %}#dc2626{% else %}#d97706{% endif %}; border-radius: 0.5rem; padding: 14px 16px;">
+      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; opacity: 0.75;">Alertas Abiertas</div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: {% if stats.critical_alerts_count > 0 %}#dc2626{% else %}#d97706{% endif %}; margin: 4px 0;">{{ stats.open_alerts_count }}</div>
+      <div style="font-size: 0.8rem; opacity: 0.8;">{{ stats.critical_alerts_count }} críticas · {{ stats.warning_alerts_count }} advertencias</div>
+    </div>
+
+    <div style="background: var(--body-bg); border: 1px solid var(--hairline-color); border-left: 4px solid #7c3aed; border-radius: 0.5rem; padding: 14px 16px;">
+      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; opacity: 0.75;">Farmacia y Dosis</div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: #7c3aed; margin: 4px 0;">{{ stats.pending_prescriptions_count }}</div>
+      <div style="font-size: 0.8rem; opacity: 0.8;">indicaciones vigentes · {{ stats.low_stock_medications_count }} stock bajo</div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 14px; background: var(--darkened-bg); border: 1px solid var(--hairline-color); border-radius: 0.5rem; align-items: center;">
+    <strong style="font-size: 0.85rem; margin-right: 6px;">Acciones rápidas:</strong>
+    <a href="/admin/patients/patient/add/" class="button" style="background: #0284c7; color: #fff; padding: 6px 12px; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Ingresar Paciente</a>
+    <a href="/admin/devices/crib/add/" class="button" style="background: #059669; color: #fff; padding: 6px 12px; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Registrar Cuna</a>
+    <a href="/admin/medications/prescription/add/" class="button" style="background: #7c3aed; color: #fff; padding: 6px 12px; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Nueva Indicación Médica</a>
+    <a href="/admin/alerts/alert/?status__exact=active" class="button" style="background: #dc2626; color: #fff; padding: 6px 12px; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Ver Alertas Activas ({{ stats.open_alerts_count }})</a>
+    <a href="/" class="button" style="padding: 6px 12px; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">Ir al Monitor General</a>
+  </div>
+</div>
+
+{{ block.super }}
+{% endblock %}

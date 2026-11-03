@@ -14,7 +14,9 @@ dist/
 .coverage
 .coverage.*
 htmlcov/
+coverage.xml
 
 src/db.sqlite3
 src/db_entregable.sqlite3
 src/db_entregable.sqlite3-*
+staticfiles/

@@ -1,0 +1,5934 @@
+openapi: 3.0.3
+info:
+  title: Poki Koa API
+  version: 2.0.0
+  description: API REST y tiempo real para monitoreo clínico neonatal.
+paths:
+  /api/v1/alert-thresholds/default/:
+    get:
+      operationId: alert_thresholds_default_retrieve
+      summary: Consulta los umbrales globales neonatales por defecto
+      tags:
+      - alert-thresholds
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertThresholdConfig'
+          description: ''
+    put:
+      operationId: alert_thresholds_default_update
+      summary: Actualiza los umbrales globales neonatales por defecto
+      tags:
+      - alert-thresholds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertThresholdConfigUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AlertThresholdConfigUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AlertThresholdConfigUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertThresholdConfig'
+          description: ''
+    patch:
+      operationId: alert_thresholds_default_partial_update
+      summary: Actualiza parcialmente los umbrales globales neonatales por defecto
+      tags:
+      - alert-thresholds
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAlertThresholdConfigUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAlertThresholdConfigUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAlertThresholdConfigUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertThresholdConfig'
+          description: ''
+  /api/v1/alerts/:
+    get:
+      operationId: alerts_list
+      parameters:
+      - in: query
+        name: alert_type
+        schema:
+          type: string
+          enum:
+          - cannula
+          - heart_rate
+          - other
+          - sensor_fault
+          - spo2
+          - temperature
+        description: |-
+          * `heart_rate` - Frecuencia Cardíaca
+          * `spo2` - Saturación de Oxígeno (SpO2)
+          * `temperature` - Temperatura Corporal
+          * `cannula` - Cánula de Oxígeno
+          * `sensor_fault` - Fallo de Sensor
+          * `other` - Otra Alerta
+      - in: query
+        name: crib
+        schema:
+          type: integer
+      - in: query
+        name: is_open
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: patient
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: severity
+        schema:
+          type: string
+          enum:
+          - critical
+          - info
+          - warning
+        description: |-
+          * `info` - Informativa
+          * `warning` - Advertencia
+          * `critical` - Crítica
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - acknowledged
+          - active
+          - resolved
+        description: |-
+          * `active` - Activa
+          * `acknowledged` - Reconocida
+          * `resolved` - Resuelta
+      - in: query
+        name: triggered_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: triggered_before
+        schema:
+          type: string
+          format: date-time
+      tags:
+      - alerts
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAlertList'
+          description: ''
+  /api/v1/alerts/{id}/:
+    get:
+      operationId: alerts_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Alerta Clínica.
+        required: true
+      tags:
+      - alerts
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+          description: ''
+  /api/v1/alerts/{id}/acknowledge/:
+    post:
+      operationId: alerts_acknowledge_create
+      summary: Reconoce (acknowledge) una alerta clínica activa
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Alerta Clínica.
+        required: true
+      tags:
+      - alerts
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+          description: ''
+  /api/v1/alerts/{id}/resolve/:
+    post:
+      operationId: alerts_resolve_create
+      summary: Resuelve manualmente una alerta clínica
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Alerta Clínica.
+        required: true
+      tags:
+      - alerts
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+          description: ''
+  /api/v1/audit-logs/:
+    get:
+      operationId: audit_logs_list
+      parameters:
+      - in: query
+        name: action
+        schema:
+          type: string
+          enum:
+          - account_locked
+          - acknowledge_alert
+          - administer_medication
+          - assign_crib
+          - create
+          - delete
+          - discharge
+          - ingest_telemetry
+          - login_failed
+          - login_success
+          - logout
+          - prescribe_medication
+          - read
+          - release_crib
+          - resolve_alert
+          - swap_crib
+          - update
+        description: |-
+          * `read` - Lectura
+          * `create` - Creación
+          * `update` - Actualización
+          * `discharge` - Egreso clínico
+          * `assign_crib` - Asignación de cuna
+          * `release_crib` - Liberación de cuna
+          * `swap_crib` - Intercambio de cunas
+          * `delete` - Eliminación definitiva
+          * `ingest_telemetry` - Ingesta de telemetría
+          * `acknowledge_alert` - Reconocimiento de alerta
+          * `resolve_alert` - Resolución de alerta
+          * `prescribe_medication` - Indicación médica
+          * `administer_medication` - Administración de medicamento
+          * `login_success` - Inicio de sesión exitoso
+          * `login_failed` - Intento de inicio de sesión fallido
+          * `logout` - Cierre de sesión
+          * `account_locked` - Bloqueo temporal de cuenta
+      - in: query
+        name: actor_user
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: patient_id
+        schema:
+          type: integer
+      - in: query
+        name: resource_id
+        schema:
+          type: string
+      - in: query
+        name: resource_type
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: timestamp_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: timestamp_before
+        schema:
+          type: string
+          format: date-time
+      tags:
+      - audit-logs
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogList'
+          description: ''
+  /api/v1/audit-logs/{id}/:
+    get:
+      operationId: audit_logs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Registro de Auditoría.
+        required: true
+      tags:
+      - audit-logs
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+          description: ''
+  /api/v1/audit-logs/summary/:
+    get:
+      operationId: audit_logs_summary_list
+      summary: Conteo de eventos de auditoría por acción, con los mismos filtros del
+        listado
+      parameters:
+      - in: query
+        name: action
+        schema:
+          type: string
+          enum:
+          - account_locked
+          - acknowledge_alert
+          - administer_medication
+          - assign_crib
+          - create
+          - delete
+          - discharge
+          - ingest_telemetry
+          - login_failed
+          - login_success
+          - logout
+          - prescribe_medication
+          - read
+          - release_crib
+          - resolve_alert
+          - swap_crib
+          - update
+        description: |-
+          * `read` - Lectura
+          * `create` - Creación
+          * `update` - Actualización
+          * `discharge` - Egreso clínico
+          * `assign_crib` - Asignación de cuna
+          * `release_crib` - Liberación de cuna
+          * `swap_crib` - Intercambio de cunas
+          * `delete` - Eliminación definitiva
+          * `ingest_telemetry` - Ingesta de telemetría
+          * `acknowledge_alert` - Reconocimiento de alerta
+          * `resolve_alert` - Resolución de alerta
+          * `prescribe_medication` - Indicación médica
+          * `administer_medication` - Administración de medicamento
+          * `login_success` - Inicio de sesión exitoso
+          * `login_failed` - Intento de inicio de sesión fallido
+          * `logout` - Cierre de sesión
+          * `account_locked` - Bloqueo temporal de cuenta
+      - in: query
+        name: actor_user
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - in: query
+        name: patient_id
+        schema:
+          type: integer
+      - in: query
+        name: resource_id
+        schema:
+          type: string
+      - in: query
+        name: resource_type
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: timestamp_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: timestamp_before
+        schema:
+          type: string
+          format: date-time
+      tags:
+      - audit-logs
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditActionCount'
+          description: ''
+  /api/v1/auth/2fa/disable/:
+    post:
+      operationId: auth_2fa_disable_create
+      summary: Verifica un código TOTP y desactiva 2FA en la cuenta actual
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorCode'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TwoFactorCode'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TwoFactorCode'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/2fa/enable/:
+    post:
+      operationId: auth_2fa_enable_create
+      summary: Verifica un código TOTP y activa 2FA en la cuenta actual
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorCode'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TwoFactorCode'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TwoFactorCode'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/2fa/setup/:
+    post:
+      operationId: auth_2fa_setup_create
+      summary: Genera un nuevo secreto TOTP para configurar 2FA
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwoFactorSetupResponse'
+          description: ''
+  /api/v1/auth/change-password/:
+    post:
+      operationId: auth_change_password_create
+      summary: Cambia la contraseña propia, cierra las demás sesiones y renueva los
+        tokens
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePassword'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChangePassword'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChangePassword'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefreshResponse'
+          description: ''
+  /api/v1/auth/login/:
+    post:
+      operationId: auth_login_create
+      summary: Inicia sesión; entrega el access token y deja el refresh en una cookie
+        httpOnly
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      summary: Cierra sesión revocando el refresh token de la cookie y eliminándola
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      summary: Retorna el perfil del usuario autenticado
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      summary: Rota el refresh token de la cookie httpOnly y entrega un nuevo access
+        token
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefreshResponse'
+          description: ''
+  /api/v1/care-plans/:
+    get:
+      operationId: care_plans_list
+      parameters:
+      - in: query
+        name: care_area
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: patient
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - completed
+          - suspended
+        description: |-
+          * `active` - Activo
+          * `suspended` - Suspendido
+          * `completed` - Finalizado
+      tags:
+      - care-plans
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCarePlanList'
+          description: ''
+    post:
+      operationId: care_plans_create
+      tags:
+      - care-plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarePlanCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CarePlanCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CarePlanCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarePlan'
+          description: ''
+  /api/v1/care-plans/{id}/:
+    get:
+      operationId: care_plans_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Plan de Cuidado.
+        required: true
+      tags:
+      - care-plans
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarePlan'
+          description: ''
+    put:
+      operationId: care_plans_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Plan de Cuidado.
+        required: true
+      tags:
+      - care-plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarePlanUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CarePlanUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CarePlanUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarePlan'
+          description: ''
+    patch:
+      operationId: care_plans_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Plan de Cuidado.
+        required: true
+      tags:
+      - care-plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCarePlanUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCarePlanUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCarePlanUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarePlan'
+          description: ''
+  /api/v1/cribs/:
+    get:
+      operationId: cribs_list
+      parameters:
+      - in: query
+        name: is_device_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - available
+          - maintenance
+          - occupied
+          - offline
+        description: |-
+          * `available` - Disponible
+          * `occupied` - Ocupada
+          * `maintenance` - En mantenimiento
+          * `offline` - Fuera de línea
+      tags:
+      - cribs
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCribList'
+          description: ''
+    post:
+      operationId: cribs_create
+      tags:
+      - cribs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CribCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CribCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CribCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crib'
+          description: ''
+  /api/v1/cribs/{id}/:
+    get:
+      operationId: cribs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Cuna.
+        required: true
+      tags:
+      - cribs
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crib'
+          description: ''
+    put:
+      operationId: cribs_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Cuna.
+        required: true
+      tags:
+      - cribs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CribUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CribUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CribUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crib'
+          description: ''
+    patch:
+      operationId: cribs_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Cuna.
+        required: true
+      tags:
+      - cribs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCribUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCribUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCribUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crib'
+          description: ''
+  /api/v1/cribs/{id}/assign-patient/:
+    post:
+      operationId: cribs_assign_patient_create
+      summary: Asigna un paciente activo a la cuna
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Cuna.
+        required: true
+      tags:
+      - cribs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CribAssignPatient'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CribAssignPatient'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CribAssignPatient'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crib'
+          description: ''
+  /api/v1/cribs/{id}/release/:
+    post:
+      operationId: cribs_release_create
+      summary: Libera la cuna desvinculando al paciente actual
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Cuna.
+        required: true
+      tags:
+      - cribs
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crib'
+          description: ''
+  /api/v1/cribs/{id}/rotate-key/:
+    post:
+      operationId: cribs_rotate_key_create
+      summary: Rota la API Key del dispositivo asociado a la cuna
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Cuna.
+        required: true
+      tags:
+      - cribs
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crib'
+          description: ''
+  /api/v1/cribs/{id}/swap/:
+    post:
+      operationId: cribs_swap_create
+      summary: Intercambia a los pacientes de dos cunas ocupadas sin egresarlos
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Cuna.
+        required: true
+      - in: query
+        name: is_device_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - available
+          - maintenance
+          - occupied
+          - offline
+        description: |-
+          * `available` - Disponible
+          * `occupied` - Ocupada
+          * `maintenance` - En mantenimiento
+          * `offline` - Fuera de línea
+      tags:
+      - cribs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CribSwap'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CribSwap'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CribSwap'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCribList'
+          description: ''
+  /api/v1/cribs/{id}/telemetry/:
+    get:
+      operationId: cribs_telemetry_retrieve
+      summary: Ingiere una lectura de telemetría o lista el historial de lecturas
+        de la cuna
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Cuna.
+        required: true
+      tags:
+      - cribs
+      security:
+      - DeviceApiKeyAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crib'
+          description: ''
+    post:
+      operationId: cribs_telemetry_create
+      summary: Ingiere una lectura de telemetría o lista el historial de lecturas
+        de la cuna
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Cuna.
+        required: true
+      tags:
+      - cribs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Crib'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Crib'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Crib'
+      security:
+      - DeviceApiKeyAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crib'
+          description: ''
+  /api/v1/cribs/check-offline/:
+    post:
+      operationId: cribs_check_offline_create
+      summary: Evalúa y marca como offline las cunas activas que superaron el tiempo
+        sin telemetría
+      tags:
+      - cribs
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Crib'
+          description: ''
+  /api/v1/health/:
+    get:
+      operationId: health_retrieve
+      summary: Verifica el estado operativo del servicio, base de datos, tiempo real
+        y métricas
+      tags:
+      - health
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+          description: ''
+  /api/v1/medication-catalog/:
+    get:
+      operationId: medication_catalog_list
+      parameters:
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - in: query
+        name: low_stock
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: unit
+        schema:
+          type: string
+      tags:
+      - medication-catalog
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMedicationCatalogItemList'
+          description: ''
+    post:
+      operationId: medication_catalog_create
+      tags:
+      - medication-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationCatalogCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MedicationCatalogCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MedicationCatalogCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationCatalogItem'
+          description: ''
+  /api/v1/medication-catalog/{id}/:
+    get:
+      operationId: medication_catalog_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Medicamento de
+          Catálogo.
+        required: true
+      tags:
+      - medication-catalog
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationCatalogItem'
+          description: ''
+    put:
+      operationId: medication_catalog_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Medicamento de
+          Catálogo.
+        required: true
+      tags:
+      - medication-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationCatalogUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MedicationCatalogUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MedicationCatalogUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationCatalogItem'
+          description: ''
+    patch:
+      operationId: medication_catalog_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Medicamento de
+          Catálogo.
+        required: true
+      tags:
+      - medication-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicationCatalogUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicationCatalogUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicationCatalogUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationCatalogItem'
+          description: ''
+  /api/v1/monitoring/overview/:
+    get:
+      operationId: monitoring_overview_retrieve
+      summary: 'Resumen de la unidad: cada cuna con su paciente, última lectura y
+        alertas abiertas'
+      tags:
+      - monitoring
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitOverview'
+          description: ''
+  /api/v1/observations/:
+    get:
+      operationId: observations_list
+      parameters:
+      - in: query
+        name: author
+        schema:
+          type: integer
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - general
+          - kangaroo_care
+          - medical
+          - nursing
+          - phototherapy
+        description: |-
+          * `general` - General
+          * `nursing` - Enfermería / Matronería
+          * `medical` - Evolución Médica
+          * `kangaroo_care` - Método Canguro
+          * `phototherapy` - Fototerapia
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: patient
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      tags:
+      - observations
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedClinicalObservationList'
+          description: ''
+    post:
+      operationId: observations_create
+      tags:
+      - observations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClinicalObservationCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ClinicalObservationCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ClinicalObservationCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClinicalObservation'
+          description: ''
+  /api/v1/observations/{id}/:
+    get:
+      operationId: observations_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Observación Clínica.
+        required: true
+      tags:
+      - observations
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClinicalObservation'
+          description: ''
+  /api/v1/patients/:
+    get:
+      operationId: patients_list
+      parameters:
+      - in: query
+        name: active
+        schema:
+          type: boolean
+        description: 'true: pacientes en la unidad; false: egresados, trasladados
+          o fallecidos.'
+      - in: query
+        name: admitted_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: admitted_before
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: attending_physician
+        schema:
+          type: integer
+      - in: query
+        name: crib
+        schema:
+          type: integer
+      - in: query
+        name: max_weight_g
+        schema:
+          type: integer
+      - in: query
+        name: min_weight_g
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: sex
+        schema:
+          type: string
+          enum:
+          - F
+          - M
+        description: |-
+          * `F` - Femenino
+          * `M` - Masculino
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - deceased
+          - discharged
+          - transferred
+        description: |-
+          * `active` - Activo en unidad
+          * `discharged` - Egresado (alta)
+          * `transferred` - Trasladado
+          * `deceased` - Fallecido
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPatientList'
+          description: ''
+    post:
+      operationId: patients_create
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatientCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatientCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+  /api/v1/patients/{id}/:
+    get:
+      operationId: patients_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+    put:
+      operationId: patients_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatientUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatientUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+    patch:
+      operationId: patients_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPatientUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPatientUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPatientUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+  /api/v1/patients/{id}/alert-thresholds/:
+    get:
+      operationId: patients_alert_thresholds_retrieve
+      summary: Consulta o personaliza los umbrales de alerta clínica para el paciente
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+    put:
+      operationId: patients_alert_thresholds_update
+      summary: Consulta o personaliza los umbrales de alerta clínica para el paciente
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Patient'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Patient'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Patient'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+    patch:
+      operationId: patients_alert_thresholds_partial_update
+      summary: Consulta o personaliza los umbrales de alerta clínica para el paciente
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPatient'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPatient'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPatient'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+  /api/v1/patients/{id}/crib-movements/:
+    get:
+      operationId: patients_crib_movements_list
+      summary: 'Historial de cunas del paciente: asignaciones, traslados, intercambios
+        y liberaciones'
+      parameters:
+      - in: query
+        name: active
+        schema:
+          type: boolean
+        description: 'true: pacientes en la unidad; false: egresados, trasladados
+          o fallecidos.'
+      - in: query
+        name: admitted_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: admitted_before
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: attending_physician
+        schema:
+          type: integer
+      - in: query
+        name: crib
+        schema:
+          type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      - in: query
+        name: max_weight_g
+        schema:
+          type: integer
+      - in: query
+        name: min_weight_g
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: sex
+        schema:
+          type: string
+          enum:
+          - F
+          - M
+        description: |-
+          * `F` - Femenino
+          * `M` - Masculino
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - deceased
+          - discharged
+          - transferred
+        description: |-
+          * `active` - Activo en unidad
+          * `discharged` - Egresado (alta)
+          * `transferred` - Trasladado
+          * `deceased` - Fallecido
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CribMovement'
+          description: ''
+  /api/v1/patients/{id}/delete-permanently/:
+    post:
+      operationId: patients_delete_permanently_create
+      summary: Elimina definitivamente al paciente y todo su registro clínico (solo
+        Administrador)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientPermanentDelete'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatientPermanentDelete'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatientPermanentDelete'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/patients/{id}/discharge/:
+    post:
+      operationId: patients_discharge_create
+      summary: Egresa lógicamente a un paciente conservando su historial y liberando
+        su cuna
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientDischarge'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatientDischarge'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatientDischarge'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+  /api/v1/patients/{id}/vitals/:
+    get:
+      operationId: patients_vitals_retrieve
+      summary: Lista el historial de signos vitales registrados para el paciente
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+  /api/v1/patients/{id}/weights/:
+    get:
+      operationId: patients_weights_list
+      summary: Lista la curva ponderal o registra una nueva medición de peso del paciente
+      parameters:
+      - in: query
+        name: active
+        schema:
+          type: boolean
+        description: 'true: pacientes en la unidad; false: egresados, trasladados
+          o fallecidos.'
+      - in: query
+        name: admitted_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: admitted_before
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: attending_physician
+        schema:
+          type: integer
+      - in: query
+        name: crib
+        schema:
+          type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      - in: query
+        name: max_weight_g
+        schema:
+          type: integer
+      - in: query
+        name: min_weight_g
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: sex
+        schema:
+          type: string
+          enum:
+          - F
+          - M
+        description: |-
+          * `F` - Femenino
+          * `M` - Masculino
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - deceased
+          - discharged
+          - transferred
+        description: |-
+          * `active` - Activo en unidad
+          * `discharged` - Egresado (alta)
+          * `transferred` - Trasladado
+          * `deceased` - Fallecido
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWeightRecordList'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeightRecord'
+          description: ''
+    post:
+      operationId: patients_weights_create
+      summary: Lista la curva ponderal o registra una nueva medición de peso del paciente
+      parameters:
+      - in: query
+        name: active
+        schema:
+          type: boolean
+        description: 'true: pacientes en la unidad; false: egresados, trasladados
+          o fallecidos.'
+      - in: query
+        name: admitted_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: admitted_before
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: attending_physician
+        schema:
+          type: integer
+      - in: query
+        name: crib
+        schema:
+          type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      - in: query
+        name: max_weight_g
+        schema:
+          type: integer
+      - in: query
+        name: min_weight_g
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: sex
+        schema:
+          type: string
+          enum:
+          - F
+          - M
+        description: |-
+          * `F` - Femenino
+          * `M` - Masculino
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - deceased
+          - discharged
+          - transferred
+        description: |-
+          * `active` - Activo en unidad
+          * `discharged` - Egresado (alta)
+          * `transferred` - Trasladado
+          * `deceased` - Fallecido
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeightRecordCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WeightRecordCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WeightRecordCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWeightRecordList'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeightRecord'
+          description: ''
+  /api/v1/prescriptions/:
+    get:
+      operationId: prescriptions_list
+      parameters:
+      - in: query
+        name: is_recurring
+        schema:
+          type: boolean
+      - in: query
+        name: medication
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: patient
+        schema:
+          type: integer
+      - in: query
+        name: prescribed_by
+        schema:
+          type: integer
+      - in: query
+        name: route
+        schema:
+          type: string
+          enum:
+          - ET
+          - IM
+          - IV
+          - PO
+          - SC
+        description: |-
+          * `IV` - Intravenosa (IV)
+          * `IM` - Intramuscular (IM)
+          * `ET` - Endotraqueal (ET)
+          * `PO` - Vía Oral / Sonda (PO)
+          * `SC` - Subcutánea (SC)
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: starts_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: starts_before
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - cancelled
+          - completed
+        description: |-
+          * `active` - Vigente
+          * `completed` - Completada
+          * `cancelled` - Cancelada
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPrescriptionList'
+          description: ''
+    post:
+      operationId: prescriptions_create
+      tags:
+      - prescriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+  /api/v1/prescriptions/{id}/:
+    get:
+      operationId: prescriptions_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Indicación Médica.
+        required: true
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+  /api/v1/prescriptions/{id}/administer/:
+    post:
+      operationId: prescriptions_administer_create
+      description: Sin scheduled_for se administra la dosis más reciente ya habilitada
+        (se admite hasta 60 minutos antes de su horario). Con scheduled_for se registra
+        una dosis específica, por ejemplo una atrasada.
+      summary: Registra la administración de una dosis descontando stock del catálogo
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Indicación Médica.
+        required: true
+      tags:
+      - prescriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionAdminister'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PrescriptionAdminister'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PrescriptionAdminister'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+  /api/v1/prescriptions/{id}/administrations/:
+    get:
+      operationId: prescriptions_administrations_list
+      summary: Historial de dosis administradas de la indicación
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Indicación Médica.
+        required: true
+      - in: query
+        name: is_recurring
+        schema:
+          type: boolean
+      - in: query
+        name: medication
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: patient
+        schema:
+          type: integer
+      - in: query
+        name: prescribed_by
+        schema:
+          type: integer
+      - in: query
+        name: route
+        schema:
+          type: string
+          enum:
+          - ET
+          - IM
+          - IV
+          - PO
+          - SC
+        description: |-
+          * `IV` - Intravenosa (IV)
+          * `IM` - Intramuscular (IM)
+          * `ET` - Endotraqueal (ET)
+          * `PO` - Vía Oral / Sonda (PO)
+          * `SC` - Subcutánea (SC)
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: starts_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: starts_before
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - cancelled
+          - completed
+        description: |-
+          * `active` - Vigente
+          * `completed` - Completada
+          * `cancelled` - Cancelada
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMedicationAdministrationList'
+          description: ''
+  /api/v1/prescriptions/{id}/cancel/:
+    post:
+      operationId: prescriptions_cancel_create
+      summary: Cancela una indicación médica vigente
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Indicación Médica.
+        required: true
+      tags:
+      - prescriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCancel'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCancel'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCancel'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+  /api/v1/reports/series/:
+    get:
+      operationId: reports_series_list
+      summary: Serie diaria de ingresos y alertas (días locales)
+      parameters:
+      - in: query
+        name: days
+        schema:
+          type: integer
+        description: Días hacia atrás, de 1 a 90 (por defecto 14).
+      tags:
+      - reports
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityPoint'
+          description: ''
+  /api/v1/reports/summary/:
+    get:
+      operationId: reports_summary_retrieve
+      summary: 'Resumen operativo de la unidad: pacientes, cunas, medicación, alertas
+        y personal'
+      tags:
+      - reports
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationsSummary'
+          description: ''
+  /api/v1/shift-assignments/:
+    get:
+      operationId: shift_assignments_list
+      parameters:
+      - in: query
+        name: crib
+        schema:
+          type: integer
+      - in: query
+        name: date
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: date_after
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: date_before
+        schema:
+          type: string
+          format: date
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: shift
+        schema:
+          type: string
+          enum:
+          - afternoon
+          - morning
+          - night
+        description: |-
+          * `morning` - Mañana
+          * `afternoon` - Tarde
+          * `night` - Noche
+      - in: query
+        name: user
+        schema:
+          type: integer
+      tags:
+      - shift-assignments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedShiftAssignmentList'
+          description: ''
+    post:
+      operationId: shift_assignments_create
+      tags:
+      - shift-assignments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShiftAssignmentCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ShiftAssignmentCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ShiftAssignmentCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftAssignment'
+          description: ''
+  /api/v1/shift-assignments/{id}/:
+    delete:
+      operationId: shift_assignments_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Asignación de Turno.
+        required: true
+      tags:
+      - shift-assignments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/shift-assignments/mine/:
+    get:
+      operationId: shift_assignments_mine_retrieve
+      summary: Cunas asignadas al usuario en el turno vigente, con su estado de monitoreo
+      tags:
+      - shift-assignments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyShift'
+          description: ''
+  /api/v1/shifts/:
+    get:
+      operationId: shifts_list
+      summary: Catálogo fijo de turnos con su horario e indicación del turno vigente
+      tags:
+      - shifts
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shift'
+          description: ''
+  /api/v1/staff/:
+    get:
+      operationId: staff_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: role
+        schema:
+          type: string
+          enum:
+          - admin
+          - neonatologist
+          - nurse
+          - pharmacist
+        description: |-
+          * `admin` - Administrador
+          * `neonatologist` - Neonatólogo
+          * `nurse` - Matrona / Enfermera
+          * `pharmacist` - Químico Farmacéutico
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: shift
+        schema:
+          type: string
+          nullable: true
+          enum:
+          - afternoon
+          - morning
+          - night
+        description: |-
+          * `morning` - Mañana
+          * `afternoon` - Tarde
+          * `night` - Noche
+      tags:
+      - staff
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStaffMemberList'
+          description: ''
+  /api/v1/users/:
+    get:
+      operationId: users_list
+      parameters:
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: role
+        schema:
+          type: string
+          enum:
+          - admin
+          - neonatologist
+          - nurse
+          - pharmacist
+        description: |-
+          * `admin` - Administrador
+          * `neonatologist` - Neonatólogo
+          * `nurse` - Matrona / Enfermera
+          * `pharmacist` - Químico Farmacéutico
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: shift
+        schema:
+          type: string
+          nullable: true
+          enum:
+          - afternoon
+          - morning
+          - night
+        description: |-
+          * `morning` - Mañana
+          * `afternoon` - Tarde
+          * `night` - Noche
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserList'
+          description: ''
+    post:
+      operationId: users_create
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/users/{id}/:
+    get:
+      operationId: users_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Usuario.
+        required: true
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: users_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Usuario.
+        required: true
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: users_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Usuario.
+        required: true
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/vitals/:
+    get:
+      operationId: vitals_list
+      parameters:
+      - in: query
+        name: cannula_connected
+        schema:
+          type: boolean
+      - in: query
+        name: crib
+        schema:
+          type: integer
+      - in: query
+        name: iv_line_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: patient
+        schema:
+          type: integer
+      - in: query
+        name: recorded_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: recorded_before
+        schema:
+          type: string
+          format: date-time
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: sleep_state
+        schema:
+          type: string
+          enum:
+          - asleep
+          - awake
+        description: |-
+          * `asleep` - Dormido
+          * `awake` - Despierto
+      tags:
+      - vitals
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVitalSignReadingList'
+          description: ''
+  /api/v1/vitals/{id}/:
+    get:
+      operationId: vitals_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Lectura de Signos
+          Vitales.
+        required: true
+      tags:
+      - vitals
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VitalSignReading'
+          description: ''
+components:
+  schemas:
+    ActionEnum:
+      enum:
+      - read
+      - create
+      - update
+      - discharge
+      - assign_crib
+      - release_crib
+      - swap_crib
+      - delete
+      - ingest_telemetry
+      - acknowledge_alert
+      - resolve_alert
+      - prescribe_medication
+      - administer_medication
+      - login_success
+      - login_failed
+      - logout
+      - account_locked
+      type: string
+      description: |-
+        * `read` - Lectura
+        * `create` - Creación
+        * `update` - Actualización
+        * `discharge` - Egreso clínico
+        * `assign_crib` - Asignación de cuna
+        * `release_crib` - Liberación de cuna
+        * `swap_crib` - Intercambio de cunas
+        * `delete` - Eliminación definitiva
+        * `ingest_telemetry` - Ingesta de telemetría
+        * `acknowledge_alert` - Reconocimiento de alerta
+        * `resolve_alert` - Resolución de alerta
+        * `prescribe_medication` - Indicación médica
+        * `administer_medication` - Administración de medicamento
+        * `login_success` - Inicio de sesión exitoso
+        * `login_failed` - Intento de inicio de sesión fallido
+        * `logout` - Cierre de sesión
+        * `account_locked` - Bloqueo temporal de cuenta
+    ActivityPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        admissions:
+          type: integer
+        alerts:
+          type: integer
+      required:
+      - admissions
+      - alerts
+      - date
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        crib:
+          type: integer
+          readOnly: true
+        crib_code:
+          type: string
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+          nullable: true
+        patient_name:
+          type: string
+          readOnly: true
+        alert_type:
+          allOf:
+          - $ref: '#/components/schemas/AlertTypeEnum'
+          readOnly: true
+        severity:
+          allOf:
+          - $ref: '#/components/schemas/AlertSeverityEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AlertStatusEnum'
+          readOnly: true
+        message:
+          type: string
+          readOnly: true
+        measured_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,1})?$
+          readOnly: true
+          nullable: true
+        threshold_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,1})?$
+          readOnly: true
+          nullable: true
+        occurrence_count:
+          type: integer
+          readOnly: true
+        triggered_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_evaluated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        acknowledged_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        acknowledged_by_name:
+          type: string
+          readOnly: true
+        acknowledged_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        resolved_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        resolved_by_name:
+          type: string
+          readOnly: true
+        resolved_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        resolution_reason:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/ResolutionReasonEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - acknowledged_at
+      - acknowledged_by
+      - acknowledged_by_name
+      - alert_type
+      - crib
+      - crib_code
+      - id
+      - last_evaluated_at
+      - measured_value
+      - message
+      - occurrence_count
+      - patient
+      - patient_name
+      - resolution_reason
+      - resolved_at
+      - resolved_by
+      - resolved_by_name
+      - severity
+      - status
+      - threshold_value
+      - triggered_at
+    AlertReport:
+      type: object
+      properties:
+        open:
+          type: integer
+        open_by_severity:
+          type: object
+          additionalProperties:
+            type: integer
+        open_by_type:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+      - open
+      - open_by_severity
+      - open_by_type
+    AlertSeverityEnum:
+      enum:
+      - info
+      - warning
+      - critical
+      type: string
+      description: |-
+        * `info` - Informativa
+        * `warning` - Advertencia
+        * `critical` - Crítica
+    AlertStatusEnum:
+      enum:
+      - active
+      - acknowledged
+      - resolved
+      type: string
+      description: |-
+        * `active` - Activa
+        * `acknowledged` - Reconocida
+        * `resolved` - Resuelta
+    AlertThresholdConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+          nullable: true
+        heart_rate_critical_low:
+          type: integer
+          readOnly: true
+        heart_rate_warning_low:
+          type: integer
+          readOnly: true
+        heart_rate_warning_high:
+          type: integer
+          readOnly: true
+        heart_rate_critical_high:
+          type: integer
+          readOnly: true
+        spo2_critical_low:
+          type: integer
+          readOnly: true
+        spo2_warning_low:
+          type: integer
+          readOnly: true
+        temp_critical_low:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          readOnly: true
+        temp_warning_low:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          readOnly: true
+        temp_warning_high:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          readOnly: true
+        temp_critical_high:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          readOnly: true
+        updated_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - heart_rate_critical_high
+      - heart_rate_critical_low
+      - heart_rate_warning_high
+      - heart_rate_warning_low
+      - id
+      - patient
+      - spo2_critical_low
+      - spo2_warning_low
+      - temp_critical_high
+      - temp_critical_low
+      - temp_warning_high
+      - temp_warning_low
+      - updated_at
+      - updated_by
+    AlertThresholdConfigUpdate:
+      type: object
+      properties:
+        heart_rate_critical_low:
+          type: integer
+          maximum: 260
+          minimum: 1
+        heart_rate_warning_low:
+          type: integer
+          maximum: 260
+          minimum: 1
+        heart_rate_warning_high:
+          type: integer
+          maximum: 260
+          minimum: 1
+        heart_rate_critical_high:
+          type: integer
+          maximum: 260
+          minimum: 1
+        spo2_critical_low:
+          type: integer
+          maximum: 100
+          minimum: 0
+        spo2_warning_low:
+          type: integer
+          maximum: 100
+          minimum: 0
+        temp_critical_low:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        temp_warning_low:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        temp_warning_high:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        temp_critical_high:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+    AlertTypeEnum:
+      enum:
+      - heart_rate
+      - spo2
+      - temperature
+      - cannula
+      - sensor_fault
+      - other
+      type: string
+      description: |-
+        * `heart_rate` - Frecuencia Cardíaca
+        * `spo2` - Saturación de Oxígeno (SpO2)
+        * `temperature` - Temperatura Corporal
+        * `cannula` - Cánula de Oxígeno
+        * `sensor_fault` - Fallo de Sensor
+        * `other` - Otra Alerta
+    AuditActionCount:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/ActionEnum'
+        total:
+          type: integer
+      required:
+      - action
+      - total
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        actor_user:
+          type: integer
+          readOnly: true
+          nullable: true
+        actor_email:
+          type: string
+          format: email
+          readOnly: true
+        actor_name:
+          type: string
+          readOnly: true
+        actor_device_code:
+          type: string
+          readOnly: true
+        patient_id:
+          type: integer
+          readOnly: true
+          nullable: true
+        action:
+          allOf:
+          - $ref: '#/components/schemas/ActionEnum'
+          readOnly: true
+        resource_type:
+          type: string
+          readOnly: true
+        resource_id:
+          type: string
+          readOnly: true
+        changed_fields:
+          readOnly: true
+        ip_address:
+          type: string
+          readOnly: true
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - actor_device_code
+      - actor_email
+      - actor_name
+      - actor_user
+      - changed_fields
+      - id
+      - ip_address
+      - patient_id
+      - resource_id
+      - resource_type
+      - timestamp
+    BlankEnum:
+      enum:
+      - ''
+    CarePlan:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+        patient_name:
+          type: string
+          readOnly: true
+        care_area:
+          type: string
+          readOnly: true
+        intervention:
+          type: string
+          readOnly: true
+        frequency:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CarePlanStatusEnum'
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+        created_by_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - care_area
+      - created_at
+      - created_by
+      - created_by_name
+      - frequency
+      - id
+      - intervention
+      - patient
+      - patient_name
+      - status
+      - updated_at
+    CarePlanCreate:
+      type: object
+      properties:
+        patient_id:
+          type: integer
+          minimum: 1
+        care_area:
+          type: string
+          maxLength: 100
+        intervention:
+          type: string
+          maxLength: 255
+        frequency:
+          type: string
+          maxLength: 50
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CarePlanStatusEnum'
+          default: active
+      required:
+      - care_area
+      - frequency
+      - intervention
+      - patient_id
+    CarePlanStatusEnum:
+      enum:
+      - active
+      - suspended
+      - completed
+      type: string
+      description: |-
+        * `active` - Activo
+        * `suspended` - Suspendido
+        * `completed` - Finalizado
+    CarePlanUpdate:
+      type: object
+      properties:
+        care_area:
+          type: string
+          maxLength: 100
+        intervention:
+          type: string
+          maxLength: 255
+        frequency:
+          type: string
+          maxLength: 50
+        status:
+          $ref: '#/components/schemas/CarePlanStatusEnum'
+    CategoryEnum:
+      enum:
+      - general
+      - nursing
+      - medical
+      - kangaroo_care
+      - phototherapy
+      type: string
+      description: |-
+        * `general` - General
+        * `nursing` - Enfermería / Matronería
+        * `medical` - Evolución Médica
+        * `kangaroo_care` - Método Canguro
+        * `phototherapy` - Fototerapia
+    ChangePassword:
+      type: object
+      properties:
+        current_password:
+          type: string
+          writeOnly: true
+        new_password:
+          type: string
+          writeOnly: true
+      required:
+      - current_password
+      - new_password
+    ClinicalObservation:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+        patient_name:
+          type: string
+          readOnly: true
+        author:
+          type: integer
+          readOnly: true
+        author_name:
+          type: string
+          readOnly: true
+        category:
+          allOf:
+          - $ref: '#/components/schemas/CategoryEnum'
+          readOnly: true
+        content:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - author_name
+      - category
+      - content
+      - created_at
+      - id
+      - patient
+      - patient_name
+    ClinicalObservationCreate:
+      type: object
+      properties:
+        patient_id:
+          type: integer
+          minimum: 1
+        category:
+          allOf:
+          - $ref: '#/components/schemas/CategoryEnum'
+          default: general
+        content:
+          type: string
+      required:
+      - content
+      - patient_id
+    Crib:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        location:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CribStatusEnum'
+          readOnly: true
+        api_key_prefix:
+          type: string
+          readOnly: true
+        is_device_active:
+          type: boolean
+          readOnly: true
+        last_telemetry_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        current_patient_id:
+          type: integer
+          readOnly: true
+          nullable: true
+        current_patient_name:
+          type: string
+          readOnly: true
+          nullable: true
+        current_patient_mrn:
+          type: string
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - api_key_prefix
+      - code
+      - created_at
+      - current_patient_id
+      - current_patient_mrn
+      - current_patient_name
+      - id
+      - is_device_active
+      - last_telemetry_at
+      - location
+      - name
+      - status
+      - updated_at
+    CribAssignPatient:
+      type: object
+      properties:
+        patient_id:
+          type: integer
+          minimum: 1
+      required:
+      - patient_id
+    CribCreate:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          default: ''
+          maxLength: 100
+        location:
+          type: string
+          default: ''
+          maxLength: 100
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CribStatusEnum'
+          default: available
+        is_device_active:
+          type: boolean
+          default: true
+      required:
+      - code
+    CribMovement:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/CribMovementKindEnum'
+          readOnly: true
+        kind_label:
+          type: string
+          readOnly: true
+        from_crib:
+          type: integer
+          readOnly: true
+          nullable: true
+        from_crib_code:
+          type: string
+          readOnly: true
+        to_crib:
+          type: integer
+          readOnly: true
+          nullable: true
+        to_crib_code:
+          type: string
+          readOnly: true
+        moved_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        moved_by_name:
+          type: string
+          readOnly: true
+        moved_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - from_crib
+      - from_crib_code
+      - id
+      - kind
+      - kind_label
+      - moved_at
+      - moved_by
+      - moved_by_name
+      - patient
+      - to_crib
+      - to_crib_code
+    CribMovementKindEnum:
+      enum:
+      - assign
+      - move
+      - swap
+      - release
+      - discharge
+      type: string
+      description: |-
+        * `assign` - Asignación de cuna
+        * `move` - Traslado entre cunas
+        * `swap` - Intercambio de cunas
+        * `release` - Liberación de cuna (sigue activo)
+        * `discharge` - Liberación por egreso
+    CribOverview:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        location:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CribStatusEnum'
+          readOnly: true
+        api_key_prefix:
+          type: string
+          readOnly: true
+        is_device_active:
+          type: boolean
+          readOnly: true
+        last_telemetry_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        current_patient_id:
+          type: integer
+          readOnly: true
+          nullable: true
+        current_patient_name:
+          type: string
+          readOnly: true
+          nullable: true
+        current_patient_mrn:
+          type: string
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        patient:
+          allOf:
+          - $ref: '#/components/schemas/OverviewPatient'
+          readOnly: true
+          nullable: true
+        latest_reading:
+          allOf:
+          - $ref: '#/components/schemas/VitalSignReading'
+          readOnly: true
+          nullable: true
+        open_alerts:
+          allOf:
+          - $ref: '#/components/schemas/OverviewAlertCounts'
+          readOnly: true
+        highest_open_severity:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/AlertSeverityEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - api_key_prefix
+      - code
+      - created_at
+      - current_patient_id
+      - current_patient_mrn
+      - current_patient_name
+      - highest_open_severity
+      - id
+      - is_device_active
+      - last_telemetry_at
+      - latest_reading
+      - location
+      - name
+      - open_alerts
+      - patient
+      - status
+      - updated_at
+    CribReport:
+      type: object
+      properties:
+        total:
+          type: integer
+        by_status:
+          $ref: '#/components/schemas/CribStatusCounts'
+        occupancy_percent:
+          type: number
+          format: double
+      required:
+      - by_status
+      - occupancy_percent
+      - total
+    CribStatusCounts:
+      type: object
+      properties:
+        available:
+          type: integer
+        occupied:
+          type: integer
+        maintenance:
+          type: integer
+        offline:
+          type: integer
+      required:
+      - available
+      - maintenance
+      - occupied
+      - offline
+    CribStatusEnum:
+      enum:
+      - available
+      - occupied
+      - maintenance
+      - offline
+      type: string
+      description: |-
+        * `available` - Disponible
+        * `occupied` - Ocupada
+        * `maintenance` - En mantenimiento
+        * `offline` - Fuera de línea
+    CribSwap:
+      type: object
+      properties:
+        other_crib_id:
+          type: integer
+          minimum: 1
+      required:
+      - other_crib_id
+    CribUpdate:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 100
+        location:
+          type: string
+          maxLength: 100
+        status:
+          $ref: '#/components/schemas/CribStatusEnum'
+        is_device_active:
+          type: boolean
+    DischargeCauseEnum:
+      enum:
+      - none
+      - prematurity
+      - perinatal_asphyxia
+      - sepsis
+      - congenital_malformation
+      - hypothermia
+      - other
+      type: string
+      description: |-
+        * `none` - No aplica
+        * `prematurity` - Prematuridad
+        * `perinatal_asphyxia` - Asfixia perinatal
+        * `sepsis` - Sepsis / Infección
+        * `congenital_malformation` - Malformación congénita
+        * `hypothermia` - Hipotermia
+        * `other` - Otra causa
+    DischargeOutcomeEnum:
+      enum:
+      - survived
+      - transferred
+      - deceased
+      - unknown
+      type: string
+      description: |-
+        * `survived` - Sobrevivió / Alta domiciliaria
+        * `transferred` - Trasladado a otra unidad
+        * `deceased` - Fallecido
+        * `unknown` - Desconocido
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        database:
+          type: string
+        timezone:
+          type: string
+        timestamp:
+          type: string
+        components:
+          type: object
+          additionalProperties: {}
+        metrics:
+          type: object
+          additionalProperties: {}
+      required:
+      - components
+      - database
+      - metrics
+      - status
+      - timestamp
+      - timezone
+      - version
+    Login:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+          writeOnly: true
+        otp_code:
+          type: string
+          nullable: true
+          maxLength: 6
+      required:
+      - password
+    LoginResponse:
+      type: object
+      properties:
+        access:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+      - access
+      - user
+    MedicationAdministration:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        prescription:
+          type: integer
+          readOnly: true
+        scheduled_for:
+          type: string
+          format: date-time
+          readOnly: true
+        administered_at:
+          type: string
+          format: date-time
+          readOnly: true
+        administered_by:
+          type: integer
+          readOnly: true
+        administered_by_name:
+          type: string
+          readOnly: true
+        units_deducted:
+          type: integer
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+      required:
+      - administered_at
+      - administered_by
+      - administered_by_name
+      - id
+      - notes
+      - prescription
+      - scheduled_for
+      - units_deducted
+    MedicationCatalogCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 150
+        active_ingredient:
+          type: string
+          maxLength: 150
+        concentration_mg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        unit:
+          type: string
+          default: ampolla
+          maxLength: 30
+        stock:
+          type: integer
+          minimum: 0
+          default: 0
+        min_stock_alert:
+          type: integer
+          minimum: 0
+          default: 5
+        is_active:
+          type: boolean
+          default: true
+      required:
+      - active_ingredient
+      - concentration_mg
+      - name
+    MedicationCatalogItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        active_ingredient:
+          type: string
+          readOnly: true
+        concentration_mg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        unit:
+          type: string
+          readOnly: true
+        stock:
+          type: integer
+          readOnly: true
+        min_stock_alert:
+          type: integer
+          readOnly: true
+        is_low_stock:
+          type: boolean
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - active_ingredient
+      - concentration_mg
+      - created_at
+      - id
+      - is_active
+      - is_low_stock
+      - min_stock_alert
+      - name
+      - stock
+      - unit
+      - updated_at
+    MedicationCatalogUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 150
+        active_ingredient:
+          type: string
+          maxLength: 150
+        concentration_mg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        unit:
+          type: string
+          maxLength: 30
+        stock:
+          type: integer
+          minimum: 0
+        min_stock_alert:
+          type: integer
+          minimum: 0
+        is_active:
+          type: boolean
+    MyShift:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        shift:
+          $ref: '#/components/schemas/WorkShiftEnum'
+        cribs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CribOverview'
+      required:
+      - cribs
+      - date
+      - shift
+    NullEnum:
+      enum:
+      - null
+    OperationsSummary:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        patients:
+          $ref: '#/components/schemas/PatientCounts'
+        cribs:
+          $ref: '#/components/schemas/CribReport'
+        prescriptions:
+          $ref: '#/components/schemas/PrescriptionReport'
+        medications_low_stock:
+          type: integer
+        alerts:
+          $ref: '#/components/schemas/AlertReport'
+        care_plans_active:
+          type: integer
+        staff:
+          $ref: '#/components/schemas/StaffReport'
+      required:
+      - alerts
+      - care_plans_active
+      - cribs
+      - generated_at
+      - medications_low_stock
+      - patients
+      - prescriptions
+      - staff
+    OverviewAlertCounts:
+      type: object
+      properties:
+        total:
+          type: integer
+        critical:
+          type: integer
+        warning:
+          type: integer
+        info:
+          type: integer
+      required:
+      - critical
+      - info
+      - total
+      - warning
+    OverviewPatient:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        medical_record_number:
+          type: string
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        sex:
+          allOf:
+          - $ref: '#/components/schemas/SexEnum'
+          readOnly: true
+        age_days:
+          type: integer
+          readOnly: true
+        gestational_age_weeks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          readOnly: true
+        current_weight_g:
+          type: integer
+          readOnly: true
+      required:
+      - age_days
+      - current_weight_g
+      - full_name
+      - gestational_age_weeks
+      - id
+      - medical_record_number
+      - sex
+    PaginatedAlertList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+    PaginatedAuditLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+    PaginatedCarePlanList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CarePlan'
+    PaginatedClinicalObservationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClinicalObservation'
+    PaginatedCribList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Crib'
+    PaginatedMedicationAdministrationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MedicationAdministration'
+    PaginatedMedicationCatalogItemList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MedicationCatalogItem'
+    PaginatedPatientList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Patient'
+    PaginatedPrescriptionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Prescription'
+    PaginatedShiftAssignmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShiftAssignment'
+    PaginatedStaffMemberList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffMember'
+    PaginatedUserList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    PaginatedVitalSignReadingList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VitalSignReading'
+    PaginatedWeightRecordList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeightRecord'
+    PatchedAlertThresholdConfigUpdate:
+      type: object
+      properties:
+        heart_rate_critical_low:
+          type: integer
+          maximum: 260
+          minimum: 1
+        heart_rate_warning_low:
+          type: integer
+          maximum: 260
+          minimum: 1
+        heart_rate_warning_high:
+          type: integer
+          maximum: 260
+          minimum: 1
+        heart_rate_critical_high:
+          type: integer
+          maximum: 260
+          minimum: 1
+        spo2_critical_low:
+          type: integer
+          maximum: 100
+          minimum: 0
+        spo2_warning_low:
+          type: integer
+          maximum: 100
+          minimum: 0
+        temp_critical_low:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        temp_warning_low:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        temp_warning_high:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        temp_critical_high:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+    PatchedCarePlanUpdate:
+      type: object
+      properties:
+        care_area:
+          type: string
+          maxLength: 100
+        intervention:
+          type: string
+          maxLength: 255
+        frequency:
+          type: string
+          maxLength: 50
+        status:
+          $ref: '#/components/schemas/CarePlanStatusEnum'
+    PatchedCribUpdate:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 100
+        location:
+          type: string
+          maxLength: 100
+        status:
+          $ref: '#/components/schemas/CribStatusEnum'
+        is_device_active:
+          type: boolean
+    PatchedMedicationCatalogUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 150
+        active_ingredient:
+          type: string
+          maxLength: 150
+        concentration_mg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        unit:
+          type: string
+          maxLength: 30
+        stock:
+          type: integer
+          minimum: 0
+        min_stock_alert:
+          type: integer
+          minimum: 0
+        is_active:
+          type: boolean
+    PatchedPatient:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        medical_record_number:
+          type: string
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        sex:
+          allOf:
+          - $ref: '#/components/schemas/SexEnum'
+          readOnly: true
+        birth_date:
+          type: string
+          format: date
+          readOnly: true
+        age_days:
+          type: integer
+          readOnly: true
+        gestational_age_weeks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          readOnly: true
+        birth_weight_g:
+          type: integer
+          readOnly: true
+        current_weight_g:
+          type: integer
+          readOnly: true
+        admitted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        diagnosis:
+          type: string
+          readOnly: true
+        mother_rut:
+          type: string
+          readOnly: true
+        mother_first_names:
+          type: string
+          readOnly: true
+        mother_last_names:
+          type: string
+          readOnly: true
+        mother_phone:
+          type: string
+          readOnly: true
+        father_rut:
+          type: string
+          readOnly: true
+        father_first_names:
+          type: string
+          readOnly: true
+        father_last_names:
+          type: string
+          readOnly: true
+        father_phone:
+          type: string
+          readOnly: true
+        attending_physician:
+          type: integer
+          readOnly: true
+          nullable: true
+        attending_physician_name:
+          type: string
+          readOnly: true
+        crib:
+          type: integer
+          readOnly: true
+          nullable: true
+        crib_code:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PatientStatusEnum'
+          readOnly: true
+        discharged_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        discharge_outcome:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/DischargeOutcomeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        discharge_cause:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/DischargeCauseEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        discharge_notes:
+          type: string
+          readOnly: true
+        discharged_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedPatientUpdate:
+      type: object
+      description: Datos de madre y padre, opcionales; el servicio valida RUT y teléfono.
+      properties:
+        mother_rut:
+          type: string
+          maxLength: 14
+        mother_first_names:
+          type: string
+          maxLength: 100
+        mother_last_names:
+          type: string
+          maxLength: 100
+        mother_phone:
+          type: string
+          maxLength: 20
+        father_rut:
+          type: string
+          maxLength: 14
+        father_first_names:
+          type: string
+          maxLength: 100
+        father_last_names:
+          type: string
+          maxLength: 100
+        father_phone:
+          type: string
+          maxLength: 20
+        full_name:
+          type: string
+          maxLength: 200
+        sex:
+          $ref: '#/components/schemas/SexEnum'
+        birth_date:
+          type: string
+          format: date
+        gestational_age_weeks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        current_weight_g:
+          type: integer
+          maximum: 10000
+          minimum: 200
+        diagnosis:
+          type: string
+        attending_physician_id:
+          type: integer
+          nullable: true
+        crib_id:
+          type: integer
+          nullable: true
+    PatchedUserUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 150
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        full_name:
+          type: string
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 10
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        shift:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/WorkShiftEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        is_active:
+          type: boolean
+        unlock_account:
+          type: boolean
+          default: false
+    Patient:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        medical_record_number:
+          type: string
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        sex:
+          allOf:
+          - $ref: '#/components/schemas/SexEnum'
+          readOnly: true
+        birth_date:
+          type: string
+          format: date
+          readOnly: true
+        age_days:
+          type: integer
+          readOnly: true
+        gestational_age_weeks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          readOnly: true
+        birth_weight_g:
+          type: integer
+          readOnly: true
+        current_weight_g:
+          type: integer
+          readOnly: true
+        admitted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        diagnosis:
+          type: string
+          readOnly: true
+        mother_rut:
+          type: string
+          readOnly: true
+        mother_first_names:
+          type: string
+          readOnly: true
+        mother_last_names:
+          type: string
+          readOnly: true
+        mother_phone:
+          type: string
+          readOnly: true
+        father_rut:
+          type: string
+          readOnly: true
+        father_first_names:
+          type: string
+          readOnly: true
+        father_last_names:
+          type: string
+          readOnly: true
+        father_phone:
+          type: string
+          readOnly: true
+        attending_physician:
+          type: integer
+          readOnly: true
+          nullable: true
+        attending_physician_name:
+          type: string
+          readOnly: true
+        crib:
+          type: integer
+          readOnly: true
+          nullable: true
+        crib_code:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PatientStatusEnum'
+          readOnly: true
+        discharged_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        discharge_outcome:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/DischargeOutcomeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        discharge_cause:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/DischargeCauseEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        discharge_notes:
+          type: string
+          readOnly: true
+        discharged_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - admitted_at
+      - age_days
+      - attending_physician
+      - attending_physician_name
+      - birth_date
+      - birth_weight_g
+      - created_at
+      - crib
+      - crib_code
+      - current_weight_g
+      - diagnosis
+      - discharge_cause
+      - discharge_notes
+      - discharge_outcome
+      - discharged_at
+      - discharged_by
+      - father_first_names
+      - father_last_names
+      - father_phone
+      - father_rut
+      - full_name
+      - gestational_age_weeks
+      - id
+      - medical_record_number
+      - mother_first_names
+      - mother_last_names
+      - mother_phone
+      - mother_rut
+      - sex
+      - status
+      - updated_at
+    PatientCounts:
+      type: object
+      properties:
+        total:
+          type: integer
+        active:
+          type: integer
+        discharged:
+          type: integer
+      required:
+      - active
+      - discharged
+      - total
+    PatientCreate:
+      type: object
+      description: Datos de madre y padre, opcionales; el servicio valida RUT y teléfono.
+      properties:
+        mother_rut:
+          type: string
+          maxLength: 14
+        mother_first_names:
+          type: string
+          maxLength: 100
+        mother_last_names:
+          type: string
+          maxLength: 100
+        mother_phone:
+          type: string
+          maxLength: 20
+        father_rut:
+          type: string
+          maxLength: 14
+        father_first_names:
+          type: string
+          maxLength: 100
+        father_last_names:
+          type: string
+          maxLength: 100
+        father_phone:
+          type: string
+          maxLength: 20
+        medical_record_number:
+          type: string
+          maxLength: 30
+        full_name:
+          type: string
+          maxLength: 200
+        sex:
+          $ref: '#/components/schemas/SexEnum'
+        birth_date:
+          type: string
+          format: date
+        gestational_age_weeks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        birth_weight_g:
+          type: integer
+          maximum: 8000
+          minimum: 200
+        current_weight_g:
+          type: integer
+          maximum: 10000
+          minimum: 200
+          nullable: true
+        diagnosis:
+          type: string
+          default: ''
+        attending_physician_id:
+          type: integer
+          nullable: true
+        crib_id:
+          type: integer
+          nullable: true
+      required:
+      - birth_date
+      - birth_weight_g
+      - full_name
+      - gestational_age_weeks
+      - medical_record_number
+      - sex
+    PatientDischarge:
+      type: object
+      properties:
+        outcome:
+          $ref: '#/components/schemas/DischargeOutcomeEnum'
+        cause:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/DischargeCauseEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        notes:
+          type: string
+          default: ''
+      required:
+      - outcome
+    PatientPermanentDelete:
+      type: object
+      properties:
+        confirmation:
+          type: string
+          description: Número de ficha clínica del paciente, escrito para confirmar.
+          maxLength: 30
+      required:
+      - confirmation
+    PatientStatusEnum:
+      enum:
+      - active
+      - discharged
+      - transferred
+      - deceased
+      type: string
+      description: |-
+        * `active` - Activo en unidad
+        * `discharged` - Egresado (alta)
+        * `transferred` - Trasladado
+        * `deceased` - Fallecido
+    PatientUpdate:
+      type: object
+      description: Datos de madre y padre, opcionales; el servicio valida RUT y teléfono.
+      properties:
+        mother_rut:
+          type: string
+          maxLength: 14
+        mother_first_names:
+          type: string
+          maxLength: 100
+        mother_last_names:
+          type: string
+          maxLength: 100
+        mother_phone:
+          type: string
+          maxLength: 20
+        father_rut:
+          type: string
+          maxLength: 14
+        father_first_names:
+          type: string
+          maxLength: 100
+        father_last_names:
+          type: string
+          maxLength: 100
+        father_phone:
+          type: string
+          maxLength: 20
+        full_name:
+          type: string
+          maxLength: 200
+        sex:
+          $ref: '#/components/schemas/SexEnum'
+        birth_date:
+          type: string
+          format: date
+        gestational_age_weeks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        current_weight_g:
+          type: integer
+          maximum: 10000
+          minimum: 200
+        diagnosis:
+          type: string
+        attending_physician_id:
+          type: integer
+          nullable: true
+        crib_id:
+          type: integer
+          nullable: true
+    Prescription:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+        patient_name:
+          type: string
+          readOnly: true
+        medication:
+          type: integer
+          readOnly: true
+        medication_name:
+          type: string
+          readOnly: true
+        medication_unit:
+          type: string
+          readOnly: true
+        prescribed_by:
+          type: integer
+          readOnly: true
+        prescribed_by_name:
+          type: string
+          readOnly: true
+        dose:
+          type: string
+          readOnly: true
+        units_per_administration:
+          type: integer
+          readOnly: true
+        route:
+          allOf:
+          - $ref: '#/components/schemas/RouteEnum'
+          readOnly: true
+        starts_at:
+          type: string
+          format: date-time
+          readOnly: true
+        frequency_hours:
+          type: integer
+          readOnly: true
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PrescriptionStatusEnum'
+          readOnly: true
+        next_dose_at:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+        is_overdue:
+          type: boolean
+          readOnly: true
+        last_administered_slot:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+        administrations_count:
+          type: integer
+          readOnly: true
+        cancelled_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        cancellation_reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - administrations_count
+      - cancellation_reason
+      - cancelled_at
+      - created_at
+      - dose
+      - ends_at
+      - frequency_hours
+      - id
+      - is_overdue
+      - last_administered_slot
+      - medication
+      - medication_name
+      - medication_unit
+      - next_dose_at
+      - patient
+      - patient_name
+      - prescribed_by
+      - prescribed_by_name
+      - route
+      - starts_at
+      - status
+      - units_per_administration
+      - updated_at
+    PrescriptionAdminister:
+      type: object
+      properties:
+        scheduled_for:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          default: ''
+    PrescriptionCancel:
+      type: object
+      properties:
+        reason:
+          type: string
+          default: ''
+    PrescriptionCreate:
+      type: object
+      properties:
+        patient_id:
+          type: integer
+          minimum: 1
+        medication_id:
+          type: integer
+          minimum: 1
+        dose:
+          type: string
+          maxLength: 100
+        units_per_administration:
+          type: integer
+          minimum: 1
+          default: 1
+        route:
+          allOf:
+          - $ref: '#/components/schemas/RouteEnum'
+          default: IV
+        starts_at:
+          type: string
+          format: date-time
+        frequency_hours:
+          type: integer
+          maximum: 168
+          minimum: 1
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - dose
+      - medication_id
+      - patient_id
+      - starts_at
+    PrescriptionReport:
+      type: object
+      properties:
+        by_status:
+          type: object
+          additionalProperties:
+            type: integer
+        administrations_today:
+          type: integer
+      required:
+      - administrations_today
+      - by_status
+    PrescriptionStatusEnum:
+      enum:
+      - active
+      - completed
+      - cancelled
+      type: string
+      description: |-
+        * `active` - Vigente
+        * `completed` - Completada
+        * `cancelled` - Cancelada
+    ResolutionReasonEnum:
+      enum:
+      - auto_normalized
+      - manual
+      - severity_escalated
+      - patient_discharged
+      type: string
+      description: |-
+        * `auto_normalized` - Normalización automática
+        * `manual` - Resolución manual
+        * `severity_escalated` - Cambio de severidad
+        * `patient_discharged` - Egreso del paciente
+    RoleEnum:
+      enum:
+      - admin
+      - neonatologist
+      - nurse
+      - pharmacist
+      type: string
+      description: |-
+        * `admin` - Administrador
+        * `neonatologist` - Neonatólogo
+        * `nurse` - Matrona / Enfermera
+        * `pharmacist` - Químico Farmacéutico
+    RouteEnum:
+      enum:
+      - IV
+      - IM
+      - ET
+      - PO
+      - SC
+      type: string
+      description: |-
+        * `IV` - Intravenosa (IV)
+        * `IM` - Intramuscular (IM)
+        * `ET` - Endotraqueal (ET)
+        * `PO` - Vía Oral / Sonda (PO)
+        * `SC` - Subcutánea (SC)
+    SexEnum:
+      enum:
+      - F
+      - M
+      type: string
+      description: |-
+        * `F` - Femenino
+        * `M` - Masculino
+    Shift:
+      type: object
+      properties:
+        value:
+          $ref: '#/components/schemas/WorkShiftEnum'
+        label:
+          type: string
+        starts_at:
+          type: string
+          format: time
+        ends_at:
+          type: string
+          format: time
+        is_current:
+          type: boolean
+      required:
+      - ends_at
+      - is_current
+      - label
+      - starts_at
+      - value
+    ShiftAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+          readOnly: true
+        user_name:
+          type: string
+          readOnly: true
+        user_role:
+          type: string
+          readOnly: true
+        crib:
+          type: integer
+          readOnly: true
+        crib_code:
+          type: string
+          readOnly: true
+        date:
+          type: string
+          format: date
+          readOnly: true
+        shift:
+          allOf:
+          - $ref: '#/components/schemas/WorkShiftEnum'
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - crib
+      - crib_code
+      - date
+      - id
+      - shift
+      - user
+      - user_name
+      - user_role
+    ShiftAssignmentCreate:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+        crib_id:
+          type: integer
+          minimum: 1
+        date:
+          type: string
+          format: date
+        shift:
+          $ref: '#/components/schemas/WorkShiftEnum'
+      required:
+      - crib_id
+      - date
+      - shift
+      - user_id
+    SleepStateEnum:
+      enum:
+      - asleep
+      - awake
+      type: string
+      description: |-
+        * `asleep` - Dormido
+        * `awake` - Despierto
+    StaffMember:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        shift:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/WorkShiftEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - full_name
+      - id
+      - role
+      - shift
+    StaffReport:
+      type: object
+      properties:
+        active:
+          type: integer
+        by_shift:
+          type: object
+          additionalProperties:
+            type: integer
+        assignments_current_shift_day:
+          type: integer
+      required:
+      - active
+      - assignments_current_shift_day
+      - by_shift
+    TokenRefreshResponse:
+      type: object
+      properties:
+        access:
+          type: string
+      required:
+      - access
+    TwoFactorCode:
+      type: object
+      properties:
+        otp_code:
+          type: string
+          maxLength: 6
+          minLength: 6
+      required:
+      - otp_code
+    TwoFactorSetupResponse:
+      type: object
+      properties:
+        secret:
+          type: string
+        provisioning_uri:
+          type: string
+      required:
+      - provisioning_uri
+      - secret
+    UnitOverview:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        summary:
+          $ref: '#/components/schemas/UnitSummary'
+        cribs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CribOverview'
+      required:
+      - cribs
+      - generated_at
+      - summary
+    UnitSummary:
+      type: object
+      properties:
+        cribs_total:
+          type: integer
+        cribs_by_status:
+          $ref: '#/components/schemas/CribStatusCounts'
+        patients_monitored:
+          type: integer
+        open_alerts:
+          $ref: '#/components/schemas/OverviewAlertCounts'
+      required:
+      - cribs_by_status
+      - cribs_total
+      - open_alerts
+      - patients_monitored
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        shift:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/WorkShiftEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        is_active:
+          type: boolean
+          readOnly: true
+        is_two_factor_enabled:
+          type: boolean
+          readOnly: true
+        is_temporarily_locked:
+          type: boolean
+          readOnly: true
+        last_login:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          title: Último inicio de sesión
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - full_name
+      - id
+      - is_active
+      - is_temporarily_locked
+      - is_two_factor_enabled
+      - last_login
+      - role
+      - shift
+      - updated_at
+      - username
+    UserCreate:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 150
+        email:
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+          - type: string
+            maxLength: 0
+        full_name:
+          type: string
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 10
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          default: nurse
+        shift:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/WorkShiftEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        is_active:
+          type: boolean
+          default: true
+      required:
+      - full_name
+      - password
+    UserUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 150
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        full_name:
+          type: string
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 10
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        shift:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/WorkShiftEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        is_active:
+          type: boolean
+        unlock_account:
+          type: boolean
+          default: false
+    VitalSignReading:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        crib:
+          type: integer
+          readOnly: true
+        crib_code:
+          type: string
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+          nullable: true
+        patient_name:
+          type: string
+          readOnly: true
+        heart_rate:
+          type: integer
+          readOnly: true
+        spo2:
+          type: integer
+          readOnly: true
+        temperature:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          readOnly: true
+        sleep_state:
+          allOf:
+          - $ref: '#/components/schemas/SleepStateEnum'
+          readOnly: true
+        cannula_connected:
+          type: boolean
+          readOnly: true
+        iv_line_active:
+          type: boolean
+          readOnly: true
+        recorded_at:
+          type: string
+          format: date-time
+          readOnly: true
+        ingested_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - cannula_connected
+      - crib
+      - crib_code
+      - heart_rate
+      - id
+      - ingested_at
+      - iv_line_active
+      - patient
+      - patient_name
+      - recorded_at
+      - sleep_state
+      - spo2
+      - temperature
+    WeightRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+        weight_g:
+          type: integer
+          readOnly: true
+        recorded_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        recorded_by_name:
+          type: string
+          readOnly: true
+        recorded_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - id
+      - patient
+      - recorded_at
+      - recorded_by
+      - recorded_by_name
+      - weight_g
+    WeightRecordCreate:
+      type: object
+      properties:
+        weight_g:
+          type: integer
+          maximum: 10000
+          minimum: 200
+      required:
+      - weight_g
+    WorkShiftEnum:
+      enum:
+      - morning
+      - afternoon
+      - night
+      type: string
+      description: |-
+        * `morning` - Mañana
+        * `afternoon` - Tarde
+        * `night` - Noche
+  securitySchemes:
+    DeviceApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Device-Api-Key
+      description: API Key por dispositivo de cuna neonatal (pk_dev_<prefix>_<secret>).
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

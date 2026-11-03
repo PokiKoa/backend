@@ -1,9 +1,0 @@
-{
-  "version": "1",
-  "name": "Poki Koa - Entrega 2",
-  "type": "collection",
-  "ignore": [
-    "node_modules",
-    ".git"
-  ]
-}

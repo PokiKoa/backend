@@ -1,0 +1,61 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ title }} | Poki Koa — Control Neonatal{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  :root {
+    --primary: #0369a1;
+    --secondary: #0f172a;
+    --accent: #38bdf8;
+    --header-bg: #0f172a;
+    --header-color: #f8fafc;
+    --header-link-color: #bae6fd;
+  }
+  #header {
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 12px 24px;
+    border-bottom: 2px solid #0284c7;
+  }
+  #site-name a {
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: #f8fafc !important;
+  }
+  .poki-top-links {
+    display: inline-flex;
+    gap: 8px;
+    margin-left: 16px;
+    vertical-align: middle;
+  }
+  .poki-top-links a {
+    background: #1e293b;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155;
+    padding: 4px 10px;
+    border-radius: 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .poki-top-links a:hover {
+    background: #334155;
+  }
+  div.breadcrumbs {
+    background: #1e293b;
+  }
+</style>
+{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+  <a href="{% url 'admin:index' %}">Poki Koa · Centro de Control Neonatal</a>
+  <span class="poki-top-links">
+    <a href="/">Vista General UCIN</a>
+    <a href="/api/v1/docs/">Swagger API</a>
+    <a href="/api/v1/health/">Estado del Sistema</a>
+  </span>
+</div>
+{% endblock %}

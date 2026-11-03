@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es-cl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Poki Koa — Centro de Monitoreo Neonatal</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --border: #cbd5e1;
+      --border-subtle: #e2e8f0;
+      --text: #0f172a;
+      --muted: #475569;
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --success: #059669;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --radius: 0.5rem;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 1.4rem 2rem;
+      border-bottom: 2px solid #0284c7;
+    }
+    .header-inner {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .brand p {
+      margin: 0.2rem 0 0;
+      color: #94a3b8;
+      font-size: 0.88rem;
+    }
+    .nav-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.48rem 0.9rem;
+      border-radius: var(--radius);
+      font-weight: 600;
+      font-size: 0.86rem;
+      text-decoration: none;
+      border: 1px solid transparent;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+    .btn-outline {
+      background: #1e293b;
+      color: #e2e8f0;
+      border-color: #334155;
+    }
+    .btn-outline:hover {
+      background: #334155;
+    }
+    main {
+      max-width: 1240px;
+      margin: 1.5rem auto 3rem;
+      padding: 0 1.5rem;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.2rem;
+    }
+    .kpi-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+    }
+    .kpi-value {
+      font-size: 1.85rem;
+      font-weight: 700;
+      margin: 0.2rem 0;
+    }
+    .kpi-sub { font-size: 0.82rem; color: var(--muted); }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 1.2rem;
+    }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.9rem;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .panel-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .panel-header a {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--primary);
+      text-decoration: none;
+    }
+    .panel-header a:hover {
+      text-decoration: underline;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.55rem 0.5rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    th {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.16rem 0.5rem;
+      border-radius: var(--radius);
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+    .badge-success { background: #d1fae5; color: #065f46; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-info { background: #e0f2fe; color: #075985; }
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+    .module-card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 1.05rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .module-card h3 {
+      margin: 0;
+      font-size: 0.96rem;
+      font-weight: 700;
+    }
+    .module-card p {
+      margin: 0.25rem 0 0;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+    .module-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    .chip-link {
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.32rem 0.65rem;
+      border-radius: var(--radius);
+      background: #f1f5f9;
+      color: #0f172a;
+      border: 1px solid var(--border-subtle);
+      text-decoration: none;
+    }
+    .chip-link.primary {
+      background: #e0f2fe;
+      color: #0369a1;
+      border-color: #bae6fd;
+    }
+    .chip-link:hover { background: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <h1>Poki Koa · Monitoreo Clínico Neonatal (v2)</h1>
+        <p>Centro de Control Backend · Unidad de Cuidados Intensivos Neonatales (UCIN)</p>
+      </div>
+      <div class="nav-actions">
+        <a href="/admin/" class="btn btn-primary">Abrir Panel de Control (/admin/)</a>
+        <a href="/api/v1/docs/" class="btn btn-outline">Documentación API (Swagger)</a>
+        <a href="/api/v1/health/" class="btn btn-outline">Estado del Sistema</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Pacientes en Unidad</div>
+        <div class="kpi-value" style="color: var(--primary);">{{ active_patients_count }}</div>
+        <div class="kpi-sub">{{ discharged_patients_count }} egresos históricos registrados</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Cunas / Incubadoras</div>
+        <div class="kpi-value" style="color: var(--success);">{{ occupied_cribs_count }} / {{ total_cribs_count }}</div>
+        <div class="kpi-sub">{{ available_cribs_count }} disponibles para ingreso inmediato</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Alertas Clínicas Abiertas</div>
+        <div class="kpi-value" style="color: {% if critical_alerts_count > 0 %}var(--danger){% elif open_alerts_count > 0 %}var(--warning){% else %}var(--success){% endif %};">
+          {{ open_alerts_count }}
+        </div>
+        <div class="kpi-sub">{{ critical_alerts_count }} críticas · {{ warning_alerts_count }} advertencias</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Farmacia e Indicaciones</div>
+        <div class="kpi-value" style="color: {% if low_stock_medications_count > 0 %}var(--warning){% else %}var(--text){% endif %};">
+          {{ pending_prescriptions_count }}
+        </div>
+        <div class="kpi-sub">indicaciones vigentes · {{ low_stock_medications_count }} fármacos con stock bajo</div>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Recién Nacidos Hospitalizados Activos</h2>
+          <a href="/admin/patients/patient/">Gestionar pacientes</a>
+        </div>
+        {% if active_patients %}
+        <table>
+          <thead>
+            <tr>
+              <th>Ficha</th>
+              <th>Paciente</th>
+              <th>Cuna</th>
+              <th>EG / Peso</th>
+              <th>Médico a Cargo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in active_patients %}
+            <tr>
+              <td><a href="/admin/patients/patient/{{ p.id }}/change/" style="font-weight:700; color:var(--primary); text-decoration:none;">{{ p.medical_record_number }}</a></td>
+              <td>{{ p.full_name }}</td>
+              <td>
+                {% if p.crib %}
+                  <span class="badge badge-info">{{ p.crib.code }}</span>
+                {% else %}
+                  <span style="color:var(--muted);">Sin cuna</span>
+                {% endif %}
+              </td>
+              <td>{{ p.gestational_age_weeks }} sem · {{ p.current_weight_g }} g</td>
+              <td>{{ p.attending_physician.full_name|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p style="color:var(--muted); margin:0;">No hay pacientes activos registrados actualmente.</p>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Alertas Clínicas Pendientes</h2>
+          <a href="/admin/alerts/alert/">Ver todas</a>
+        </div>
+        {% if recent_alerts %}
+        <table>
+          <thead>
+            <tr>
+              <th>Nivel</th>
+              <th>Cuna / Paciente</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in recent_alerts %}
+            <tr>
+              <td>
+                {% if a.severity == "critical" %}
+                  <span class="badge badge-danger">CRÍTICA</span>
+                {% else %}
+                  <span class="badge badge-warning">ADVERTENCIA</span>
+                {% endif %}
+              </td>
+              <td>
+                <strong>{{ a.crib.code }}</strong><br>
+                <span style="font-size:0.8rem; color:var(--muted);">{{ a.patient.full_name|default:"—" }}</span>
+              </td>
+              <td style="font-size:0.84rem;">
+                <a href="/admin/alerts/alert/{{ a.id }}/change/" style="color:var(--text); text-decoration:none;">
+                  {{ a.message }}
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p style="color:var(--success); font-weight:600; margin:0;">Sin alertas clínicas activas en este momento.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section>
+      <h2 style="font-size:1.05rem; margin: 0 0 0.85rem;">Accesos Directos por Módulo Clínico</h2>
+      <div class="modules-grid">
+        <div class="module-card">
+          <div>
+            <h3>Pacientes y Evolución</h3>
+            <p>Ingreso neonatal, curva de peso, planes de cuidado y observaciones clínicas.</p>
+          </div>
+          <div class="module-links">
+            <a href="/admin/patients/patient/add/" class="chip-link primary">Ingresar Paciente</a>
+            <a href="/admin/patients/patient/" class="chip-link">Pacientes</a>
+            <a href="/admin/patients/careplan/" class="chip-link">Planes</a>
+            <a href="/admin/patients/clinicalobservation/" class="chip-link">Observaciones</a>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div>
+            <h3>Cunas y Telemetría</h3>
+            <p>Estado operativo de incubadoras, credenciales IoT y lecturas de signos vitales.</p>
+          </div>
+          <div class="module-links">
+            <a href="/admin/devices/crib/add/" class="chip-link primary">Nueva Cuna</a>
+            <a href="/admin/devices/crib/" class="chip-link">Cunas</a>
+            <a href="/admin/vitals/vitalsignreading/" class="chip-link">Signos Vitales</a>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div>
+            <h3>Motor de Alertas</h3>
+            <p>Reconocimiento de alertas activas y configuración de umbrales neonatales.</p>
+          </div>
+          <div class="module-links">
+            <a href="/admin/alerts/alert/?status__exact=active" class="chip-link primary">Alertas Activas</a>
+            <a href="/admin/alerts/alertthresholdconfig/" class="chip-link">Umbrales</a>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div>
+            <h3>Farmacia y Medicación</h3>
+            <p>Catálogo de medicamentos con control de stock e indicaciones por paciente.</p>
+          </div>
+          <div class="module-links">
+            <a href="/admin/medications/prescription/add/" class="chip-link primary">Prescribir</a>
+            <a href="/admin/medications/medicationcatalogitem/" class="chip-link">Catálogo / Stock</a>
+            <a href="/admin/medications/prescription/" class="chip-link">Indicaciones</a>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div>
+            <h3>Usuarios y Auditoría</h3>
+            <p>Gestión de personal clínico por rol y registro inmutable de auditoría.</p>
+          </div>
+          <div class="module-links">
+            <a href="/admin/accounts/user/" class="chip-link primary">Usuarios y Roles</a>
+            <a href="/admin/audit/auditlog/" class="chip-link">Auditoría Clínica</a>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div>
+            <h3>API REST y Tiempo Real</h3>
+            <p>Contrato OpenAPI 3 bajo <code>/api/v1/</code> y canales WebSocket bajo <code>ws/v1/</code>.</p>
+          </div>
+          <div class="module-links">
+            <a href="/api/v1/docs/" class="chip-link primary">Swagger UI</a>
+            <a href="/api/v1/schema/" class="chip-link">Esquema OpenAPI</a>
+            <a href="/api/v1/health/" class="chip-link">Health Check</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

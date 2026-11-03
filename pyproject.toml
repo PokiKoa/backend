@@ -1,73 +1,92 @@
-# Proyecto: Mamoru / Poki Koa — Backend de monitoreo neonatal
+# Proyecto: Poki Koa — Backend de monitoreo neonatal
 # Gestión de dependencias y empaquetado con uv + hatchling
 
 [project]
 name = "poki_koa"
-version = "0.1.0"
-description = "Backend Django REST para el sistema de monitoreo de cunas neonatales Poki Koa"
+version = "2.0.0"
+description = "Backend Django REST y tiempo real para el sistema de monitoreo neonatal Poki Koa"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    # Framework web principal
+    "channels>=4.3.2",
+    "channels-redis>=4.3.0",
     "django>=5.2.17",
-    # Soporte para solicitudes cross-origin (necesario para conectar con el frontend React/Vite)
     "django-cors-headers>=4.9.0",
-    # API REST: serialización, vistas y router automático
+    "django-environ>=0.14.0",
+    "django-filter>=26.2",
     "djangorestframework>=3.18.0",
+    "djangorestframework-simplejwt>=5.5.1",
+    "drf-spectacular>=0.30.0",
+    "psycopg[binary]>=3.3.6",
+    "uvicorn[standard]>=0.34.0",
+    "whitenoise>=6.9.0",
 ]
 
-# Define el comando de gestión Django disponible tras ejecutar `uv sync`
-# Uso: uv run poki_koa [comando django]
 [project.scripts]
 poki_koa = "poki_koa.main:main"
-make-crud = "cunas.management.commands.make_crud:main"
 
-# Sistema de construcción del paquete (requerido por uv para instalar el proyecto)
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# Indica a hatchling dónde están los paquetes Python del proyecto
 [tool.hatch.build.targets.wheel]
-packages = ["src/poki_koa", "src/cunas"]
+packages = [
+    "src/poki_koa",
+    "src/accounts",
+    "src/audit",
+    "src/devices",
+    "src/patients",
+    "src/vitals",
+    "src/alerts",
+    "src/medications",
+    "src/reports",
+]
 
 [dependency-groups]
 dev = [
     "coverage>=7.6.0",
+    "pytest>=9.2.0",
+    "pytest-django>=4.14.0",
     "ruff>=0.16.6",
 ]
 
-# Configuración de cobertura de código (líneas, funciones y ramas)
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "poki_koa.settings.dev"
+pythonpath = ["src"]
+python_files = ["tests.py", "test_*.py"]
+addopts = "-q"
+
 [tool.coverage.run]
+# Mide líneas y ramas (cada if/else, bucle y salida temprana) de todo el código
+# fuente: modelos, servicios, vistas, admin, migraciones, comandos y settings.
+# Solo quedan fuera los propios archivos de prueba.
 branch = true
 source = ["src"]
 omit = [
-    "*/migrations/*",
-    "*/management/*",
-    "*/admin.py",
-    "*/apps.py",
-    "*/__init__.py",
-    "*/test*.py",
-    "*/wsgi.py",
-    "*/asgi.py",
-    "*/manage.py",
-    "*/poki_koa/main.py",
-    "*/settings_entregable.py",
+    "*/tests.py",
+    "*/test_*.py",
+    "*/conftest.py",
 ]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-fail_under = 85
-exclude_lines = [
-    "pragma: no cover",
+precision = 1
+sort = "cover"
+fail_under = 90
+exclude_also = [
     "if __name__ == .__main__.:",
-    "\\.\\.\\.",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "^\\s*\\.\\.\\.$",
 ]
 
-# Ruff ignora archivos generados automaticamente por django
+[tool.coverage.html]
+directory = "htmlcov"
+show_contexts = false
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
 [tool.ruff.lint.per-file-ignores]
-"**/migrations/*" = ["RUF012"]
-"src/cunas/models.py" = ["RUF012"]
-"src/cunas/serializers.py" = ["RUF012"]
-"src/cunas/views.py" = ["RUF012"]
+"**/migrations/*" = ["RUF012", "I001"]

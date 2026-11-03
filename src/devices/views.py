@@ -19,6 +19,7 @@ from .serializers import (
     CribAssignPatientSerializer,
     CribCreateSerializer,
     CribSerializer,
+    CribSwapSerializer,
     CribUpdateSerializer,
 )
 from .services import (
@@ -153,6 +154,27 @@ class CribViewSet(
             ip_address=get_client_ip(request),
         )
         return Response(CribSerializer(updated_crib).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Intercambia a los pacientes de dos cunas ocupadas sin egresarlos",
+        request=CribSwapSerializer,
+        responses={200: CribSerializer(many=True)},
+    )
+    @action(detail=True, methods=["post"], url_path="swap")
+    def swap(self, request: Request, pk=None) -> Response:
+        crib = self.get_object()
+        serializer = CribSwapSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from patients.services import swap_patients_between_cribs
+
+        cribs = swap_patients_between_cribs(
+            actor=request.user,
+            crib=crib,
+            other_crib_id=serializer.validated_data["other_crib_id"],
+            ip_address=get_client_ip(request),
+        )
+        return Response(CribSerializer(list(cribs), many=True).data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Ingiere una lectura de telemetría o lista el historial de lecturas de la cuna",

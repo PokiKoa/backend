@@ -7,6 +7,7 @@ from .models import (
     CarePlan,
     CarePlanStatus,
     ClinicalObservation,
+    CribMovement,
     DischargeCause,
     DischargeOutcome,
     ObservationCategory,
@@ -39,6 +40,14 @@ class PatientSerializer(serializers.ModelSerializer):
             "current_weight_g",
             "admitted_at",
             "diagnosis",
+            "mother_rut",
+            "mother_first_names",
+            "mother_last_names",
+            "mother_phone",
+            "father_rut",
+            "father_first_names",
+            "father_last_names",
+            "father_phone",
             "attending_physician",
             "attending_physician_name",
             "crib",
@@ -55,7 +64,20 @@ class PatientSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class PatientCreateSerializer(serializers.Serializer):
+class GuardianFieldsMixin(serializers.Serializer):
+    """Datos de madre y padre, opcionales; el servicio valida RUT y teléfono."""
+
+    mother_rut = serializers.CharField(max_length=14, required=False, allow_blank=True)
+    mother_first_names = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    mother_last_names = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    mother_phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    father_rut = serializers.CharField(max_length=14, required=False, allow_blank=True)
+    father_first_names = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    father_last_names = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    father_phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+
+
+class PatientCreateSerializer(GuardianFieldsMixin):
     medical_record_number = serializers.CharField(max_length=30)
     full_name = serializers.CharField(max_length=200)
     sex = serializers.ChoiceField(choices=PatientSex.choices)
@@ -77,7 +99,7 @@ class PatientCreateSerializer(serializers.Serializer):
     crib_id = serializers.IntegerField(required=False, allow_null=True, default=None)
 
 
-class PatientUpdateSerializer(serializers.Serializer):
+class PatientUpdateSerializer(GuardianFieldsMixin):
     full_name = serializers.CharField(max_length=200, required=False)
     sex = serializers.ChoiceField(choices=PatientSex.choices, required=False)
     birth_date = serializers.DateField(required=False)
@@ -104,6 +126,37 @@ class PatientDischargeSerializer(serializers.Serializer):
         choices=DischargeCause.choices, required=False, allow_null=True, default=None
     )
     notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class PatientPermanentDeleteSerializer(serializers.Serializer):
+    confirmation = serializers.CharField(
+        max_length=30,
+        help_text="Número de ficha clínica del paciente, escrito para confirmar.",
+    )
+
+
+class CribMovementSerializer(serializers.ModelSerializer):
+    kind_label = serializers.CharField(source="get_kind_display", read_only=True)
+    moved_by_name = serializers.CharField(
+        source="moved_by.full_name", read_only=True, default=None
+    )
+
+    class Meta:
+        model = CribMovement
+        fields: ClassVar[list[str]] = [
+            "id",
+            "patient",
+            "kind",
+            "kind_label",
+            "from_crib",
+            "from_crib_code",
+            "to_crib",
+            "to_crib_code",
+            "moved_by",
+            "moved_by_name",
+            "moved_at",
+        ]
+        read_only_fields = fields
 
 
 class WeightRecordSerializer(serializers.ModelSerializer):

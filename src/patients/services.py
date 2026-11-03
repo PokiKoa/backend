@@ -20,6 +20,8 @@ from .models import (
     CarePlan,
     CarePlanStatus,
     ClinicalObservation,
+    CribMovement,
+    CribMovementKind,
     DischargeCause,
     DischargeOutcome,
     ObservationCategory,
@@ -28,6 +30,59 @@ from .models import (
     PatientStatus,
     WeightRecord,
 )
+from .validators import normalize_phone, normalize_rut
+
+GUARDIAN_FIELDS: tuple[str, ...] = (
+    "mother_rut",
+    "mother_first_names",
+    "mother_last_names",
+    "mother_phone",
+    "father_rut",
+    "father_first_names",
+    "father_last_names",
+    "father_phone",
+)
+_GUARDIAN_LABELS = {"mother": "de la madre", "father": "del padre"}
+
+
+def _clean_guardian_data(data: dict[str, Any]) -> dict[str, str]:
+    """Normaliza los campos de madre/padre presentes en ``data``.
+
+    Solo devuelve las claves informadas, para que una edición parcial no borre
+    los datos que no se enviaron.
+    """
+    cleaned: dict[str, str] = {}
+    for field in GUARDIAN_FIELDS:
+        if field not in data:
+            continue
+        value = str(data[field] or "").strip()
+        parent, _, kind = field.partition("_")
+        label = _GUARDIAN_LABELS[parent]
+        if kind == "rut":
+            value = normalize_rut(value, label=label)
+        elif kind == "phone":
+            value = normalize_phone(value, label=label)
+        cleaned[field] = value
+    return cleaned
+
+
+def _record_crib_movement(
+    *,
+    patient: Patient,
+    kind: str,
+    actor: User | None,
+    from_crib: Crib | None = None,
+    to_crib: Crib | None = None,
+) -> CribMovement:
+    return CribMovement.objects.create(
+        patient=patient,
+        kind=kind,
+        from_crib=from_crib,
+        from_crib_code=from_crib.code if from_crib else "",
+        to_crib=to_crib,
+        to_crib_code=to_crib.code if to_crib else "",
+        moved_by=actor,
+    )
 
 
 def _validate_attending_physician(physician_id: int | None) -> User | None:
@@ -70,12 +125,14 @@ def admit_patient(
     diagnosis: str = "",
     attending_physician_id: int | None = None,
     crib_id: int | None = None,
+    guardians: dict[str, Any] | None = None,
     ip_address: str | None = None,
 ) -> Patient:
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo Neonatólogos o Matronas/Enfermeras pueden registrar el ingreso de un paciente."
         )
+    guardian_data = _clean_guardian_data(guardians or {})
 
     mrn = (medical_record_number or "").strip().upper()
     cleaned_name = (full_name or "").strip()
@@ -119,11 +176,15 @@ def admit_patient(
             attending_physician=physician,
             crib=crib,
             status=PatientStatus.ACTIVE,
+            **guardian_data,
         )
 
         if crib is not None:
             crib.status = CribStatus.OCCUPIED
             crib.save(update_fields=["status", "updated_at"])
+            _record_crib_movement(
+                patient=patient, kind=CribMovementKind.ASSIGN, actor=actor, to_crib=crib
+            )
 
         WeightRecord.objects.create(
             patient=patient,
@@ -148,6 +209,7 @@ def admit_patient(
                 "diagnosis",
                 "attending_physician_id",
                 "crib_id",
+                *guardian_data.keys(),
             ],
             ip_address=ip_address,
         )
@@ -243,6 +305,11 @@ def update_patient(
                 locked_patient.attending_physician = new_physician
                 changed_fields.append("attending_physician_id")
 
+        for field, value in _clean_guardian_data(data).items():
+            if value != getattr(locked_patient, field):
+                setattr(locked_patient, field, value)
+                changed_fields.append(field)
+
         if "crib_id" in data:
             new_crib_id = data["crib_id"]
             if new_crib_id != locked_patient.crib_id:
@@ -260,6 +327,19 @@ def update_patient(
                 if new_crib is not None:
                     new_crib.status = CribStatus.OCCUPIED
                     new_crib.save(update_fields=["status", "updated_at"])
+                if old_crib is None:
+                    kind = CribMovementKind.ASSIGN
+                elif new_crib is None:
+                    kind = CribMovementKind.RELEASE
+                else:
+                    kind = CribMovementKind.MOVE
+                _record_crib_movement(
+                    patient=locked_patient,
+                    kind=kind,
+                    actor=actor,
+                    from_crib=old_crib,
+                    to_crib=new_crib,
+                )
 
         if changed_fields:
             locked_patient.save()
@@ -329,6 +409,12 @@ def discharge_patient(
         if old_crib is not None:
             old_crib.status = CribStatus.AVAILABLE
             old_crib.save(update_fields=["status", "updated_at"])
+            _record_crib_movement(
+                patient=locked_patient,
+                kind=CribMovementKind.DISCHARGE,
+                actor=actor,
+                from_crib=old_crib,
+            )
 
         # Suspender planes de cuidado activos y resolver alertas pendientes al momento del egreso
         locked_patient.care_plans.filter(status=CarePlanStatus.ACTIVE).update(
@@ -398,7 +484,9 @@ def assign_patient_to_crib(
             )
 
         previous_crib = locked_patient.crib
-        if previous_crib is not None and previous_crib.id != locked_crib.id:
+        if previous_crib is not None and previous_crib.id == locked_crib.id:
+            raise ConflictDomainError("El paciente ya se encuentra en esa cuna.")
+        if previous_crib is not None:
             locked_patient.crib = None
             locked_patient.save(update_fields=["crib", "updated_at"])
             previous_crib.status = CribStatus.AVAILABLE
@@ -409,6 +497,13 @@ def assign_patient_to_crib(
 
         locked_crib.status = CribStatus.OCCUPIED
         locked_crib.save(update_fields=["status", "updated_at"])
+        _record_crib_movement(
+            patient=locked_patient,
+            kind=CribMovementKind.MOVE if previous_crib else CribMovementKind.ASSIGN,
+            actor=actor,
+            from_crib=previous_crib,
+            to_crib=locked_crib,
+        )
 
         record_audit_event(
             action=AuditAction.ASSIGN_CRIB,
@@ -446,6 +541,12 @@ def release_patient_from_crib(
 
         locked_crib.status = CribStatus.AVAILABLE
         locked_crib.save(update_fields=["status", "updated_at"])
+        _record_crib_movement(
+            patient=occupant,
+            kind=CribMovementKind.RELEASE,
+            actor=actor,
+            from_crib=locked_crib,
+        )
 
         record_audit_event(
             action=AuditAction.RELEASE_CRIB,
@@ -459,6 +560,150 @@ def release_patient_from_crib(
 
     locked_crib.refresh_from_db()
     return locked_crib
+
+
+def swap_patients_between_cribs(
+    *,
+    actor: User,
+    crib: Crib,
+    other_crib_id: int,
+    ip_address: str | None = None,
+) -> tuple[Crib, Crib]:
+    """Intercambia a los pacientes de dos cunas ocupadas en una sola operación.
+
+    Ningún paciente egresa ni queda sin cuna en el proceso; cada uno recibe un
+    movimiento de tipo intercambio en su historial.
+    """
+    if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
+        raise PermissionDomainError(
+            "Solo el personal clínico o administrativo puede intercambiar pacientes de cuna."
+        )
+    if crib.pk == other_crib_id:
+        raise DomainError("Selecciona dos cunas distintas para el intercambio.")
+
+    with transaction.atomic():
+        # Bloquear siempre en el mismo orden evita interbloqueos entre intercambios simultáneos
+        locked = {
+            c.pk: c
+            for c in Crib.objects.select_for_update()
+            .filter(pk__in=[crib.pk, other_crib_id])
+            .order_by("pk")
+        }
+        if other_crib_id not in locked:
+            raise NotFoundDomainError("La cuna de destino no existe.")
+        first_crib, second_crib = locked[crib.pk], locked[other_crib_id]
+
+        for target in (first_crib, second_crib):
+            if target.status in {CribStatus.MAINTENANCE, CribStatus.OFFLINE}:
+                raise ConflictDomainError(
+                    f"La cuna {target.code} está en mantenimiento o fuera de línea."
+                )
+
+        first_patient = (
+            Patient.objects.select_for_update().filter(crib=first_crib).first()
+        )
+        second_patient = (
+            Patient.objects.select_for_update().filter(crib=second_crib).first()
+        )
+        if first_patient is None or second_patient is None:
+            raise ConflictDomainError(
+                "Ambas cunas deben estar ocupadas para intercambiar pacientes; "
+                "para una cuna libre usa la asignación."
+            )
+
+        # La relación uno a uno exige soltar una cuna antes de ocuparla con el otro paciente
+        first_patient.crib = None
+        first_patient.save(update_fields=["crib", "updated_at"])
+        second_patient.crib = first_crib
+        second_patient.save(update_fields=["crib", "updated_at"])
+        first_patient.crib = second_crib
+        first_patient.save(update_fields=["crib", "updated_at"])
+
+        for patient, origin, destination in (
+            (first_patient, first_crib, second_crib),
+            (second_patient, second_crib, first_crib),
+        ):
+            _record_crib_movement(
+                patient=patient,
+                kind=CribMovementKind.SWAP,
+                actor=actor,
+                from_crib=origin,
+                to_crib=destination,
+            )
+            record_audit_event(
+                action=AuditAction.SWAP_CRIB,
+                resource_type="crib",
+                resource_id=destination.id,
+                actor_user=actor,
+                patient_id=patient.id,
+                changed_fields=["crib_id"],
+                ip_address=ip_address,
+            )
+
+    first_crib.refresh_from_db()
+    second_crib.refresh_from_db()
+    return first_crib, second_crib
+
+
+def delete_patient_permanently(
+    *,
+    actor: User,
+    patient: Patient,
+    confirmation: str,
+    ip_address: str | None = None,
+) -> None:
+    """Elimina al paciente y todo su registro clínico sin posibilidad de recuperarlo.
+
+    Pensado para ingresos creados por error. Exige escribir el número de ficha
+    como confirmación; la auditoría conserva solo el identificador numérico.
+    Las administraciones ya descontadas del stock no se reponen.
+    """
+    if actor.role != UserRole.ADMIN:
+        raise PermissionDomainError(
+            "Solo un Administrador puede eliminar definitivamente a un paciente."
+        )
+    if (confirmation or "").strip().upper() != patient.medical_record_number:
+        raise DomainError(
+            "Para confirmar, escribe exactamente el número de ficha clínica del paciente."
+        )
+
+    from alerts.models import Alert
+    from medications.models import MedicationAdministration, Prescription
+    from vitals.models import VitalSignReading
+
+    with transaction.atomic():
+        locked_patient = Patient.objects.select_for_update().get(pk=patient.pk)
+        patient_id = locked_patient.id
+
+        if locked_patient.crib_id is not None:
+            crib = Crib.objects.select_for_update().get(pk=locked_patient.crib_id)
+            locked_patient.crib = None
+            locked_patient.save(update_fields=["crib", "updated_at"])
+            crib.status = CribStatus.AVAILABLE
+            crib.save(update_fields=["status", "updated_at"])
+
+        # Orden inverso a las dependencias: primero lo que apunta a otros registros del paciente
+        MedicationAdministration.objects.filter(
+            prescription__patient_id=patient_id
+        ).delete()
+        Prescription.objects.filter(patient_id=patient_id).delete()
+        Alert.objects.filter(patient_id=patient_id).delete()
+        VitalSignReading.objects.filter(patient_id=patient_id).delete()
+        WeightRecord.objects.filter(patient_id=patient_id).delete()
+        CarePlan.objects.filter(patient_id=patient_id).delete()
+        ClinicalObservation.objects.filter(patient_id=patient_id).delete()
+        CribMovement.objects.filter(patient_id=patient_id).delete()
+        locked_patient.delete()
+
+        record_audit_event(
+            action=AuditAction.DELETE,
+            resource_type="patient",
+            resource_id=patient_id,
+            actor_user=actor,
+            patient_id=patient_id,
+            changed_fields=[],
+            ip_address=ip_address,
+        )
 
 
 def record_patient_weight(

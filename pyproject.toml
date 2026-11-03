@@ -57,31 +57,36 @@ python_files = ["tests.py", "test_*.py"]
 addopts = "-q"
 
 [tool.coverage.run]
+# Mide líneas y ramas (cada if/else, bucle y salida temprana) de todo el código
+# fuente: modelos, servicios, vistas, admin, migraciones, comandos y settings.
+# Solo quedan fuera los propios archivos de prueba.
 branch = true
 source = ["src"]
 omit = [
-    "*/migrations/*",
-    "*/management/*",
-    "*/admin.py",
-    "*/apps.py",
-    "*/__init__.py",
-    "*/test*.py",
-    "*/wsgi.py",
-    "*/asgi.py",
-    "*/manage.py",
-    "*/poki_koa/main.py",
-    "*/poki_koa/settings/*",
+    "*/tests.py",
+    "*/test_*.py",
+    "*/conftest.py",
 ]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+precision = 1
+sort = "cover"
 fail_under = 90
-exclude_lines = [
-    "pragma: no cover",
+exclude_also = [
     "if __name__ == .__main__.:",
-    "\\.\\.\\.",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "^\\s*\\.\\.\\.$",
 ]
+
+[tool.coverage.html]
+directory = "htmlcov"
+show_contexts = false
+
+[tool.coverage.xml]
+output = "coverage.xml"
 
 [tool.ruff.lint.per-file-ignores]
 "**/migrations/*" = ["RUF012", "I001"]

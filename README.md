@@ -70,6 +70,19 @@ uv run pytest
 uv run poki_koa test
 ```
 
+### Cobertura
+
+La cobertura mide **líneas y ramas** (cada `if`/`else`, bucle y salida temprana) de todo `src/`: modelos, servicios, vistas, admin, migraciones, comandos y settings. Solo se excluyen los archivos de prueba. La CI falla si baja de 90 % y publica el reporte HTML como artefacto (`cobertura-backend`).
+
+```bash
+uv run coverage run -m pytest   # ejecuta la suite midiendo líneas y ramas
+uv run coverage report          # tabla por archivo: Stmts, Miss, Branch, BrPart y líneas faltantes
+uv run coverage html            # reporte navegable en htmlcov/index.html
+uv run coverage xml             # coverage.xml para herramientas externas
+```
+
+En la columna `Missing`, `12` es una línea sin ejecutar y `12->15` es una rama no recorrida (por ejemplo, el `if` de la línea 12 nunca saltó a la 15).
+
 ## Desarrollo junto al frontend
 
 El frontend (React + Vite) vive en [PokiKoa/frontend](https://github.com/PokiKoa/frontend), rama `rewrite/v2`. Clónalo junto a este repositorio (`../frontend`) y sigue su README: levanta este backend con `uvicorn`, opcionalmente `simulate_telemetry`, y luego `npm run dev`. Vite redirige `/api` y `/ws` a `http://localhost:8000`, así la cookie httpOnly del refresh funciona sin CORS. Usuarios de demo de `seed_demo`: `admin` / `admin2026`, y `dr.soto`, `matrona.diaz` y `qf.silva` con `Clinica#2026`.

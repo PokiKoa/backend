@@ -170,6 +170,7 @@ SPECTACULAR_SETTINGS = {
         "AlertStatusEnum": "alerts.models.AlertStatus",
         "WorkShiftEnum": "accounts.models.WorkShift",
         "CarePlanStatusEnum": "patients.models.CarePlanStatus",
+        "CribMovementKindEnum": "patients.models.CribMovementKind",
     },
 }
 

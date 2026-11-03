@@ -68,10 +68,23 @@ jobs:
         run: uv run poki_koa makemigrations --check --dry-run
 
       - name: Ejecutar suite de pruebas con pytest y cobertura
+        # Líneas y ramas de todo src/ (config en pyproject.toml); falla bajo 90 %
         run: |
           uv run coverage erase
           uv run coverage run -m pytest
-          uv run coverage report -m --fail-under=90
+          uv run coverage report
+          uv run coverage html
+          uv run coverage xml
+
+      - name: Publicar reporte de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-backend
+          path: |
+            htmlcov/
+            coverage.xml
+          if-no-files-found: ignore
 
       - name: Verificar que openapi/schema.yml esté actualizado
         run: |

@@ -61,3 +61,7 @@ class CribUpdateSerializer(serializers.Serializer):
 
 class CribAssignPatientSerializer(serializers.Serializer):
     patient_id = serializers.IntegerField(min_value=1)
+
+
+class CribSwapSerializer(serializers.Serializer):
+    other_crib_id = serializers.IntegerField(min_value=1)

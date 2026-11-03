@@ -258,6 +258,7 @@ paths:
           - administer_medication
           - assign_crib
           - create
+          - delete
           - discharge
           - ingest_telemetry
           - login_failed
@@ -267,6 +268,7 @@ paths:
           - read
           - release_crib
           - resolve_alert
+          - swap_crib
           - update
         description: |-
           * `read` - Lectura
@@ -275,6 +277,8 @@ paths:
           * `discharge` - Egreso clínico
           * `assign_crib` - Asignación de cuna
           * `release_crib` - Liberación de cuna
+          * `swap_crib` - Intercambio de cunas
+          * `delete` - Eliminación definitiva
           * `ingest_telemetry` - Ingesta de telemetría
           * `acknowledge_alert` - Reconocimiento de alerta
           * `resolve_alert` - Resolución de alerta
@@ -384,6 +388,7 @@ paths:
           - administer_medication
           - assign_crib
           - create
+          - delete
           - discharge
           - ingest_telemetry
           - login_failed
@@ -393,6 +398,7 @@ paths:
           - read
           - release_crib
           - resolve_alert
+          - swap_crib
           - update
         description: |-
           * `read` - Lectura
@@ -401,6 +407,8 @@ paths:
           * `discharge` - Egreso clínico
           * `assign_crib` - Asignación de cuna
           * `release_crib` - Liberación de cuna
+          * `swap_crib` - Intercambio de cunas
+          * `delete` - Eliminación definitiva
           * `ingest_telemetry` - Ingesta de telemetría
           * `acknowledge_alert` - Reconocimiento de alerta
           * `resolve_alert` - Resolución de alerta
@@ -1058,6 +1066,83 @@ paths:
               schema:
                 $ref: '#/components/schemas/Crib'
           description: ''
+  /api/v1/cribs/{id}/swap/:
+    post:
+      operationId: cribs_swap_create
+      summary: Intercambia a los pacientes de dos cunas ocupadas sin egresarlos
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Cuna.
+        required: true
+      - in: query
+        name: is_device_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - available
+          - maintenance
+          - occupied
+          - offline
+        description: |-
+          * `available` - Disponible
+          * `occupied` - Ocupada
+          * `maintenance` - En mantenimiento
+          * `offline` - Fuera de línea
+      tags:
+      - cribs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CribSwap'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CribSwap'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CribSwap'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCribList'
+          description: ''
   /api/v1/cribs/{id}/telemetry/:
     get:
       operationId: cribs_telemetry_retrieve
@@ -1450,6 +1535,12 @@ paths:
       operationId: patients_list
       parameters:
       - in: query
+        name: active
+        schema:
+          type: boolean
+        description: 'true: pacientes en la unidad; false: egresados, trasladados
+          o fallecidos.'
+      - in: query
         name: admitted_after
         schema:
           type: string
@@ -1736,6 +1827,132 @@ paths:
               schema:
                 $ref: '#/components/schemas/Patient'
           description: ''
+  /api/v1/patients/{id}/crib-movements/:
+    get:
+      operationId: patients_crib_movements_list
+      summary: 'Historial de cunas del paciente: asignaciones, traslados, intercambios
+        y liberaciones'
+      parameters:
+      - in: query
+        name: active
+        schema:
+          type: boolean
+        description: 'true: pacientes en la unidad; false: egresados, trasladados
+          o fallecidos.'
+      - in: query
+        name: admitted_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: admitted_before
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: attending_physician
+        schema:
+          type: integer
+      - in: query
+        name: crib
+        schema:
+          type: integer
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      - in: query
+        name: max_weight_g
+        schema:
+          type: integer
+      - in: query
+        name: min_weight_g
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: sex
+        schema:
+          type: string
+          enum:
+          - F
+          - M
+        description: |-
+          * `F` - Femenino
+          * `M` - Masculino
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - deceased
+          - discharged
+          - transferred
+        description: |-
+          * `active` - Activo en unidad
+          * `discharged` - Egresado (alta)
+          * `transferred` - Trasladado
+          * `deceased` - Fallecido
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CribMovement'
+          description: ''
+  /api/v1/patients/{id}/delete-permanently/:
+    post:
+      operationId: patients_delete_permanently_create
+      summary: Elimina definitivamente al paciente y todo su registro clínico (solo
+        Administrador)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Paciente.
+        required: true
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientPermanentDelete'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatientPermanentDelete'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatientPermanentDelete'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/patients/{id}/discharge/:
     post:
       operationId: patients_discharge_create
@@ -1800,6 +2017,12 @@ paths:
       operationId: patients_weights_list
       summary: Lista la curva ponderal o registra una nueva medición de peso del paciente
       parameters:
+      - in: query
+        name: active
+        schema:
+          type: boolean
+        description: 'true: pacientes en la unidad; false: egresados, trasladados
+          o fallecidos.'
       - in: query
         name: admitted_after
         schema:
@@ -1902,6 +2125,12 @@ paths:
       operationId: patients_weights_create
       summary: Lista la curva ponderal o registra una nueva medición de peso del paciente
       parameters:
+      - in: query
+        name: active
+        schema:
+          type: boolean
+        description: 'true: pacientes en la unidad; false: egresados, trasladados
+          o fallecidos.'
       - in: query
         name: admitted_after
         schema:
@@ -2879,6 +3108,8 @@ components:
       - discharge
       - assign_crib
       - release_crib
+      - swap_crib
+      - delete
       - ingest_telemetry
       - acknowledge_alert
       - resolve_alert
@@ -2896,6 +3127,8 @@ components:
         * `discharge` - Egreso clínico
         * `assign_crib` - Asignación de cuna
         * `release_crib` - Liberación de cuna
+        * `swap_crib` - Intercambio de cunas
+        * `delete` - Eliminación definitiva
         * `ingest_telemetry` - Ingesta de telemetría
         * `acknowledge_alert` - Reconocimiento de alerta
         * `resolve_alert` - Resolución de alerta
@@ -3538,6 +3771,73 @@ components:
           default: true
       required:
       - code
+    CribMovement:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/CribMovementKindEnum'
+          readOnly: true
+        kind_label:
+          type: string
+          readOnly: true
+        from_crib:
+          type: integer
+          readOnly: true
+          nullable: true
+        from_crib_code:
+          type: string
+          readOnly: true
+        to_crib:
+          type: integer
+          readOnly: true
+          nullable: true
+        to_crib_code:
+          type: string
+          readOnly: true
+        moved_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        moved_by_name:
+          type: string
+          readOnly: true
+        moved_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - from_crib
+      - from_crib_code
+      - id
+      - kind
+      - kind_label
+      - moved_at
+      - moved_by
+      - moved_by_name
+      - patient
+      - to_crib
+      - to_crib_code
+    CribMovementKindEnum:
+      enum:
+      - assign
+      - move
+      - swap
+      - release
+      - discharge
+      type: string
+      description: |-
+        * `assign` - Asignación de cuna
+        * `move` - Traslado entre cunas
+        * `swap` - Intercambio de cunas
+        * `release` - Liberación de cuna (sigue activo)
+        * `discharge` - Liberación por egreso
     CribOverview:
       type: object
       properties:
@@ -3668,6 +3968,14 @@ components:
         * `occupied` - Ocupada
         * `maintenance` - En mantenimiento
         * `offline` - Fuera de línea
+    CribSwap:
+      type: object
+      properties:
+        other_crib_id:
+          type: integer
+          minimum: 1
+      required:
+      - other_crib_id
     CribUpdate:
       type: object
       properties:
@@ -4472,6 +4780,30 @@ components:
         diagnosis:
           type: string
           readOnly: true
+        mother_rut:
+          type: string
+          readOnly: true
+        mother_first_names:
+          type: string
+          readOnly: true
+        mother_last_names:
+          type: string
+          readOnly: true
+        mother_phone:
+          type: string
+          readOnly: true
+        father_rut:
+          type: string
+          readOnly: true
+        father_first_names:
+          type: string
+          readOnly: true
+        father_last_names:
+          type: string
+          readOnly: true
+        father_phone:
+          type: string
+          readOnly: true
         attending_physician:
           type: integer
           readOnly: true
@@ -4524,7 +4856,32 @@ components:
           readOnly: true
     PatchedPatientUpdate:
       type: object
+      description: Datos de madre y padre, opcionales; el servicio valida RUT y teléfono.
       properties:
+        mother_rut:
+          type: string
+          maxLength: 14
+        mother_first_names:
+          type: string
+          maxLength: 100
+        mother_last_names:
+          type: string
+          maxLength: 100
+        mother_phone:
+          type: string
+          maxLength: 20
+        father_rut:
+          type: string
+          maxLength: 14
+        father_first_names:
+          type: string
+          maxLength: 100
+        father_last_names:
+          type: string
+          maxLength: 100
+        father_phone:
+          type: string
+          maxLength: 20
         full_name:
           type: string
           maxLength: 200
@@ -4622,6 +4979,30 @@ components:
         diagnosis:
           type: string
           readOnly: true
+        mother_rut:
+          type: string
+          readOnly: true
+        mother_first_names:
+          type: string
+          readOnly: true
+        mother_last_names:
+          type: string
+          readOnly: true
+        mother_phone:
+          type: string
+          readOnly: true
+        father_rut:
+          type: string
+          readOnly: true
+        father_first_names:
+          type: string
+          readOnly: true
+        father_last_names:
+          type: string
+          readOnly: true
+        father_phone:
+          type: string
+          readOnly: true
         attending_physician:
           type: integer
           readOnly: true
@@ -4689,10 +5070,18 @@ components:
       - discharge_outcome
       - discharged_at
       - discharged_by
+      - father_first_names
+      - father_last_names
+      - father_phone
+      - father_rut
       - full_name
       - gestational_age_weeks
       - id
       - medical_record_number
+      - mother_first_names
+      - mother_last_names
+      - mother_phone
+      - mother_rut
       - sex
       - status
       - updated_at
@@ -4711,7 +5100,32 @@ components:
       - total
     PatientCreate:
       type: object
+      description: Datos de madre y padre, opcionales; el servicio valida RUT y teléfono.
       properties:
+        mother_rut:
+          type: string
+          maxLength: 14
+        mother_first_names:
+          type: string
+          maxLength: 100
+        mother_last_names:
+          type: string
+          maxLength: 100
+        mother_phone:
+          type: string
+          maxLength: 20
+        father_rut:
+          type: string
+          maxLength: 14
+        father_first_names:
+          type: string
+          maxLength: 100
+        father_last_names:
+          type: string
+          maxLength: 100
+        father_phone:
+          type: string
+          maxLength: 20
         medical_record_number:
           type: string
           maxLength: 30
@@ -4767,6 +5181,15 @@ components:
           default: ''
       required:
       - outcome
+    PatientPermanentDelete:
+      type: object
+      properties:
+        confirmation:
+          type: string
+          description: Número de ficha clínica del paciente, escrito para confirmar.
+          maxLength: 30
+      required:
+      - confirmation
     PatientStatusEnum:
       enum:
       - active
@@ -4781,7 +5204,32 @@ components:
         * `deceased` - Fallecido
     PatientUpdate:
       type: object
+      description: Datos de madre y padre, opcionales; el servicio valida RUT y teléfono.
       properties:
+        mother_rut:
+          type: string
+          maxLength: 14
+        mother_first_names:
+          type: string
+          maxLength: 100
+        mother_last_names:
+          type: string
+          maxLength: 100
+        mother_phone:
+          type: string
+          maxLength: 20
+        father_rut:
+          type: string
+          maxLength: 14
+        father_first_names:
+          type: string
+          maxLength: 100
+        father_last_names:
+          type: string
+          maxLength: 100
+        father_phone:
+          type: string
+          maxLength: 20
         full_name:
           type: string
           maxLength: 200

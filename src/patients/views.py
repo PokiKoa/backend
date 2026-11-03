@@ -11,24 +11,28 @@ from rest_framework.response import Response
 from audit.models import AuditAction
 from audit.services import get_client_ip, record_audit_event
 
-from .models import CarePlan, ClinicalObservation, Patient
+from .models import CarePlan, ClinicalObservation, Patient, PatientStatus
 from .serializers import (
     CarePlanCreateSerializer,
     CarePlanSerializer,
     CarePlanUpdateSerializer,
     ClinicalObservationCreateSerializer,
     ClinicalObservationSerializer,
+    CribMovementSerializer,
     PatientCreateSerializer,
     PatientDischargeSerializer,
+    PatientPermanentDeleteSerializer,
     PatientSerializer,
     PatientUpdateSerializer,
     WeightRecordCreateSerializer,
     WeightRecordSerializer,
 )
 from .services import (
+    GUARDIAN_FIELDS,
     admit_patient,
     create_care_plan,
     create_clinical_observation,
+    delete_patient_permanently,
     discharge_patient,
     record_patient_weight,
     update_care_plan,
@@ -49,6 +53,15 @@ class PatientFilter(django_filters.FilterSet):
     max_weight_g = django_filters.NumberFilter(
         field_name="current_weight_g", lookup_expr="lte"
     )
+    active = django_filters.BooleanFilter(
+        method="filter_active",
+        help_text="true: pacientes en la unidad; false: egresados, trasladados o fallecidos.",
+    )
+
+    def filter_active(self, queryset, name, value):
+        if value:
+            return queryset.filter(status=PatientStatus.ACTIVE)
+        return queryset.exclude(status=PatientStatus.ACTIVE)
 
     class Meta:
         model = Patient
@@ -61,6 +74,7 @@ class PatientFilter(django_filters.FilterSet):
             "admitted_before",
             "min_weight_g",
             "max_weight_g",
+            "active",
         ]
 
 
@@ -124,6 +138,11 @@ class PatientViewSet(
                 "attending_physician_id"
             ),
             crib_id=serializer.validated_data.get("crib_id"),
+            guardians={
+                field: serializer.validated_data[field]
+                for field in GUARDIAN_FIELDS
+                if field in serializer.validated_data
+            },
             ip_address=get_client_ip(request),
         )
         return Response(
@@ -146,6 +165,34 @@ class PatientViewSet(
     @extend_schema(request=PatientUpdateSerializer, responses={200: PatientSerializer})
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
         return self.update(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Elimina definitivamente al paciente y todo su registro clínico (solo Administrador)",
+        request=PatientPermanentDeleteSerializer,
+        responses={204: None},
+    )
+    @action(detail=True, methods=["post"], url_path="delete-permanently")
+    def delete_permanently(self, request: Request, pk=None) -> Response:
+        patient = self.get_object()
+        serializer = PatientPermanentDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        delete_patient_permanently(
+            actor=request.user,
+            patient=patient,
+            confirmation=serializer.validated_data["confirmation"],
+            ip_address=get_client_ip(request),
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        summary="Historial de cunas del paciente: asignaciones, traslados, intercambios y liberaciones",
+        responses={200: CribMovementSerializer(many=True)},
+    )
+    @action(detail=True, methods=["get"], url_path="crib-movements", pagination_class=None)
+    def crib_movements(self, request: Request, pk=None) -> Response:
+        patient = self.get_object()
+        movements = patient.crib_movements.select_related("moved_by").all()
+        return Response(CribMovementSerializer(movements, many=True).data)
 
     @extend_schema(
         summary="Egresa lógicamente a un paciente conservando su historial y liberando su cuna",

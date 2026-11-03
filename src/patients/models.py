@@ -72,6 +72,17 @@ class Patient(models.Model):
     admitted_at = models.DateTimeField(default=timezone.now, db_index=True)
     diagnosis = models.TextField(blank=True, default="")
 
+    # Datos de contacto de los padres; el RUT se guarda normalizado (12345678-5)
+    # y el teléfono como +56XXXXXXXXX
+    mother_rut = models.CharField(max_length=12, blank=True, default="", db_index=True)
+    mother_first_names = models.CharField(max_length=100, blank=True, default="")
+    mother_last_names = models.CharField(max_length=100, blank=True, default="")
+    mother_phone = models.CharField(max_length=16, blank=True, default="")
+    father_rut = models.CharField(max_length=12, blank=True, default="", db_index=True)
+    father_first_names = models.CharField(max_length=100, blank=True, default="")
+    father_last_names = models.CharField(max_length=100, blank=True, default="")
+    father_phone = models.CharField(max_length=16, blank=True, default="")
+
     attending_physician = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -151,6 +162,66 @@ class Patient(models.Model):
             self.discharged_at.date() if self.discharged_at else timezone.localdate()
         )
         return max(0, (reference_date - self.birth_date).days)
+
+
+class CribMovementKind(models.TextChoices):
+    ASSIGN = "assign", "Asignación de cuna"
+    MOVE = "move", "Traslado entre cunas"
+    SWAP = "swap", "Intercambio de cunas"
+    RELEASE = "release", "Liberación de cuna (sigue activo)"
+    DISCHARGE = "discharge", "Liberación por egreso"
+
+
+class CribMovement(models.Model):
+    """Historial de ubicaciones del paciente dentro de la unidad.
+
+    Guarda una copia del código de cada cuna para que el historial siga
+    legible aunque la cuna se renombre o se elimine.
+    """
+
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.PROTECT,
+        related_name="crib_movements",
+    )
+    kind = models.CharField(max_length=20, choices=CribMovementKind.choices)
+    from_crib = models.ForeignKey(
+        "devices.Crib",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    from_crib_code = models.CharField(max_length=20, blank=True, default="")
+    to_crib = models.ForeignKey(
+        "devices.Crib",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    to_crib_code = models.CharField(max_length=20, blank=True, default="")
+    moved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crib_movements",
+    )
+    moved_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["-moved_at", "-id"]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["patient", "-moved_at"], name="crib_move_patient_ts_idx"),
+        ]
+        verbose_name = "Movimiento de cuna"
+        verbose_name_plural = "Movimientos de cuna"
+
+    def __str__(self) -> str:
+        origin = self.from_crib_code or "—"
+        destination = self.to_crib_code or "—"
+        return f"{self.patient_id}: {origin} → {destination} ({self.kind})"
 
 
 class WeightRecord(models.Model):

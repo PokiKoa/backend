@@ -11,6 +11,8 @@ class AuditAction(models.TextChoices):
     DISCHARGE = "discharge", "Egreso clínico"
     ASSIGN_CRIB = "assign_crib", "Asignación de cuna"
     RELEASE_CRIB = "release_crib", "Liberación de cuna"
+    SWAP_CRIB = "swap_crib", "Intercambio de cunas"
+    DELETE = "delete", "Eliminación definitiva"
     INGEST_TELEMETRY = "ingest_telemetry", "Ingesta de telemetría"
     ACKNOWLEDGE_ALERT = "acknowledge_alert", "Reconocimiento de alerta"
     RESOLVE_ALERT = "resolve_alert", "Resolución de alerta"

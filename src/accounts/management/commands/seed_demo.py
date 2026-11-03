@@ -125,6 +125,17 @@ class Command(BaseCommand):
                 diagnosis="Prematuridad moderada, síndrome de dificultad respiratoria en resolución",
                 attending_physician_id=neo.id,
                 crib_id=cribs["C-01"].id,
+                # RUT y teléfonos ficticios (dígito verificador válido, números de ejemplo)
+                guardians={
+                    "mother_rut": "16.482.937-5",
+                    "mother_first_names": "Hina Marama",
+                    "mother_last_names": "Huke Tepano",
+                    "mother_phone": "+56 9 5555 0101",
+                    "father_rut": "15.739.204-2",
+                    "father_first_names": "Tama",
+                    "father_last_names": "Ariki Pate",
+                    "father_phone": "+56 9 5555 0102",
+                },
             )
             record_patient_weight(actor=nurse, patient=p1, weight_g=1535)
             create_care_plan(
@@ -166,6 +177,12 @@ class Command(BaseCommand):
                 diagnosis="Recién nacida pretérmino extrema en soporte no invasivo CPAP",
                 attending_physician_id=neo.id,
                 crib_id=cribs["C-02"].id,
+                guardians={
+                    "mother_rut": "17.205.846-9",
+                    "mother_first_names": "Moana",
+                    "mother_last_names": "Pakarati Tuki",
+                    "mother_phone": "+56 9 5555 0201",
+                },
             )
             create_care_plan(
                 actor=neo,

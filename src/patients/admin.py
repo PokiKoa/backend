@@ -3,7 +3,14 @@ from typing import ClassVar
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import CarePlan, ClinicalObservation, Patient, PatientStatus, WeightRecord
+from .models import (
+    CarePlan,
+    ClinicalObservation,
+    CribMovement,
+    Patient,
+    PatientStatus,
+    WeightRecord,
+)
 
 
 class WeightRecordInline(admin.TabularInline):
@@ -139,3 +146,24 @@ class ClinicalObservationAdmin(admin.ModelAdmin):
         "created_at",
     ]
     list_filter: ClassVar[list[str]] = ["category"]
+
+
+@admin.register(CribMovement)
+class CribMovementAdmin(admin.ModelAdmin):
+    """Historial de solo lectura: los movimientos se registran desde los servicios."""
+
+    list_display: ClassVar[list[str]] = [
+        "patient",
+        "kind",
+        "from_crib_code",
+        "to_crib_code",
+        "moved_by",
+        "moved_at",
+    ]
+    list_filter: ClassVar[list[str]] = ["kind"]
+
+    def has_add_permission(self, request) -> bool:
+        return False
+
+    def has_change_permission(self, request, obj=None) -> bool:
+        return False

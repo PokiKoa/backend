@@ -2,6 +2,10 @@ from typing import ClassVar
 
 from rest_framework import serializers
 
+from alerts.models import AlertSeverity
+from devices.serializers import CribSerializer
+from patients.models import Patient
+
 from .models import VitalSignReading
 from .rules import (
     HEART_RATE_MAX,
@@ -55,3 +59,66 @@ class TelemetryIngestSerializer(serializers.Serializer):
     cannula_connected = serializers.BooleanField()
     iv_line_active = serializers.BooleanField()
     recorded_at = serializers.DateTimeField(required=False, allow_null=True)
+
+
+class OverviewAlertCountsSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    critical = serializers.IntegerField()
+    warning = serializers.IntegerField()
+    info = serializers.IntegerField()
+
+
+class OverviewPatientSerializer(serializers.ModelSerializer):
+    age_days = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Patient
+        fields: ClassVar[list[str]] = [
+            "id",
+            "medical_record_number",
+            "full_name",
+            "sex",
+            "age_days",
+            "gestational_age_weeks",
+            "current_weight_g",
+        ]
+        read_only_fields = fields
+
+
+class CribOverviewSerializer(CribSerializer):
+    patient = OverviewPatientSerializer(source="current_patient", read_only=True, allow_null=True)
+    latest_reading = VitalSignReadingSerializer(read_only=True, allow_null=True)
+    open_alerts = OverviewAlertCountsSerializer(read_only=True)
+    highest_open_severity = serializers.ChoiceField(
+        choices=AlertSeverity.choices, read_only=True, allow_null=True
+    )
+
+    class Meta(CribSerializer.Meta):
+        fields: ClassVar[list[str]] = [
+            *CribSerializer.Meta.fields,
+            "patient",
+            "latest_reading",
+            "open_alerts",
+            "highest_open_severity",
+        ]
+        read_only_fields = fields
+
+
+class CribStatusCountsSerializer(serializers.Serializer):
+    available = serializers.IntegerField()
+    occupied = serializers.IntegerField()
+    maintenance = serializers.IntegerField()
+    offline = serializers.IntegerField()
+
+
+class UnitSummarySerializer(serializers.Serializer):
+    cribs_total = serializers.IntegerField()
+    cribs_by_status = CribStatusCountsSerializer()
+    patients_monitored = serializers.IntegerField()
+    open_alerts = OverviewAlertCountsSerializer()
+
+
+class UnitOverviewSerializer(serializers.Serializer):
+    generated_at = serializers.DateTimeField()
+    summary = UnitSummarySerializer()
+    cribs = CribOverviewSerializer(many=True)

@@ -153,6 +153,9 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "DischargeOutcomeEnum": "patients.models.DischargeOutcome",
         "DischargeCauseEnum": "patients.models.DischargeCause",
+        "CribStatusEnum": "devices.models.CribStatus",
+        "AlertSeverityEnum": "alerts.models.AlertSeverity",
+        "AlertStatusEnum": "alerts.models.AlertStatus",
     },
 }
 

@@ -1,11 +1,16 @@
 from typing import ClassVar
 
 import django_filters
-from rest_framework import mixins, viewsets
+from drf_spectacular.utils import extend_schema
+from rest_framework import mixins, status, viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import VitalSignReading
-from .serializers import VitalSignReadingSerializer
+from .serializers import UnitOverviewSerializer, VitalSignReadingSerializer
+from .services import build_unit_overview
 
 
 class VitalSignReadingFilter(django_filters.FilterSet):
@@ -49,3 +54,15 @@ class VitalSignReadingViewSet(
         "temperature",
     ]
     ordering: ClassVar[list[str]] = ["-recorded_at", "-id"]
+
+
+class UnitOverviewView(APIView):
+    permission_classes: ClassVar[list] = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Resumen de la unidad: cada cuna con su paciente, última lectura y alertas abiertas",
+        responses={200: UnitOverviewSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        overview = build_unit_overview()
+        return Response(UnitOverviewSerializer(overview).data, status=status.HTTP_200_OK)

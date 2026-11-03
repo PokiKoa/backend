@@ -1,8 +1,13 @@
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from django.db import transaction
+from django.db.models import Count, OuterRef, Subquery
+from django.utils import timezone
 
 from accounts.models import User, UserRole
+from alerts.models import Alert, AlertSeverity, AlertStatus
 from alerts.serializers import AlertSerializer
 from alerts.services import AlertEvaluationSummary, evaluate_reading_alerts
 from devices.models import Crib, CribStatus
@@ -87,3 +92,72 @@ def ingest_telemetry(
     )
 
     return reading, evaluation
+
+
+OPEN_ALERT_STATUSES = (AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED)
+SEVERITY_ORDER = (AlertSeverity.CRITICAL, AlertSeverity.WARNING, AlertSeverity.INFO)
+
+
+def _empty_alert_counts() -> dict[str, int]:
+    return {"total": 0, **{severity: 0 for severity in SEVERITY_ORDER}}
+
+
+@dataclass
+class UnitOverview:
+    generated_at: datetime
+    cribs: list[Crib]
+    summary: dict[str, Any] = field(default_factory=dict)
+
+
+def build_unit_overview() -> UnitOverview:
+    # Consultas acotadas e independientes del número de cunas para el panel principal
+    latest_reading_id = (
+        VitalSignReading.objects.filter(crib=OuterRef("pk"))
+        .order_by("-recorded_at", "-id")
+        .values("id")[:1]
+    )
+    cribs = list(
+        Crib.objects.select_related("current_patient")
+        .annotate(latest_reading_id=Subquery(latest_reading_id))
+        .order_by("code")
+    )
+
+    readings = VitalSignReading.objects.select_related("crib", "patient").in_bulk(
+        [c.latest_reading_id for c in cribs if c.latest_reading_id is not None]
+    )
+
+    alert_counts: dict[int, dict[str, int]] = {}
+    unit_alerts = _empty_alert_counts()
+    grouped = (
+        Alert.objects.filter(status__in=OPEN_ALERT_STATUSES)
+        .values("crib_id", "severity")
+        .annotate(n=Count("id"))
+    )
+    for row in grouped:
+        counts = alert_counts.setdefault(row["crib_id"], _empty_alert_counts())
+        counts[row["severity"]] += row["n"]
+        counts["total"] += row["n"]
+        unit_alerts[row["severity"]] += row["n"]
+        unit_alerts["total"] += row["n"]
+
+    cribs_by_status = {status: 0 for status in CribStatus.values}
+    for crib in cribs:
+        crib.latest_reading = readings.get(crib.latest_reading_id)
+        crib.open_alerts = alert_counts.get(crib.id, _empty_alert_counts())
+        crib.highest_open_severity = next(
+            (sev for sev in SEVERITY_ORDER if crib.open_alerts[sev]), None
+        )
+        cribs_by_status[crib.status] += 1
+
+    return UnitOverview(
+        generated_at=timezone.now(),
+        cribs=cribs,
+        summary={
+            "cribs_total": len(cribs),
+            "cribs_by_status": cribs_by_status,
+            "patients_monitored": sum(
+                1 for c in cribs if getattr(c, "current_patient", None) is not None
+            ),
+            "open_alerts": unit_alerts,
+        },
+    )

@@ -1,5 +1,6 @@
 from typing import ClassVar
 
+import django_filters
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -35,6 +36,34 @@ from .services import (
 )
 
 
+class PatientFilter(django_filters.FilterSet):
+    admitted_after = django_filters.IsoDateTimeFilter(
+        field_name="admitted_at", lookup_expr="gte"
+    )
+    admitted_before = django_filters.IsoDateTimeFilter(
+        field_name="admitted_at", lookup_expr="lte"
+    )
+    min_weight_g = django_filters.NumberFilter(
+        field_name="current_weight_g", lookup_expr="gte"
+    )
+    max_weight_g = django_filters.NumberFilter(
+        field_name="current_weight_g", lookup_expr="lte"
+    )
+
+    class Meta:
+        model = Patient
+        fields: ClassVar[list[str]] = [
+            "status",
+            "sex",
+            "attending_physician",
+            "crib",
+            "admitted_after",
+            "admitted_before",
+            "min_weight_g",
+            "max_weight_g",
+        ]
+
+
 class PatientViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -53,12 +82,7 @@ class PatientViewSet(
     )
     serializer_class = PatientSerializer
     permission_classes: ClassVar[list] = [IsAuthenticated]
-    filterset_fields: ClassVar[list[str]] = [
-        "status",
-        "sex",
-        "attending_physician",
-        "crib",
-    ]
+    filterset_class = PatientFilter
     search_fields: ClassVar[list[str]] = ["full_name", "medical_record_number"]
     ordering_fields: ClassVar[list[str]] = [
         "admitted_at",

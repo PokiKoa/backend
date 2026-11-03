@@ -1,5 +1,7 @@
 from typing import ClassVar
 
+import django_filters
+from django.db import models
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -28,6 +30,19 @@ from .services import (
 )
 
 
+class MedicationCatalogFilter(django_filters.FilterSet):
+    low_stock = django_filters.BooleanFilter(method="filter_low_stock")
+
+    class Meta:
+        model = MedicationCatalogItem
+        fields: ClassVar[list[str]] = ["is_active", "unit", "low_stock"]
+
+    def filter_low_stock(self, queryset, name: str, value: bool):
+        if value:
+            return queryset.filter(stock__lte=models.F("min_stock_alert"))
+        return queryset.filter(stock__gt=models.F("min_stock_alert"))
+
+
 class MedicationCatalogViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -38,7 +53,7 @@ class MedicationCatalogViewSet(
     queryset = MedicationCatalogItem.objects.all().order_by("name")
     serializer_class = MedicationCatalogItemSerializer
     permission_classes: ClassVar[list] = [IsAuthenticated]
-    filterset_fields: ClassVar[list[str]] = ["is_active", "unit"]
+    filterset_class = MedicationCatalogFilter
     search_fields: ClassVar[list[str]] = ["name", "active_ingredient"]
     ordering_fields: ClassVar[list[str]] = [
         "name",

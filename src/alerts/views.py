@@ -1,5 +1,6 @@
 from typing import ClassVar
 
+import django_filters
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -10,7 +11,7 @@ from rest_framework.views import APIView
 
 from audit.services import get_client_ip
 
-from .models import Alert
+from .models import Alert, AlertStatus
 from .serializers import (
     AlertSerializer,
     AlertThresholdConfigSerializer,
@@ -22,6 +23,36 @@ from .services import (
     resolve_alert,
     upsert_threshold_config,
 )
+
+
+class AlertFilter(django_filters.FilterSet):
+    is_open = django_filters.BooleanFilter(method="filter_is_open")
+    triggered_after = django_filters.IsoDateTimeFilter(
+        field_name="triggered_at", lookup_expr="gte"
+    )
+    triggered_before = django_filters.IsoDateTimeFilter(
+        field_name="triggered_at", lookup_expr="lte"
+    )
+
+    class Meta:
+        model = Alert
+        fields: ClassVar[list[str]] = [
+            "status",
+            "severity",
+            "alert_type",
+            "crib",
+            "patient",
+            "is_open",
+            "triggered_after",
+            "triggered_before",
+        ]
+
+    def filter_is_open(self, queryset, name: str, value: bool):
+        if value:
+            return queryset.filter(
+                status__in=[AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED]
+            )
+        return queryset.filter(status=AlertStatus.RESOLVED)
 
 
 class AlertViewSet(
@@ -41,13 +72,7 @@ class AlertViewSet(
     )
     serializer_class = AlertSerializer
     permission_classes: ClassVar[list] = [IsAuthenticated]
-    filterset_fields: ClassVar[list[str]] = [
-        "status",
-        "severity",
-        "alert_type",
-        "crib",
-        "patient",
-    ]
+    filterset_class = AlertFilter
     search_fields: ClassVar[list[str]] = ["message", "crib__code", "patient__full_name"]
     ordering_fields: ClassVar[list[str]] = [
         "triggered_at",

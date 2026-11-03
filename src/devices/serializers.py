@@ -7,13 +7,16 @@ from .models import Crib, CribStatus
 
 class CribSerializer(serializers.ModelSerializer):
     current_patient_id = serializers.IntegerField(
-        source="current_patient.id", read_only=True, default=None
+        source="current_patient.id", read_only=True, default=None, allow_null=True
     )
     current_patient_name = serializers.CharField(
-        source="current_patient.full_name", read_only=True, default=None
+        source="current_patient.full_name", read_only=True, default=None, allow_null=True
     )
     current_patient_mrn = serializers.CharField(
-        source="current_patient.medical_record_number", read_only=True, default=None
+        source="current_patient.medical_record_number",
+        read_only=True,
+        default=None,
+        allow_null=True,
     )
 
     class Meta:

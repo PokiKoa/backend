@@ -3476,12 +3476,15 @@ components:
         current_patient_id:
           type: integer
           readOnly: true
+          nullable: true
         current_patient_name:
           type: string
           readOnly: true
+          nullable: true
         current_patient_mrn:
           type: string
           readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -3568,12 +3571,15 @@ components:
         current_patient_id:
           type: integer
           readOnly: true
+          nullable: true
         current_patient_name:
           type: string
           readOnly: true
+          nullable: true
         current_patient_mrn:
           type: string
           readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time

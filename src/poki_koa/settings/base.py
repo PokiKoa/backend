@@ -178,7 +178,9 @@ if REDIS_URL:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {"hosts": [REDIS_URL]},
+            # redis-py 8 usa socket_timeout=5 por defecto, igual que el BZPOPMIN de
+            # channels-redis (brpop_timeout=5): la lectura expiraba y botaba el WebSocket
+            "CONFIG": {"hosts": [{"address": REDIS_URL, "socket_timeout": 30}]},
         }
     }
 else:

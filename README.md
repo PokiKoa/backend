@@ -22,6 +22,15 @@ Levanta PostgreSQL, Redis, la API en `http://localhost:8000` y el servicio `offl
 
 ## Ejecución local con `uv`
 
+La forma más simple es el script de instalación. Verifica los requisitos (uv, Python del proyecto, Docker y el plugin `compose`), crea `.env` si falta, levanta PostgreSQL y Redis, y ejecuta `uv sync`, `migrate` y `seed_demo`. Si algo falta, se detiene y dice cómo corregirlo. Se puede ejecutar varias veces:
+
+```bash
+./scripts/setup.sh          # prepara todo
+./scripts/setup.sh --run    # prepara y deja uvicorn corriendo
+```
+
+Pasos equivalentes a mano:
+
 ```bash
 cp .env.example .env          # fija DJANGO_SETTINGS_MODULE=poki_koa.settings.dev
 docker compose up -d db redis # PostgreSQL y Redis locales
@@ -39,6 +48,16 @@ uv run poki_koa simulate_telemetry --anomaly-rate 0.3 --interval 2  # más episo
 ```
 
 El simulador rota la API Key de cada cuna simulada (por eso solo corre con `DEBUG=True`) y envía las lecturas por HTTP, de modo que los WebSockets las reciben sin necesidad de Redis. Genera episodios de bradicardia, taquicardia, desaturación, hipo/hipertermia y desconexión de cánula que luego se recuperan, ejercitando la creación y la autorresolución de alertas.
+
+### Problemas comunes
+
+| Síntoma | Causa y solución |
+| --- | --- |
+| `unknown shorthand flag: 'd' in -d` | Falta el plugin `docker compose`. Fedora: `sudo dnf install docker-compose`; Debian/Ubuntu: `sudo apt install docker-compose-plugin`. |
+| `failed to connect to the docker API ... no such file` | El daemon está apagado: `sudo systemctl enable --now docker`. |
+| `permission denied ... docker.sock` | `sudo usermod -aG docker "$USER"` y vuelve a iniciar sesión (o usa `sudo docker compose`). |
+| `No interpreter found for Python 3.12` | `uv python install 3.12` (uv usa la versión de `.python-version`, no la del sistema). |
+| `ImportError: no pq wrapper available` | Entorno creado con otro Python o dependencias antiguas: `rm -rf .venv && uv sync`. |
 
 Sin `.env` ni `DJANGO_SETTINGS_MODULE` exportada, `asgi.py` y `wsgi.py` cargan `settings.prod` y fallan si falta `SECRET_KEY`: es intencional para que un despliegue mal configurado nunca arranque con `DEBUG`. `uv run poki_koa runserver` no sirve WebSockets.
 

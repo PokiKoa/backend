@@ -233,6 +233,7 @@ class UserViewSet(
             return UserUpdateSerializer
         return UserSerializer
 
+    @extend_schema(request=UserCreateSerializer, responses={201: UserSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
         serializer = UserCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -249,6 +250,7 @@ class UserViewSet(
         )
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(request=UserUpdateSerializer, responses={200: UserSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
         target_user = self.get_object()
         serializer = UserUpdateSerializer(data=request.data)
@@ -261,6 +263,7 @@ class UserViewSet(
         )
         return Response(UserSerializer(updated).data, status=status.HTTP_200_OK)
 
+    @extend_schema(request=UserUpdateSerializer, responses={200: UserSerializer})
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
         return self.update(request, *args, **kwargs)
 

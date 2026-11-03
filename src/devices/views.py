@@ -49,6 +49,7 @@ class CribViewSet(
             return [IsAdminRole()]
         return [IsAuthenticated()]
 
+    @extend_schema(request=CribCreateSerializer, responses={201: CribSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
         serializer = CribCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -65,6 +66,7 @@ class CribViewSet(
         data["api_key"] = raw_api_key
         return Response(data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(request=CribUpdateSerializer, responses={200: CribSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
         crib = self.get_object()
         serializer = CribUpdateSerializer(data=request.data)
@@ -78,6 +80,7 @@ class CribViewSet(
         updated.refresh_from_db()
         return Response(CribSerializer(updated).data, status=status.HTTP_200_OK)
 
+    @extend_schema(request=CribUpdateSerializer, responses={200: CribSerializer})
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
         return self.update(request, *args, **kwargs)
 

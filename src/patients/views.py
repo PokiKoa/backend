@@ -106,6 +106,7 @@ class PatientViewSet(
         )
         return Response(PatientSerializer(patient).data, status=status.HTTP_200_OK)
 
+    @extend_schema(request=PatientCreateSerializer, responses={201: PatientSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
         serializer = PatientCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -129,6 +130,7 @@ class PatientViewSet(
             PatientSerializer(patient).data, status=status.HTTP_201_CREATED
         )
 
+    @extend_schema(request=PatientUpdateSerializer, responses={200: PatientSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
         patient = self.get_object()
         serializer = PatientUpdateSerializer(data=request.data)
@@ -141,6 +143,7 @@ class PatientViewSet(
         )
         return Response(PatientSerializer(updated).data, status=status.HTTP_200_OK)
 
+    @extend_schema(request=PatientUpdateSerializer, responses={200: PatientSerializer})
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
         return self.update(request, *args, **kwargs)
 
@@ -268,6 +271,7 @@ class CarePlanViewSet(
     ordering_fields: ClassVar[list[str]] = ["created_at", "updated_at", "status"]
     ordering: ClassVar[list[str]] = ["-created_at", "-id"]
 
+    @extend_schema(request=CarePlanCreateSerializer, responses={201: CarePlanSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
         serializer = CarePlanCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -284,6 +288,7 @@ class CarePlanViewSet(
             CarePlanSerializer(plan).data, status=status.HTTP_201_CREATED
         )
 
+    @extend_schema(request=CarePlanUpdateSerializer, responses={200: CarePlanSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
         plan = self.get_object()
         serializer = CarePlanUpdateSerializer(data=request.data)
@@ -296,6 +301,7 @@ class CarePlanViewSet(
         )
         return Response(CarePlanSerializer(updated).data, status=status.HTTP_200_OK)
 
+    @extend_schema(request=CarePlanUpdateSerializer, responses={200: CarePlanSerializer})
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
         return self.update(request, *args, **kwargs)
 
@@ -318,6 +324,7 @@ class ClinicalObservationViewSet(
     ordering_fields: ClassVar[list[str]] = ["created_at", "category"]
     ordering: ClassVar[list[str]] = ["-created_at", "-id"]
 
+    @extend_schema(request=ClinicalObservationCreateSerializer, responses={201: ClinicalObservationSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
         serializer = ClinicalObservationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

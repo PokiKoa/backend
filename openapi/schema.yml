@@ -703,13 +703,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CarePlan'
+              $ref: '#/components/schemas/CarePlanCreate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/CarePlan'
+              $ref: '#/components/schemas/CarePlanCreate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/CarePlan'
+              $ref: '#/components/schemas/CarePlanCreate'
+        required: true
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -757,13 +758,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CarePlan'
+              $ref: '#/components/schemas/CarePlanUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/CarePlan'
+              $ref: '#/components/schemas/CarePlanUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/CarePlan'
+              $ref: '#/components/schemas/CarePlanUpdate'
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -789,13 +790,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedCarePlan'
+              $ref: '#/components/schemas/PatchedCarePlanUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedCarePlan'
+              $ref: '#/components/schemas/PatchedCarePlanUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedCarePlan'
+              $ref: '#/components/schemas/PatchedCarePlanUpdate'
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -872,13 +873,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Crib'
+              $ref: '#/components/schemas/CribCreate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/Crib'
+              $ref: '#/components/schemas/CribCreate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Crib'
+              $ref: '#/components/schemas/CribCreate'
+        required: true
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -926,13 +928,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Crib'
+              $ref: '#/components/schemas/CribUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/Crib'
+              $ref: '#/components/schemas/CribUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Crib'
+              $ref: '#/components/schemas/CribUpdate'
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -958,13 +960,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedCrib'
+              $ref: '#/components/schemas/PatchedCribUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedCrib'
+              $ref: '#/components/schemas/PatchedCribUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedCrib'
+              $ref: '#/components/schemas/PatchedCribUpdate'
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -1207,13 +1209,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MedicationCatalogItem'
+              $ref: '#/components/schemas/MedicationCatalogCreate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/MedicationCatalogItem'
+              $ref: '#/components/schemas/MedicationCatalogCreate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/MedicationCatalogItem'
+              $ref: '#/components/schemas/MedicationCatalogCreate'
+        required: true
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -1263,13 +1266,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MedicationCatalogItem'
+              $ref: '#/components/schemas/MedicationCatalogUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/MedicationCatalogItem'
+              $ref: '#/components/schemas/MedicationCatalogUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/MedicationCatalogItem'
+              $ref: '#/components/schemas/MedicationCatalogUpdate'
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -1296,13 +1299,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedMedicationCatalogItem'
+              $ref: '#/components/schemas/PatchedMedicationCatalogUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedMedicationCatalogItem'
+              $ref: '#/components/schemas/PatchedMedicationCatalogUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedMedicationCatalogItem'
+              $ref: '#/components/schemas/PatchedMedicationCatalogUpdate'
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -1402,13 +1405,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ClinicalObservation'
+              $ref: '#/components/schemas/ClinicalObservationCreate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/ClinicalObservation'
+              $ref: '#/components/schemas/ClinicalObservationCreate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/ClinicalObservation'
+              $ref: '#/components/schemas/ClinicalObservationCreate'
+        required: true
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -1539,13 +1543,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Patient'
+              $ref: '#/components/schemas/PatientCreate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/Patient'
+              $ref: '#/components/schemas/PatientCreate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Patient'
+              $ref: '#/components/schemas/PatientCreate'
+        required: true
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -1593,13 +1598,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Patient'
+              $ref: '#/components/schemas/PatientUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/Patient'
+              $ref: '#/components/schemas/PatientUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Patient'
+              $ref: '#/components/schemas/PatientUpdate'
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -1625,13 +1630,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedPatient'
+              $ref: '#/components/schemas/PatchedPatientUpdate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedPatient'
+              $ref: '#/components/schemas/PatchedPatientUpdate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedPatient'
+              $ref: '#/components/schemas/PatchedPatientUpdate'
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -2677,7 +2682,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserCreate'
+                $ref: '#/components/schemas/User'
           description: ''
   /api/v1/users/{id}/:
     get:
@@ -2731,7 +2736,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserUpdate'
+                $ref: '#/components/schemas/User'
           description: ''
     patch:
       operationId: users_partial_update
@@ -2763,7 +2768,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserUpdate'
+                $ref: '#/components/schemas/User'
           description: ''
   /api/v1/vitals/:
     get:
@@ -3311,6 +3316,30 @@ components:
       - patient_name
       - status
       - updated_at
+    CarePlanCreate:
+      type: object
+      properties:
+        patient_id:
+          type: integer
+          minimum: 1
+        care_area:
+          type: string
+          maxLength: 100
+        intervention:
+          type: string
+          maxLength: 255
+        frequency:
+          type: string
+          maxLength: 50
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CarePlanStatusEnum'
+          default: active
+      required:
+      - care_area
+      - frequency
+      - intervention
+      - patient_id
     CarePlanStatusEnum:
       enum:
       - active
@@ -3321,6 +3350,20 @@ components:
         * `active` - Activo
         * `suspended` - Suspendido
         * `completed` - Finalizado
+    CarePlanUpdate:
+      type: object
+      properties:
+        care_area:
+          type: string
+          maxLength: 100
+        intervention:
+          type: string
+          maxLength: 255
+        frequency:
+          type: string
+          maxLength: 50
+        status:
+          $ref: '#/components/schemas/CarePlanStatusEnum'
     CategoryEnum:
       enum:
       - general
@@ -3385,6 +3428,21 @@ components:
       - id
       - patient
       - patient_name
+    ClinicalObservationCreate:
+      type: object
+      properties:
+        patient_id:
+          type: integer
+          minimum: 1
+        category:
+          allOf:
+          - $ref: '#/components/schemas/CategoryEnum'
+          default: general
+        content:
+          type: string
+      required:
+      - content
+      - patient_id
     Crib:
       type: object
       properties:
@@ -3454,6 +3512,29 @@ components:
           minimum: 1
       required:
       - patient_id
+    CribCreate:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          default: ''
+          maxLength: 100
+        location:
+          type: string
+          default: ''
+          maxLength: 100
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CribStatusEnum'
+          default: available
+        is_device_active:
+          type: boolean
+          default: true
+      required:
+      - code
     CribOverview:
       type: object
       properties:
@@ -3581,6 +3662,22 @@ components:
         * `occupied` - Ocupada
         * `maintenance` - En mantenimiento
         * `offline` - Fuera de línea
+    CribUpdate:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 100
+        location:
+          type: string
+          maxLength: 100
+        status:
+          $ref: '#/components/schemas/CribStatusEnum'
+        is_device_active:
+          type: boolean
     DischargeCauseEnum:
       enum:
       - none
@@ -3702,6 +3799,38 @@ components:
       - prescription
       - scheduled_for
       - units_deducted
+    MedicationCatalogCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 150
+        active_ingredient:
+          type: string
+          maxLength: 150
+        concentration_mg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        unit:
+          type: string
+          default: ampolla
+          maxLength: 30
+        stock:
+          type: integer
+          minimum: 0
+          default: 0
+        min_stock_alert:
+          type: integer
+          minimum: 0
+          default: 5
+        is_active:
+          type: boolean
+          default: true
+      required:
+      - active_ingredient
+      - concentration_mg
+      - name
     MedicationCatalogItem:
       type: object
       properties:
@@ -3754,6 +3883,30 @@ components:
       - stock
       - unit
       - updated_at
+    MedicationCatalogUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 150
+        active_ingredient:
+          type: string
+          maxLength: 150
+        concentration_mg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        unit:
+          type: string
+          maxLength: 30
+        stock:
+          type: integer
+          minimum: 0
+        min_stock_alert:
+          type: integer
+          minimum: 0
+        is_active:
+          type: boolean
     MyShift:
       type: object
       properties:
@@ -4218,132 +4371,60 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
-    PatchedCarePlan:
+    PatchedCarePlanUpdate:
       type: object
       properties:
-        id:
-          type: integer
-          readOnly: true
-        patient:
-          type: integer
-          readOnly: true
-        patient_name:
-          type: string
-          readOnly: true
         care_area:
           type: string
-          readOnly: true
+          maxLength: 100
         intervention:
           type: string
-          readOnly: true
+          maxLength: 255
         frequency:
           type: string
-          readOnly: true
+          maxLength: 50
         status:
-          allOf:
-          - $ref: '#/components/schemas/CarePlanStatusEnum'
-          readOnly: true
-        created_by:
-          type: integer
-          readOnly: true
-        created_by_name:
-          type: string
-          readOnly: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-    PatchedCrib:
+          $ref: '#/components/schemas/CarePlanStatusEnum'
+    PatchedCribUpdate:
       type: object
       properties:
-        id:
-          type: integer
-          readOnly: true
         code:
           type: string
-          readOnly: true
+          maxLength: 20
         name:
           type: string
-          readOnly: true
+          maxLength: 100
         location:
           type: string
-          readOnly: true
+          maxLength: 100
         status:
-          allOf:
-          - $ref: '#/components/schemas/CribStatusEnum'
-          readOnly: true
-        api_key_prefix:
-          type: string
-          readOnly: true
+          $ref: '#/components/schemas/CribStatusEnum'
         is_device_active:
           type: boolean
-          readOnly: true
-        last_telemetry_at:
-          type: string
-          format: date-time
-          readOnly: true
-          nullable: true
-        current_patient_id:
-          type: integer
-          readOnly: true
-        current_patient_name:
-          type: string
-          readOnly: true
-        current_patient_mrn:
-          type: string
-          readOnly: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-    PatchedMedicationCatalogItem:
+    PatchedMedicationCatalogUpdate:
       type: object
       properties:
-        id:
-          type: integer
-          readOnly: true
         name:
           type: string
-          readOnly: true
+          maxLength: 150
         active_ingredient:
           type: string
-          readOnly: true
+          maxLength: 150
         concentration_mg:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-          readOnly: true
         unit:
           type: string
-          readOnly: true
+          maxLength: 30
         stock:
           type: integer
-          readOnly: true
+          minimum: 0
         min_stock_alert:
           type: integer
-          readOnly: true
-        is_low_stock:
-          type: boolean
-          readOnly: true
+          minimum: 0
         is_active:
           type: boolean
-          readOnly: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
     PatchedPatient:
       type: object
       properties:
@@ -4435,6 +4516,33 @@ components:
           type: string
           format: date-time
           readOnly: true
+    PatchedPatientUpdate:
+      type: object
+      properties:
+        full_name:
+          type: string
+          maxLength: 200
+        sex:
+          $ref: '#/components/schemas/SexEnum'
+        birth_date:
+          type: string
+          format: date
+        gestational_age_weeks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        current_weight_g:
+          type: integer
+          maximum: 10000
+          minimum: 200
+        diagnosis:
+          type: string
+        attending_physician_id:
+          type: integer
+          nullable: true
+        crib_id:
+          type: integer
+          nullable: true
     PatchedUserUpdate:
       type: object
       properties:
@@ -4595,6 +4703,49 @@ components:
       - active
       - discharged
       - total
+    PatientCreate:
+      type: object
+      properties:
+        medical_record_number:
+          type: string
+          maxLength: 30
+        full_name:
+          type: string
+          maxLength: 200
+        sex:
+          $ref: '#/components/schemas/SexEnum'
+        birth_date:
+          type: string
+          format: date
+        gestational_age_weeks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        birth_weight_g:
+          type: integer
+          maximum: 8000
+          minimum: 200
+        current_weight_g:
+          type: integer
+          maximum: 10000
+          minimum: 200
+          nullable: true
+        diagnosis:
+          type: string
+          default: ''
+        attending_physician_id:
+          type: integer
+          nullable: true
+        crib_id:
+          type: integer
+          nullable: true
+      required:
+      - birth_date
+      - birth_weight_g
+      - full_name
+      - gestational_age_weeks
+      - medical_record_number
+      - sex
     PatientDischarge:
       type: object
       properties:
@@ -4622,6 +4773,33 @@ components:
         * `discharged` - Egresado (alta)
         * `transferred` - Trasladado
         * `deceased` - Fallecido
+    PatientUpdate:
+      type: object
+      properties:
+        full_name:
+          type: string
+          maxLength: 200
+        sex:
+          $ref: '#/components/schemas/SexEnum'
+        birth_date:
+          type: string
+          format: date
+        gestational_age_weeks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        current_weight_g:
+          type: integer
+          maximum: 10000
+          minimum: 200
+        diagnosis:
+          type: string
+        attending_physician_id:
+          type: integer
+          nullable: true
+        crib_id:
+          type: integer
+          nullable: true
     Prescription:
       type: object
       properties:

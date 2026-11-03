@@ -50,6 +50,7 @@ uv run uvicorn poki_koa.asgi:application --app-dir src --reload  # servidor ASGI
 uv run pytest                            # ejecuta la suite de pruebas con pytest
 uv run poki_koa test                     # ejecuta la suite de pruebas de Django
 uv run ruff check src                    # verifica linter y estilo
+uv run poki_koa spectacular --validate --fail-on-warn --file openapi/schema.yml  # regenera el contrato OpenAPI versionado
 ```
 
 ## 4. Seguridad y datos
@@ -67,4 +68,5 @@ uv run ruff check src                    # verifica linter y estilo
 - Si una prueba falla, corrige la causa; no relajes aserciones para que pasen.
 - En PostgreSQL, nunca encadenes `.select_related(...)` sobre relaciones anulables (`null=True` o `OneToOneField` inverso) junto con `.select_for_update()`, ya que PostgreSQL rechaza `FOR UPDATE` en el lado anulable de un `LEFT OUTER JOIN`.
 - En plantillas HTML del backend (`templates/`), mantén un estilo clínico sobrio: sin emojis, sin gradientes y con esquinas redondeadas estandarizadas en `0.5rem`.
+- Si un cambio altera el contrato de la API, regenera `openapi/schema.yml` en el mismo commit; CI falla si queda desactualizado.
 - Toda tarea debe separarse en commits pequeños y comprensibles en español; nunca envíes todo en un solo commit.

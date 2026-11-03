@@ -51,6 +51,20 @@ uv run pytest
 uv run poki_koa test
 ```
 
+## Contrato OpenAPI para el frontend
+
+`openapi/schema.yml` es el contrato versionado de la API; CI verifica que coincida con el código. El frontend puede generar sus tipos TypeScript desde ese archivo sin autenticarse contra el backend (`/api/v1/schema/` exige sesión):
+
+```bash
+npx openapi-typescript ../poki-koa-backend/openapi/schema.yml -o src/api/schema.d.ts
+```
+
+Tras cambiar la API, regenera el archivo:
+
+```bash
+uv run poki_koa spectacular --validate --fail-on-warn --file openapi/schema.yml
+```
+
 ## Documentación del Proyecto
 
 - [AGENTS.md](./AGENTS.md): Guía operativa, reglas de código y convenciones del repositorio.

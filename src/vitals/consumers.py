@@ -11,6 +11,7 @@ from patients.models import Patient
 
 from .realtime import (
     UNIT_STREAM_GROUP,
+    WS_AUTH_SUBPROTOCOL,
     crib_stream_group,
     patient_stream_group,
 )
@@ -84,7 +85,9 @@ class TelemetryAlertConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_add(group_name, self.channel_name)
             self.subscribed_groups.add(group_name)
 
-        await self.accept()
+        # Si el cliente ofreció el subprotocolo de autenticación, el navegador exige que se confirme
+        offered = self.scope.get("subprotocols") or []
+        await self.accept(subprotocol=WS_AUTH_SUBPROTOCOL if WS_AUTH_SUBPROTOCOL in offered else None)
         await self.send_json(
             {
                 "event": "stream.connected",

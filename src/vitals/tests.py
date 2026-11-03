@@ -313,6 +313,7 @@ class WebsocketCommunicator(ApplicationCommunicator):
         app: Any,
         path: str,
         headers: list[tuple[bytes, bytes]] | None = None,
+        subprotocols: list[str] | None = None,
     ) -> None:
         parsed = urlparse(path)
         scope = {
@@ -320,7 +321,7 @@ class WebsocketCommunicator(ApplicationCommunicator):
             "path": unquote(parsed.path),
             "query_string": parsed.query.encode("utf-8"),
             "headers": headers or [],
-            "subprotocols": [],
+            "subprotocols": subprotocols or [],
         }
         super().__init__(app, scope)
 
@@ -393,7 +394,8 @@ class RealtimeWebSocketTests(TransactionTestCase):
             # 2. Rol no autorizado (Farmacéutico) es rechazado con 4403
             forbidden_comm = WebsocketCommunicator(
                 application,
-                f"/ws/v1/monitoring/stream/?token={pharm_token}",
+                "/ws/v1/monitoring/stream/",
+                subprotocols=["bearer", pharm_token],
             )
             connected_f, close_code_f = await forbidden_comm.connect()
             self.assertFalse(connected_f)
@@ -402,16 +404,26 @@ class RealtimeWebSocketTests(TransactionTestCase):
             # 3. Cuna inexistente devuelve 4404
             not_found_comm = WebsocketCommunicator(
                 application,
-                f"/ws/v1/cribs/999999/stream/?token={nurse_token}",
+                "/ws/v1/cribs/999999/stream/",
+                subprotocols=["bearer", nurse_token],
             )
             connected_nf, close_code_nf = await not_found_comm.connect()
             self.assertFalse(connected_nf)
             self.assertEqual(close_code_nf, WS_CLOSE_NOT_FOUND)
 
-            # 4. Suscripción autenticada al stream de cuna (por query token) y de paciente (por cabecera Authorization)
+            # 3b. El token en la URL ya no se acepta para no exponerlo en logs
+            query_comm = WebsocketCommunicator(
+                application, f"/ws/v1/monitoring/stream/?token={nurse_token}"
+            )
+            connected_q, close_code_q = await query_comm.connect()
+            self.assertFalse(connected_q)
+            self.assertEqual(close_code_q, WS_CLOSE_UNAUTHORIZED)
+
+            # 4. Suscripción autenticada al stream de cuna (por subprotocolo) y de paciente (por cabecera Authorization)
             crib_comm = WebsocketCommunicator(
                 application,
-                f"/ws/v1/cribs/{self.crib.id}/stream/?token={nurse_token}",
+                f"/ws/v1/cribs/{self.crib.id}/stream/",
+                subprotocols=["bearer", nurse_token],
             )
             patient_comm = WebsocketCommunicator(
                 application,
@@ -419,10 +431,13 @@ class RealtimeWebSocketTests(TransactionTestCase):
                 headers=[(b"authorization", f"Bearer {nurse_token}".encode("latin1"))],
             )
 
-            ok_crib, _ = await crib_comm.connect()
-            ok_patient, _ = await patient_comm.connect()
+            ok_crib, crib_subprotocol = await crib_comm.connect()
+            ok_patient, patient_subprotocol = await patient_comm.connect()
             self.assertTrue(ok_crib)
             self.assertTrue(ok_patient)
+            # El navegador cierra la conexión si el servidor no confirma el subprotocolo ofrecido
+            self.assertEqual(crib_subprotocol, "bearer")
+            self.assertIsNone(patient_subprotocol)
 
             welcome_crib = await crib_comm.receive_json_from()
             welcome_patient = await patient_comm.receive_json_from()

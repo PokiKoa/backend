@@ -1,5 +1,4 @@
 from typing import Any
-from urllib.parse import parse_qs
 
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
@@ -36,18 +35,22 @@ def _get_user_from_access_token(raw_token: str) -> User | AnonymousUser:
         return AnonymousUser()
 
 
+WS_AUTH_SUBPROTOCOL = "bearer"
+
+
 def _extract_token_from_scope(scope: dict[str, Any]) -> str | None:
     headers = dict(scope.get("headers", []))
     auth_header = headers.get(b"authorization", b"").decode("latin1").strip()
     if auth_header.lower().startswith("bearer "):
         return auth_header[7:].strip()
 
-    raw_query = scope.get("query_string", b"").decode("utf-8", errors="ignore")
-    if raw_query:
-        params = parse_qs(raw_query)
-        token_list = params.get("token")
-        if token_list and token_list[0].strip():
-            return token_list[0].strip()
+    # Los navegadores no permiten cabeceras en WebSocket: el token viaja como subprotocolo
+    # (["bearer", "<access>"]) en vez de la URL, para que no quede en logs de proxies
+    subprotocols = list(scope.get("subprotocols") or [])
+    if WS_AUTH_SUBPROTOCOL in subprotocols:
+        index = subprotocols.index(WS_AUTH_SUBPROTOCOL)
+        if index + 1 < len(subprotocols) and subprotocols[index + 1].strip():
+            return subprotocols[index + 1].strip()
 
     return None
 

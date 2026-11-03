@@ -60,7 +60,7 @@ El frontend (React + Vite) vive en [PokiKoa/frontend](https://github.com/PokiKoa
 `openapi/schema.yml` es el contrato versionado de la API; CI verifica que coincida con el código. El frontend puede generar sus tipos TypeScript desde ese archivo sin autenticarse contra el backend (`/api/v1/schema/` exige sesión):
 
 ```bash
-npx openapi-typescript ../poki-koa-backend/openapi/schema.yml -o src/api/schema.d.ts
+npx openapi-typescript ../backend/openapi/schema.yml -o src/api/schema.d.ts
 ```
 
 Tras cambiar la API, regenera el archivo:

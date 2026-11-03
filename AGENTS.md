@@ -33,6 +33,7 @@ La evidencia académica de la versión prototipo inicial (v1) se conserva en el 
 - [API_REFERENCE.md](docs/API_REFERENCE.md): Contrato REST `/api/v1/`, canales WebSocket `/ws/v1/` y formato de errores.
 - [SECURITY_AND_RBAC.md](docs/SECURITY_AND_RBAC.md): Autenticación JWT, matriz RBAC, API keys de dispositivos y 2FA (TOTP).
 - [DATA_SCHEMA.md](docs/DATA_SCHEMA.md): Esquema de datos relacional v2, diagrama ER e invariantes.
+- [DEPLOYMENT_AND_OPERATIONS.md](docs/DEPLOYMENT_AND_OPERATIONS.md): Guía de servidor ASGI (`Uvicorn`), `WhiteNoise`, `prod.py`, Docker y escalamiento.
 
 ## 3. Comandos
 

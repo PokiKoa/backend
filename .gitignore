@@ -18,3 +18,4 @@ htmlcov/
 src/db.sqlite3
 src/db_entregable.sqlite3
 src/db_entregable.sqlite3-*
+staticfiles/

@@ -43,3 +43,4 @@ uv run poki_koa test
 - [docs/API_REFERENCE.md](./docs/API_REFERENCE.md): Contrato REST `/api/v1/`, canales WebSocket `/ws/v1/` y formato de errores.
 - [docs/SECURITY_AND_RBAC.md](./docs/SECURITY_AND_RBAC.md): Autenticación JWT, matriz de permisos RBAC, API keys por dispositivo y 2FA (TOTP).
 - [docs/DATA_SCHEMA.md](./docs/DATA_SCHEMA.md): Esquema de datos relacional v2, diagrama ER e invariantes.
+- [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md): Guía de servidor ASGI (`Uvicorn`), archivos estáticos (`WhiteNoise`), producción y operación.

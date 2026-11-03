@@ -18,6 +18,8 @@ dependencies = [
     "djangorestframework-simplejwt>=5.5.1",
     "drf-spectacular>=0.30.0",
     "psycopg>=3.3.6",
+    "uvicorn[standard]>=0.34.0",
+    "whitenoise>=6.9.0",
 ]
 
 [project.scripts]

@@ -89,6 +89,7 @@ GET /api/v1/alerts/?is_open=true&crib=3&triggered_after=2026-11-03T03:00:00-03:0
 | | `POST /api/v1/cribs/check-offline/` | Detecta cunas sin telemetría reciente, las marca `offline` y emite alertas (`sensor_fault`). |
 | | `POST /api/v1/cribs/{id}/telemetry/` | Ingesta de lectura de signos vitales (vía `X-Device-Api-Key` o personal autorizado). |
 | **Signos Vitales** | `GET /api/v1/vitals/` | Consulta filtrable de lecturas históricas de telemetría. |
+| **Monitoreo** | `GET /api/v1/monitoring/overview/` | Panel de la unidad en una sola respuesta: cada cuna con su paciente, última lectura y conteo de alertas abiertas por severidad, más totales de la unidad. |
 | **Alertas** | `GET /api/v1/alerts/` | Listado de alertas clínicas y técnicas. |
 | | `POST /api/v1/alerts/{id}/acknowledge/` | Reconocimiento (`acknowledge`) de una alerta activa. |
 | | `POST /api/v1/alerts/{id}/resolve/` | Resolución manual de una alerta. |
@@ -98,6 +99,34 @@ GET /api/v1/alerts/?is_open=true&crib=3&triggered_after=2026-11-03T03:00:00-03:0
 | | `POST /api/v1/prescriptions/{id}/administer/` | Administración atómica con descuento de stock sin doble aplicación. |
 | | `POST /api/v1/prescriptions/{id}/cancel/` | Cancelación de indicación pendiente (`neonatologist`). |
 | **Auditoría** | `GET /api/v1/audit-logs/` | Registro inmutable de eventos clínicos y de seguridad (`admin`). |
+
+### 2.1 Resumen de la unidad (`GET /api/v1/monitoring/overview/`)
+
+Pensado para la pantalla principal: se resuelve con un número fijo de consultas, sin importar cuántas cunas haya, y evita una petición por cuna. Las alertas abiertas son las `active` y las `acknowledged`. Tras la carga inicial, el frontend se mantiene al día con `ws/v1/monitoring/stream/`.
+
+```json
+{
+  "generated_at": "2026-11-03T08:00:05-03:00",
+  "summary": {
+    "cribs_total": 4,
+    "cribs_by_status": {"available": 1, "occupied": 2, "maintenance": 0, "offline": 1},
+    "patients_monitored": 2,
+    "open_alerts": {"total": 3, "critical": 1, "warning": 2, "info": 0}
+  },
+  "cribs": [
+    {
+      "id": 1, "code": "C-01", "status": "occupied", "last_telemetry_at": "…",
+      "patient": {"id": 1, "medical_record_number": "RN-2026-001", "full_name": "…", "sex": "M",
+                  "age_days": 4, "gestational_age_weeks": "31.5", "current_weight_g": 1535},
+      "latest_reading": {"heart_rate": 138, "spo2": 97, "temperature": "36.8", "recorded_at": "…"},
+      "open_alerts": {"total": 1, "critical": 1, "warning": 0, "info": 0},
+      "highest_open_severity": "critical"
+    }
+  ]
+}
+```
+
+Cada elemento de `cribs` incluye además todos los campos de `GET /api/v1/cribs/{id}/`; `patient`, `latest_reading` y `highest_open_severity` son `null` cuando no aplican.
 
 ---
 

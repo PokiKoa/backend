@@ -95,3 +95,19 @@ class AuditEndpointTests(TestCase):
         self.assertEqual(entry["patient_id"], 102)
         self.assertEqual(entry["changed_fields"], ["diagnosis"])
         self.assertEqual(AuditLog.objects.count(), 2)
+
+    def test_summary_counts_by_action_honoring_filters(self) -> None:
+        self.client.force_authenticate(user=self.nurse)
+        self.assertEqual(
+            self.client.get("/api/v1/audit-logs/summary/").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/v1/audit-logs/summary/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            sorted((row["action"], row["total"]) for row in response.data),
+            [(AuditAction.READ, 1), (AuditAction.UPDATE, 1)],
+        )
+        filtered = self.client.get("/api/v1/audit-logs/summary/", {"patient_id": 102})
+        self.assertEqual(list(filtered.data), [{"action": AuditAction.UPDATE, "total": 1}])

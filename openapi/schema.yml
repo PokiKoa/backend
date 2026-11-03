@@ -368,6 +368,100 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuditLog'
           description: ''
+  /api/v1/audit-logs/summary/:
+    get:
+      operationId: audit_logs_summary_list
+      summary: Conteo de eventos de auditoría por acción, con los mismos filtros del
+        listado
+      parameters:
+      - in: query
+        name: action
+        schema:
+          type: string
+          enum:
+          - account_locked
+          - acknowledge_alert
+          - administer_medication
+          - assign_crib
+          - create
+          - discharge
+          - ingest_telemetry
+          - login_failed
+          - login_success
+          - logout
+          - prescribe_medication
+          - read
+          - release_crib
+          - resolve_alert
+          - update
+        description: |-
+          * `read` - Lectura
+          * `create` - Creación
+          * `update` - Actualización
+          * `discharge` - Egreso clínico
+          * `assign_crib` - Asignación de cuna
+          * `release_crib` - Liberación de cuna
+          * `ingest_telemetry` - Ingesta de telemetría
+          * `acknowledge_alert` - Reconocimiento de alerta
+          * `resolve_alert` - Resolución de alerta
+          * `prescribe_medication` - Indicación médica
+          * `administer_medication` - Administración de medicamento
+          * `login_success` - Inicio de sesión exitoso
+          * `login_failed` - Intento de inicio de sesión fallido
+          * `logout` - Cierre de sesión
+          * `account_locked` - Bloqueo temporal de cuenta
+      - in: query
+        name: actor_user
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - in: query
+        name: patient_id
+        schema:
+          type: integer
+      - in: query
+        name: resource_id
+        schema:
+          type: string
+      - in: query
+        name: resource_type
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: timestamp_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: timestamp_before
+        schema:
+          type: string
+          format: date-time
+      tags:
+      - audit-logs
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditActionCount'
+          description: ''
   /api/v1/auth/2fa/disable/:
     post:
       operationId: auth_2fa_disable_create
@@ -3096,6 +3190,16 @@ components:
         * `cannula` - Cánula de Oxígeno
         * `sensor_fault` - Fallo de Sensor
         * `other` - Otra Alerta
+    AuditActionCount:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/ActionEnum'
+        total:
+          type: integer
+      required:
+      - action
+      - total
     AuditLog:
       type: object
       properties:

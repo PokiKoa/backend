@@ -39,6 +39,7 @@ packages = [
     "src/vitals",
     "src/alerts",
     "src/medications",
+    "src/reports",
 ]
 
 [dependency-groups]

@@ -2227,6 +2227,47 @@ paths:
               schema:
                 $ref: '#/components/schemas/Prescription'
           description: ''
+  /api/v1/reports/series/:
+    get:
+      operationId: reports_series_list
+      summary: Serie diaria de ingresos y alertas (días locales)
+      parameters:
+      - in: query
+        name: days
+        schema:
+          type: integer
+        description: Días hacia atrás, de 1 a 90 (por defecto 14).
+      tags:
+      - reports
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityPoint'
+          description: ''
+  /api/v1/reports/summary/:
+    get:
+      operationId: reports_summary_retrieve
+      summary: 'Resumen operativo de la unidad: pacientes, cunas, medicación, alertas
+        y personal'
+      tags:
+      - reports
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationsSummary'
+          description: ''
   /api/v1/shift-assignments/:
     get:
       operationId: shift_assignments_list
@@ -2765,6 +2806,20 @@ components:
         * `login_failed` - Intento de inicio de sesión fallido
         * `logout` - Cierre de sesión
         * `account_locked` - Bloqueo temporal de cuenta
+    ActivityPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        admissions:
+          type: integer
+        alerts:
+          type: integer
+      required:
+      - admissions
+      - alerts
+      - date
     Alert:
       type: object
       properties:
@@ -2874,6 +2929,23 @@ components:
       - status
       - threshold_value
       - triggered_at
+    AlertReport:
+      type: object
+      properties:
+        open:
+          type: integer
+        open_by_severity:
+          type: object
+          additionalProperties:
+            type: integer
+        open_by_type:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+      - open
+      - open_by_severity
+      - open_by_type
     AlertSeverityEnum:
       enum:
       - info
@@ -3363,6 +3435,20 @@ components:
       - patient
       - status
       - updated_at
+    CribReport:
+      type: object
+      properties:
+        total:
+          type: integer
+        by_status:
+          $ref: '#/components/schemas/CribStatusCounts'
+        occupancy_percent:
+          type: number
+          format: double
+      required:
+      - by_status
+      - occupancy_percent
+      - total
     CribStatusCounts:
       type: object
       properties:
@@ -3583,6 +3669,35 @@ components:
     NullEnum:
       enum:
       - null
+    OperationsSummary:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        patients:
+          $ref: '#/components/schemas/PatientCounts'
+        cribs:
+          $ref: '#/components/schemas/CribReport'
+        prescriptions:
+          $ref: '#/components/schemas/PrescriptionReport'
+        medications_low_stock:
+          type: integer
+        alerts:
+          $ref: '#/components/schemas/AlertReport'
+        care_plans_active:
+          type: integer
+        staff:
+          $ref: '#/components/schemas/StaffReport'
+      required:
+      - alerts
+      - care_plans_active
+      - cribs
+      - generated_at
+      - medications_low_stock
+      - patients
+      - prescriptions
+      - staff
     OverviewAlertCounts:
       type: object
       properties:
@@ -4363,6 +4478,19 @@ components:
       - sex
       - status
       - updated_at
+    PatientCounts:
+      type: object
+      properties:
+        total:
+          type: integer
+        active:
+          type: integer
+        discharged:
+          type: integer
+      required:
+      - active
+      - discharged
+      - total
     PatientDischarge:
       type: object
       properties:
@@ -4553,6 +4681,18 @@ components:
       - medication_id
       - patient_id
       - starts_at
+    PrescriptionReport:
+      type: object
+      properties:
+        by_status:
+          type: object
+          additionalProperties:
+            type: integer
+        administrations_today:
+          type: integer
+      required:
+      - administrations_today
+      - by_status
     PrescriptionStatusEnum:
       enum:
       - active
@@ -4728,6 +4868,21 @@ components:
       - id
       - role
       - shift
+    StaffReport:
+      type: object
+      properties:
+        active:
+          type: integer
+        by_shift:
+          type: object
+          additionalProperties:
+            type: integer
+        assignments_current_shift_day:
+          type: integer
+      required:
+      - active
+      - assignments_current_shift_day
+      - by_shift
     TokenRefreshResponse:
       type: object
       properties:

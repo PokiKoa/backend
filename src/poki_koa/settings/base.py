@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "vitals.apps.VitalsConfig",
     "alerts.apps.AlertsConfig",
     "medications.apps.MedicationsConfig",
+    "reports.apps.ReportsConfig",
 ]
 
 MIDDLEWARE = [

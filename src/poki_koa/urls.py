@@ -24,6 +24,7 @@ api_v1_patterns = [
     path("", include("vitals.urls")),
     path("", include("alerts.urls")),
     path("", include("medications.urls")),
+    path("", include("reports.urls")),
 ]
 
 urlpatterns = [

@@ -2227,6 +2227,159 @@ paths:
               schema:
                 $ref: '#/components/schemas/Prescription'
           description: ''
+  /api/v1/shift-assignments/:
+    get:
+      operationId: shift_assignments_list
+      parameters:
+      - in: query
+        name: crib
+        schema:
+          type: integer
+      - in: query
+        name: date
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: date_after
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: date_before
+        schema:
+          type: string
+          format: date
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: shift
+        schema:
+          type: string
+          enum:
+          - afternoon
+          - morning
+          - night
+        description: |-
+          * `morning` - Mañana
+          * `afternoon` - Tarde
+          * `night` - Noche
+      - in: query
+        name: user
+        schema:
+          type: integer
+      tags:
+      - shift-assignments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedShiftAssignmentList'
+          description: ''
+    post:
+      operationId: shift_assignments_create
+      tags:
+      - shift-assignments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShiftAssignmentCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ShiftAssignmentCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ShiftAssignmentCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftAssignment'
+          description: ''
+  /api/v1/shift-assignments/{id}/:
+    delete:
+      operationId: shift_assignments_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Asignación de Turno.
+        required: true
+      tags:
+      - shift-assignments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/shift-assignments/mine/:
+    get:
+      operationId: shift_assignments_mine_retrieve
+      summary: Cunas asignadas al usuario en el turno vigente, con su estado de monitoreo
+      tags:
+      - shift-assignments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyShift'
+          description: ''
+  /api/v1/shifts/:
+    get:
+      operationId: shifts_list
+      summary: Catálogo fijo de turnos con su horario e indicación del turno vigente
+      tags:
+      - shifts
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shift'
+          description: ''
   /api/v1/staff/:
     get:
       operationId: staff_list
@@ -3411,6 +3564,22 @@ components:
       - stock
       - unit
       - updated_at
+    MyShift:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        shift:
+          $ref: '#/components/schemas/WorkShiftEnum'
+        cribs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CribOverview'
+      required:
+      - cribs
+      - date
+      - shift
     NullEnum:
       enum:
       - null
@@ -3672,6 +3841,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Prescription'
+    PaginatedShiftAssignmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShiftAssignment'
     PaginatedStaffMemberList:
       type: object
       required:
@@ -4048,7 +4240,7 @@ components:
         shift:
           nullable: true
           oneOf:
-          - $ref: '#/components/schemas/ShiftEnum'
+          - $ref: '#/components/schemas/WorkShiftEnum'
           - $ref: '#/components/schemas/BlankEnum'
           - $ref: '#/components/schemas/NullEnum'
         is_active:
@@ -4417,16 +4609,93 @@ components:
       description: |-
         * `F` - Femenino
         * `M` - Masculino
-    ShiftEnum:
-      enum:
-      - morning
-      - afternoon
-      - night
-      type: string
-      description: |-
-        * `morning` - Mañana
-        * `afternoon` - Tarde
-        * `night` - Noche
+    Shift:
+      type: object
+      properties:
+        value:
+          $ref: '#/components/schemas/WorkShiftEnum'
+        label:
+          type: string
+        starts_at:
+          type: string
+          format: time
+        ends_at:
+          type: string
+          format: time
+        is_current:
+          type: boolean
+      required:
+      - ends_at
+      - is_current
+      - label
+      - starts_at
+      - value
+    ShiftAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+          readOnly: true
+        user_name:
+          type: string
+          readOnly: true
+        user_role:
+          type: string
+          readOnly: true
+        crib:
+          type: integer
+          readOnly: true
+        crib_code:
+          type: string
+          readOnly: true
+        date:
+          type: string
+          format: date
+          readOnly: true
+        shift:
+          allOf:
+          - $ref: '#/components/schemas/WorkShiftEnum'
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - crib
+      - crib_code
+      - date
+      - id
+      - shift
+      - user
+      - user_name
+      - user_role
+    ShiftAssignmentCreate:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+        crib_id:
+          type: integer
+          minimum: 1
+        date:
+          type: string
+          format: date
+        shift:
+          $ref: '#/components/schemas/WorkShiftEnum'
+      required:
+      - crib_id
+      - date
+      - shift
+      - user_id
     SleepStateEnum:
       enum:
       - asleep
@@ -4452,7 +4721,7 @@ components:
           readOnly: true
           nullable: true
           oneOf:
-          - $ref: '#/components/schemas/ShiftEnum'
+          - $ref: '#/components/schemas/WorkShiftEnum'
           - $ref: '#/components/schemas/NullEnum'
       required:
       - full_name
@@ -4541,7 +4810,7 @@ components:
           readOnly: true
           nullable: true
           oneOf:
-          - $ref: '#/components/schemas/ShiftEnum'
+          - $ref: '#/components/schemas/WorkShiftEnum'
           - $ref: '#/components/schemas/NullEnum'
         is_active:
           type: boolean
@@ -4606,7 +4875,7 @@ components:
         shift:
           nullable: true
           oneOf:
-          - $ref: '#/components/schemas/ShiftEnum'
+          - $ref: '#/components/schemas/WorkShiftEnum'
           - $ref: '#/components/schemas/BlankEnum'
           - $ref: '#/components/schemas/NullEnum'
         is_active:
@@ -4639,7 +4908,7 @@ components:
         shift:
           nullable: true
           oneOf:
-          - $ref: '#/components/schemas/ShiftEnum'
+          - $ref: '#/components/schemas/WorkShiftEnum'
           - $ref: '#/components/schemas/BlankEnum'
           - $ref: '#/components/schemas/NullEnum'
         is_active:
@@ -4748,6 +5017,16 @@ components:
           minimum: 200
       required:
       - weight_g
+    WorkShiftEnum:
+      enum:
+      - morning
+      - afternoon
+      - night
+      type: string
+      description: |-
+        * `morning` - Mañana
+        * `afternoon` - Tarde
+        * `night` - Noche
   securitySchemes:
     DeviceApiKeyAuth:
       type: apiKey

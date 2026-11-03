@@ -7,6 +7,8 @@ from .views import (
     LoginView,
     LogoutView,
     RefreshTokenView,
+    ShiftAssignmentViewSet,
+    ShiftCatalogView,
     StaffDirectoryViewSet,
     TwoFactorDisableView,
     TwoFactorEnableView,
@@ -17,6 +19,7 @@ from .views import (
 router = DefaultRouter()
 router.register(r"users", UserViewSet, basename="user")
 router.register(r"staff", StaffDirectoryViewSet, basename="staff")
+router.register(r"shift-assignments", ShiftAssignmentViewSet, basename="shift-assignment")
 
 urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="auth-login"),
@@ -27,5 +30,6 @@ urlpatterns = [
     path("auth/2fa/setup/", TwoFactorSetupView.as_view(), name="auth-2fa-setup"),
     path("auth/2fa/enable/", TwoFactorEnableView.as_view(), name="auth-2fa-enable"),
     path("auth/2fa/disable/", TwoFactorDisableView.as_view(), name="auth-2fa-disable"),
+    path("shifts/", ShiftCatalogView.as_view(), name="shifts"),
     path("", include(router.urls)),
 ]

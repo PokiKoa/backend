@@ -1,3 +1,4 @@
+from datetime import time
 from typing import Any, ClassVar
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
@@ -17,6 +18,15 @@ class WorkShift(models.TextChoices):
     MORNING = "morning", "Mañana"
     AFTERNOON = "afternoon", "Tarde"
     NIGHT = "night", "Noche"
+
+
+# Fuente única de verdad del horario de cada turno (hora local); la noche cruza la medianoche
+# y pertenece a la fecha en que comienza
+SHIFT_HOURS: dict[str, tuple[time, time]] = {
+    WorkShift.MORNING: (time(7, 0), time(15, 0)),
+    WorkShift.AFTERNOON: (time(15, 0), time(23, 0)),
+    WorkShift.NIGHT: (time(23, 0), time(7, 0)),
+}
 
 
 class UserManager(BaseUserManager["User"]):
@@ -121,3 +131,35 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def is_temporarily_locked(self) -> bool:
         return bool(self.locked_until and self.locked_until > timezone.now())
+
+
+class ShiftAssignment(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="shift_assignments"
+    )
+    crib = models.ForeignKey(
+        "devices.Crib", on_delete=models.PROTECT, related_name="shift_assignments"
+    )
+    date = models.DateField()
+    shift = models.CharField(max_length=16, choices=WorkShift.choices)
+    created_by = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="created_shift_assignments"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["-date", "shift", "crib__code", "id"]
+        constraints: ClassVar[list[models.UniqueConstraint]] = [
+            models.UniqueConstraint(
+                fields=["user", "crib", "date", "shift"],
+                name="shift_assignment_unique",
+            ),
+        ]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["date", "shift"], name="shift_assignment_date_idx"),
+        ]
+        verbose_name = "Asignación de Turno"
+        verbose_name_plural = "Asignaciones de Turno"
+
+    def __str__(self) -> str:
+        return f"{self.user_id} en cuna {self.crib_id} ({self.date} {self.shift})"

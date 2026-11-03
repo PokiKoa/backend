@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import User
+from .models import ShiftAssignment, User
 
 
 @admin.register(User)
@@ -56,3 +56,10 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
     )
+
+
+@admin.register(ShiftAssignment)
+class ShiftAssignmentAdmin(admin.ModelAdmin):
+    list_display = ("date", "shift", "user", "crib", "created_by")
+    list_filter = ("shift", "date")
+    search_fields = ("user__full_name", "crib__code")

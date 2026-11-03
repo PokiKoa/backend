@@ -4,7 +4,8 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from accounts.models import User, UserRole, WorkShift
+from accounts.models import ShiftAssignment, User, UserRole, WorkShift
+from accounts.services import current_shift
 from devices.models import Crib
 from devices.services import create_crib
 from medications.models import AdministrationRoute, MedicationCatalogItem
@@ -96,6 +97,19 @@ class Command(BaseCommand):
                     location=loc,
                 )
             cribs[code] = existing
+
+        # Asignaciones para el día del turno vigente y el siguiente, así "Mis cunas" nunca queda vacío
+        shift_day, _ = current_shift()
+        for offset in (0, 1):
+            for shift in WorkShift.values:
+                for code in ("C-01", "C-02"):
+                    ShiftAssignment.objects.get_or_create(
+                        user=nurse,
+                        crib=cribs[code],
+                        date=shift_day + timedelta(days=offset),
+                        shift=shift,
+                        defaults={"created_by": admin_user},
+                    )
 
         today = timezone.localdate()
         if not Patient.objects.filter(medical_record_number="RN-2026-001").exists():

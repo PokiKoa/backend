@@ -2,7 +2,7 @@ from typing import ClassVar
 
 from rest_framework import serializers
 
-from .models import User, UserRole, WorkShift
+from .models import ShiftAssignment, User, UserRole, WorkShift
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -98,3 +98,40 @@ class TwoFactorSetupResponseSerializer(serializers.Serializer):
 
 class TwoFactorCodeSerializer(serializers.Serializer):
     otp_code = serializers.CharField(min_length=6, max_length=6)
+
+
+class ShiftSerializer(serializers.Serializer):
+    value = serializers.ChoiceField(choices=WorkShift.choices)
+    label = serializers.CharField()
+    starts_at = serializers.TimeField(format="%H:%M")
+    ends_at = serializers.TimeField(format="%H:%M")
+    is_current = serializers.BooleanField()
+
+
+class ShiftAssignmentSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+    user_role = serializers.CharField(source="user.role", read_only=True)
+    crib_code = serializers.CharField(source="crib.code", read_only=True)
+
+    class Meta:
+        model = ShiftAssignment
+        fields: ClassVar[list[str]] = [
+            "id",
+            "user",
+            "user_name",
+            "user_role",
+            "crib",
+            "crib_code",
+            "date",
+            "shift",
+            "created_by",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class ShiftAssignmentCreateSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(min_value=1)
+    crib_id = serializers.IntegerField(min_value=1)
+    date = serializers.DateField()
+    shift = serializers.ChoiceField(choices=WorkShift.choices)

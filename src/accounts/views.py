@@ -1,21 +1,28 @@
 from typing import ClassVar
 
+import django_filters
 from drf_spectacular.utils import extend_schema
-from rest_framework import mixins, status, viewsets
+from rest_framework import mixins, serializers, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import get_client_ip
+from vitals.serializers import CribOverviewSerializer
+from vitals.services import build_unit_overview
 
 from .cookies import clear_refresh_cookie, read_refresh_cookie, set_refresh_cookie
-from .models import User
+from .models import SHIFT_HOURS, ShiftAssignment, User, WorkShift
 from .permissions import IsAdminRole
 from .serializers import (
     ChangePasswordSerializer,
     LoginResponseSerializer,
     LoginSerializer,
+    ShiftAssignmentCreateSerializer,
+    ShiftAssignmentSerializer,
+    ShiftSerializer,
     StaffMemberSerializer,
     TokenRefreshResponseSerializer,
     TwoFactorCodeSerializer,
@@ -25,9 +32,13 @@ from .serializers import (
     UserUpdateSerializer,
 )
 from .services import (
+    assigned_crib_ids,
     authenticate_user,
     change_own_password,
+    create_shift_assignment,
     create_user_by_admin,
+    current_shift,
+    delete_shift_assignment,
     disable_two_factor,
     enable_two_factor,
     logout_user,
@@ -262,3 +273,90 @@ class StaffDirectoryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     filterset_fields: ClassVar[list[str]] = ["role", "shift"]
     search_fields: ClassVar[list[str]] = ["full_name"]
     ordering_fields: ClassVar[list[str]] = ["full_name"]
+
+
+class MyShiftSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    shift = serializers.ChoiceField(choices=WorkShift.choices)
+    cribs = CribOverviewSerializer(many=True)
+
+
+class ShiftCatalogView(APIView):
+    permission_classes: ClassVar[list] = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Catálogo fijo de turnos con su horario e indicación del turno vigente",
+        responses={200: ShiftSerializer(many=True)},
+    )
+    def get(self, request: Request) -> Response:
+        _, active = current_shift()
+        shifts = [
+            {
+                "value": value,
+                "label": label,
+                "starts_at": SHIFT_HOURS[value][0],
+                "ends_at": SHIFT_HOURS[value][1],
+                "is_current": value == active,
+            }
+            for value, label in WorkShift.choices
+        ]
+        return Response(ShiftSerializer(shifts, many=True).data, status=status.HTTP_200_OK)
+
+
+class ShiftAssignmentFilter(django_filters.FilterSet):
+    date_after = django_filters.DateFilter(field_name="date", lookup_expr="gte")
+    date_before = django_filters.DateFilter(field_name="date", lookup_expr="lte")
+
+    class Meta:
+        model = ShiftAssignment
+        fields: ClassVar[list[str]] = ["date", "shift", "user", "crib"]
+
+
+class ShiftAssignmentViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    queryset = ShiftAssignment.objects.select_related("user", "crib").all()
+    serializer_class = ShiftAssignmentSerializer
+    permission_classes: ClassVar[list] = [IsAuthenticated]
+    filterset_class = ShiftAssignmentFilter
+    ordering_fields: ClassVar[list[str]] = ["date", "shift"]
+
+    @extend_schema(request=ShiftAssignmentCreateSerializer, responses={201: ShiftAssignmentSerializer})
+    def create(self, request: Request, *args, **kwargs) -> Response:
+        serializer = ShiftAssignmentCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        assignment = create_shift_assignment(
+            actor=request.user,
+            user_id=data["user_id"],
+            crib_id=data["crib_id"],
+            day=data["date"],
+            shift=data["shift"],
+            ip_address=get_client_ip(request),
+        )
+        return Response(
+            ShiftAssignmentSerializer(self.get_queryset().get(pk=assignment.pk)).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        delete_shift_assignment(
+            actor=request.user,
+            assignment=self.get_object(),
+            ip_address=get_client_ip(request),
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        summary="Cunas asignadas al usuario en el turno vigente, con su estado de monitoreo",
+        responses={200: MyShiftSerializer},
+    )
+    @action(detail=False, methods=["get"], url_path="mine")
+    def mine(self, request: Request) -> Response:
+        day, shift, crib_ids = assigned_crib_ids(user=request.user)
+        overview = build_unit_overview(crib_ids=crib_ids)
+        payload = {"date": day, "shift": shift, "cribs": overview.cribs}
+        return Response(MyShiftSerializer(payload).data, status=status.HTTP_200_OK)

@@ -167,6 +167,7 @@ SPECTACULAR_SETTINGS = {
         "CribStatusEnum": "devices.models.CribStatus",
         "AlertSeverityEnum": "alerts.models.AlertSeverity",
         "AlertStatusEnum": "alerts.models.AlertStatus",
+        "WorkShiftEnum": "accounts.models.WorkShift",
     },
 }
 

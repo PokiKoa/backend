@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from django.contrib.auth.password_validation import validate_password
@@ -18,9 +18,11 @@ from poki_koa.exceptions import (
     AuthenticationDomainError,
     ConflictDomainError,
     DomainError,
+    NotFoundDomainError,
+    PermissionDomainError,
 )
 
-from .models import User, UserRole, WorkShift
+from .models import SHIFT_HOURS, ShiftAssignment, User, UserRole, WorkShift
 from .totp import build_provisioning_uri, generate_totp_secret, verify_totp_code
 
 MAX_FAILED_LOGIN_ATTEMPTS = 5
@@ -547,3 +549,94 @@ def update_user_by_admin(
             )
 
     return locked_target
+
+
+ASSIGNABLE_ROLES = {UserRole.NURSE, UserRole.NEONATOLOGIST}
+
+
+def shift_window(shift: str, day: date) -> tuple[datetime, datetime]:
+    start_time, end_time = SHIFT_HOURS[shift]
+    start = timezone.make_aware(datetime.combine(day, start_time))
+    end_day = day + timedelta(days=1) if end_time <= start_time else day
+    return start, timezone.make_aware(datetime.combine(end_day, end_time))
+
+
+def current_shift(now: datetime | None = None) -> tuple[date, str]:
+    local = timezone.localtime(now or timezone.now())
+    for shift in WorkShift.values:
+        for day in (local.date(), local.date() - timedelta(days=1)):
+            start, end = shift_window(shift, day)
+            if start <= local < end:
+                return day, shift
+    raise AssertionError("SHIFT_HOURS debe cubrir las 24 horas")
+
+
+def create_shift_assignment(
+    *,
+    actor: User,
+    user_id: int,
+    crib_id: int,
+    day: date,
+    shift: str,
+    ip_address: str | None = None,
+) -> ShiftAssignment:
+    from devices.models import Crib
+
+    if actor.role != UserRole.ADMIN:
+        raise PermissionDomainError("Solo un administrador puede asignar turnos.")
+    if shift not in set(WorkShift.values):
+        raise DomainError("El turno especificado no es válido.")
+
+    staff = User.objects.filter(pk=user_id, is_active=True).first()
+    if staff is None:
+        raise NotFoundDomainError("El profesional indicado no existe o está inactivo.")
+    if staff.role not in ASSIGNABLE_ROLES:
+        raise DomainError("Solo personal de neonatología o enfermería puede asignarse a cunas.")
+    if not Crib.objects.filter(pk=crib_id).exists():
+        raise NotFoundDomainError("La cuna indicada no existe.")
+
+    with transaction.atomic():
+        if ShiftAssignment.objects.filter(
+            user=staff, crib_id=crib_id, date=day, shift=shift
+        ).exists():
+            raise ConflictDomainError("El profesional ya está asignado a esa cuna en ese turno.")
+        assignment = ShiftAssignment.objects.create(
+            user=staff, crib_id=crib_id, date=day, shift=shift, created_by=actor
+        )
+        record_audit_event(
+            action=AuditAction.CREATE,
+            resource_type="shift_assignment",
+            resource_id=assignment.id,
+            actor_user=actor,
+            changed_fields=["user_id", "crib_id", "date", "shift"],
+            ip_address=ip_address,
+        )
+    return assignment
+
+
+def delete_shift_assignment(
+    *, actor: User, assignment: ShiftAssignment, ip_address: str | None = None
+) -> None:
+    if actor.role != UserRole.ADMIN:
+        raise PermissionDomainError("Solo un administrador puede eliminar asignaciones de turno.")
+    with transaction.atomic():
+        assignment_id = assignment.id
+        assignment.delete()
+        record_audit_event(
+            action=AuditAction.UPDATE,
+            resource_type="shift_assignment",
+            resource_id=assignment_id,
+            actor_user=actor,
+            changed_fields=["deleted"],
+            ip_address=ip_address,
+        )
+
+
+def assigned_crib_ids(*, user: User, now: datetime | None = None) -> tuple[date, str, list[int]]:
+    day, shift = current_shift(now)
+    crib_ids = list(
+        ShiftAssignment.objects.filter(user=user, date=day, shift=shift)
+        .order_by("crib__code")
+        .values_list("crib_id", flat=True)
+    )
+    return day, shift, crib_ids

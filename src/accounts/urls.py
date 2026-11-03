@@ -7,6 +7,7 @@ from .views import (
     LoginView,
     LogoutView,
     RefreshTokenView,
+    StaffDirectoryViewSet,
     TwoFactorDisableView,
     TwoFactorEnableView,
     TwoFactorSetupView,
@@ -15,6 +16,7 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r"users", UserViewSet, basename="user")
+router.register(r"staff", StaffDirectoryViewSet, basename="staff")
 
 urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="auth-login"),

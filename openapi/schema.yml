@@ -2227,6 +2227,73 @@ paths:
               schema:
                 $ref: '#/components/schemas/Prescription'
           description: ''
+  /api/v1/staff/:
+    get:
+      operationId: staff_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: role
+        schema:
+          type: string
+          enum:
+          - admin
+          - neonatologist
+          - nurse
+          - pharmacist
+        description: |-
+          * `admin` - Administrador
+          * `neonatologist` - Neonatólogo
+          * `nurse` - Matrona / Enfermera
+          * `pharmacist` - Químico Farmacéutico
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: shift
+        schema:
+          type: string
+          nullable: true
+          enum:
+          - afternoon
+          - morning
+          - night
+        description: |-
+          * `morning` - Mañana
+          * `afternoon` - Tarde
+          * `night` - Noche
+      tags:
+      - staff
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStaffMemberList'
+          description: ''
   /api/v1/users/:
     get:
       operationId: users_list
@@ -3605,6 +3672,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Prescription'
+    PaginatedStaffMemberList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffMember'
     PaginatedUserList:
       type: object
       required:
@@ -4345,6 +4435,30 @@ components:
       description: |-
         * `asleep` - Dormido
         * `awake` - Despierto
+    StaffMember:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        shift:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/ShiftEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - full_name
+      - id
+      - role
+      - shift
     TokenRefreshResponse:
       type: object
       properties:

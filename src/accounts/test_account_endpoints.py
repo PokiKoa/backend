@@ -79,3 +79,31 @@ class ChangePasswordEndpointTests(APITestCase):
                     self.assertIn(field, response.data["error"]["details"])
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password(PASSWORD))
+
+
+class StaffDirectoryEndpointTests(APITestCase):
+    def setUp(self) -> None:
+        self.nurse = User.objects.create_user(
+            email="dir_nurse@pokikoa.cl", full_name="Matrona Directorio", password=PASSWORD,
+            role=UserRole.NURSE,
+        )
+        self.neo = User.objects.create_user(
+            email="dir_neo@pokikoa.cl", full_name="Dra. Directorio", password=PASSWORD,
+            role=UserRole.NEONATOLOGIST,
+        )
+        User.objects.create_user(
+            email="dir_off@pokikoa.cl", full_name="Inactivo", password=PASSWORD,
+            role=UserRole.NEONATOLOGIST, is_active=False,
+        )
+
+    def test_any_clinical_user_lists_active_staff_without_account_fields(self) -> None:
+        self.client.force_authenticate(user=self.nurse)
+        response = self.client.get("/api/v1/staff/", {"role": UserRole.NEONATOLOGIST})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        member = response.data["results"][0]
+        self.assertEqual(member["id"], self.neo.id)
+        self.assertEqual(set(member), {"id", "full_name", "role", "shift"})
+
+    def test_requires_authentication(self) -> None:
+        self.assertEqual(self.client.get("/api/v1/staff/").status_code, status.HTTP_401_UNAUTHORIZED)

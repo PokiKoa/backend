@@ -16,6 +16,7 @@ from .serializers import (
     ChangePasswordSerializer,
     LoginResponseSerializer,
     LoginSerializer,
+    StaffMemberSerializer,
     TokenRefreshResponseSerializer,
     TwoFactorCodeSerializer,
     TwoFactorSetupResponseSerializer,
@@ -251,3 +252,13 @@ class UserViewSet(
 
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
         return self.update(request, *args, **kwargs)
+
+
+class StaffDirectoryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    # Directorio mínimo para selectores clínicos (médico tratante, asignaciones) sin datos de cuenta
+    queryset = User.objects.filter(is_active=True).order_by("full_name", "id")
+    serializer_class = StaffMemberSerializer
+    permission_classes: ClassVar[list] = [IsAuthenticated]
+    filterset_fields: ClassVar[list[str]] = ["role", "shift"]
+    search_fields: ClassVar[list[str]] = ["full_name"]
+    ordering_fields: ClassVar[list[str]] = ["full_name"]

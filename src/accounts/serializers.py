@@ -27,6 +27,13 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class StaffMemberSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields: ClassVar[list[str]] = ["id", "full_name", "role", "shift"]
+        read_only_fields = fields
+
+
 class UserCreateSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150, required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True, default="")

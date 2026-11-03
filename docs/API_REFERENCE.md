@@ -73,7 +73,7 @@ GET /api/v1/alerts/?is_open=true&crib=3&triggered_after=2026-11-03T03:00:00-03:0
 | | `POST /api/v1/auth/refresh/` | Sin cuerpo: rota el refresh de la cookie httpOnly `poki_refresh` y devuelve `{"access"}`. |
 | | `POST /api/v1/auth/logout/` | Sin cuerpo: revoca el refresh de la cookie y la elimina (idempotente). |
 | | `GET /api/v1/auth/me/` | Perfil del usuario autenticado. |
-| | `POST /api/v1/auth/change-password/` | Cambio de contraseña del usuario actual. |
+| | `POST /api/v1/auth/change-password/` | Cambio de contraseña propia (`current_password`, `new_password`). Revoca las demás sesiones y devuelve un nuevo `{"access"}` con su cookie de refresh. Una contraseña actual incorrecta responde `400`. |
 | | `POST /api/v1/auth/2fa/setup/` · `enable/` · `disable/` | Configuración, activación y desactivación de segundo factor TOTP. |
 | **Usuarios** | `GET, POST /api/v1/users/` | Listado y creación de cuentas de personal (`admin`). |
 | | `GET, PUT, PATCH /api/v1/users/{id}/` | Detalle y actualización de rol, turno o estado activo (`admin`). |

@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    ChangePasswordView,
     CurrentUserView,
     LoginView,
     LogoutView,
@@ -20,6 +21,7 @@ urlpatterns = [
     path("auth/refresh/", RefreshTokenView.as_view(), name="auth-refresh"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/me/", CurrentUserView.as_view(), name="auth-me"),
+    path("auth/change-password/", ChangePasswordView.as_view(), name="auth-change-password"),
     path("auth/2fa/setup/", TwoFactorSetupView.as_view(), name="auth-2fa-setup"),
     path("auth/2fa/enable/", TwoFactorEnableView.as_view(), name="auth-2fa-enable"),
     path("auth/2fa/disable/", TwoFactorDisableView.as_view(), name="auth-2fa-disable"),

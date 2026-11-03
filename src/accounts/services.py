@@ -5,6 +5,10 @@ from django.contrib.auth.password_validation import validate_password
 from django.db import models, transaction
 from django.utils import timezone
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import (
+    BlacklistedToken,
+    OutstandingToken,
+)
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from audit.models import AuditAction
@@ -250,6 +254,48 @@ def logout_user(
         actor_user=actor,
         ip_address=ip_address,
     )
+
+
+def change_own_password(
+    *,
+    user: User,
+    current_password: str,
+    new_password: str,
+    ip_address: str | None = None,
+) -> dict[str, str]:
+    if not user.check_password(current_password or ""):
+        # 400 y no 401: un 401 haría que el frontend cierre la sesión por un error de tipeo
+        raise DomainError(
+            "La contraseña actual no es correcta.",
+            details={"current_password": ["La contraseña actual no es correcta."]},
+        )
+    if current_password == new_password:
+        raise DomainError(
+            "La nueva contraseña debe ser distinta de la actual.",
+            details={"new_password": ["Debe ser distinta de la contraseña actual."]},
+        )
+    validate_password(new_password, user=user)
+
+    with transaction.atomic():
+        user.set_password(new_password)
+        user.save(update_fields=["password", "updated_at"])
+        # Cambiar la contraseña cierra las demás sesiones: revoca todos los refresh vigentes
+        pending = OutstandingToken.objects.filter(user=user).exclude(
+            id__in=BlacklistedToken.objects.values("token_id")
+        )
+        BlacklistedToken.objects.bulk_create(
+            [BlacklistedToken(token=token) for token in pending], ignore_conflicts=True
+        )
+        record_audit_event(
+            action=AuditAction.UPDATE,
+            resource_type="user",
+            resource_id=user.id,
+            actor_user=user,
+            changed_fields=["password"],
+            ip_address=ip_address,
+        )
+
+    return _issue_tokens_for_user(user)
 
 
 def setup_two_factor(*, user: User, ip_address: str | None = None) -> dict[str, str]:

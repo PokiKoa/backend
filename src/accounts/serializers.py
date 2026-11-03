@@ -79,6 +79,11 @@ class TokenRefreshResponseSerializer(serializers.Serializer):
     access = serializers.CharField()
 
 
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+
 class TwoFactorSetupResponseSerializer(serializers.Serializer):
     secret = serializers.CharField()
     provisioning_uri = serializers.CharField()

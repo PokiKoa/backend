@@ -13,6 +13,7 @@ from .cookies import clear_refresh_cookie, read_refresh_cookie, set_refresh_cook
 from .models import User
 from .permissions import IsAdminRole
 from .serializers import (
+    ChangePasswordSerializer,
     LoginResponseSerializer,
     LoginSerializer,
     TokenRefreshResponseSerializer,
@@ -24,6 +25,7 @@ from .serializers import (
 )
 from .services import (
     authenticate_user,
+    change_own_password,
     create_user_by_admin,
     disable_two_factor,
     enable_two_factor,
@@ -113,6 +115,28 @@ class CurrentUserView(APIView):
     )
     def get(self, request: Request) -> Response:
         return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
+
+
+class ChangePasswordView(APIView):
+    permission_classes: ClassVar[list] = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Cambia la contraseña propia, cierra las demás sesiones y renueva los tokens",
+        request=ChangePasswordSerializer,
+        responses={200: TokenRefreshResponseSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tokens = change_own_password(
+            user=request.user,
+            current_password=serializer.validated_data["current_password"],
+            new_password=serializer.validated_data["new_password"],
+            ip_address=get_client_ip(request),
+        )
+        response = Response({"access": tokens["access"]}, status=status.HTTP_200_OK)
+        set_refresh_cookie(response, tokens["refresh"])
+        return response
 
 
 class TwoFactorSetupView(APIView):

@@ -37,6 +37,28 @@ Los listados utilizan paginación estándar (`page_size = 20`, configurable medi
 }
 ```
 
+Todos los listados aceptan además `?search=` (búsqueda textual) y `?ordering=` (por ejemplo `?ordering=-triggered_at`). Las fechas se envían en formato ISO 8601 (`2026-11-03T08:00:00-03:00`); un valor inválido responde `400`.
+
+### 1.3 Filtros avanzados por recurso
+
+| Recurso | Parámetro | Efecto |
+|---|---|---|
+| `/api/v1/alerts/` | `is_open=true` / `false` | `true`: alertas `active` + `acknowledged`; `false`: solo `resolved`. |
+| | `triggered_after`, `triggered_before` | Ventana temporal sobre `triggered_at`. |
+| | `status`, `severity`, `alert_type`, `crib`, `patient` | Filtros exactos. |
+| `/api/v1/patients/` | `admitted_after`, `admitted_before` | Ventana temporal sobre `admitted_at`. |
+| | `min_weight_g`, `max_weight_g` | Rango inclusivo sobre `current_weight_g`. |
+| | `status`, `sex`, `attending_physician`, `crib` | Filtros exactos. |
+| `/api/v1/vitals/` y `.../vitals/` de paciente o cuna | `recorded_after`, `recorded_before` | Ventana temporal sobre `recorded_at`. |
+| `/api/v1/medication-catalog/` | `low_stock=true` / `false` | `true`: `stock <= min_stock_alert`; `false`: stock suficiente. |
+| `/api/v1/audit-logs/` | `timestamp_after`, `timestamp_before` | Ventana temporal sobre `timestamp`. |
+
+Ejemplo: alertas abiertas de las últimas 6 horas de una cuna, más recientes primero:
+
+```
+GET /api/v1/alerts/?is_open=true&crib=3&triggered_after=2026-11-03T03:00:00-03:00&ordering=-triggered_at
+```
+
 ---
 
 ## 2. Endpoints REST (`/api/v1/`)

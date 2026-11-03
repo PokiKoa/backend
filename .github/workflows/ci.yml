@@ -71,4 +71,4 @@ jobs:
         run: |
           uv run coverage erase
           uv run coverage run -m pytest
-          uv run coverage report -m --fail-under=85
+          uv run coverage report -m --fail-under=90

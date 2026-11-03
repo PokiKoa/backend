@@ -31,13 +31,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: poki-koa-backend:dev
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
+    environment: &app-environment
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-poki_koa.settings.dev}
       DEBUG: ${DEBUG:-True}
       SECRET_KEY: ${SECRET_KEY:-dev-docker-secret-key-change-in-production-0123456789}
@@ -47,6 +48,16 @@ services:
       REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
+
+  # Vigila cunas sin telemetría reciente; las alertas llegan a los WebSockets vía Redis
+  offline-monitor:
+    image: poki-koa-backend:dev
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+    environment: *app-environment
+    command: ["uv", "run", "poki_koa", "check_offline_cribs", "--every", "60"]
 
 volumes:
   postgres_data:

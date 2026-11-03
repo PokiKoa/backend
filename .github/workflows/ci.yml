@@ -72,3 +72,11 @@ jobs:
           uv run coverage erase
           uv run coverage run -m pytest
           uv run coverage report -m --fail-under=90
+
+      - name: Verificar que openapi/schema.yml esté actualizado
+        run: |
+          uv run poki_koa spectacular --validate --fail-on-warn --file /tmp/schema.yml
+          diff -u openapi/schema.yml /tmp/schema.yml || {
+            echo "::error::openapi/schema.yml está desactualizado. Ejecuta: uv run poki_koa spectacular --file openapi/schema.yml"
+            exit 1
+          }

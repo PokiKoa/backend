@@ -69,9 +69,9 @@ GET /api/v1/alerts/?is_open=true&crib=3&triggered_after=2026-11-03T03:00:00-03:0
 | Módulo | Método y Ruta | Descripción |
 |---|---|---|
 | **Sistema** | `GET /api/v1/health/` | Estado operativo de base de datos, canal de tiempo real y métricas. |
-| **Autenticación** | `POST /api/v1/auth/login/` | Inicio de sesión por `username` y `password` (y `otp_code` si 2FA está activo). |
-| | `POST /api/v1/auth/refresh/` | Rotación de token de acceso y refresco. |
-| | `POST /api/v1/auth/logout/` | Revocación inmediata del refresh token en lista negra. |
+| **Autenticación** | `POST /api/v1/auth/login/` | Inicio de sesión por `username` y `password` (y `otp_code` si 2FA está activo). Devuelve `{"access", "user"}` y deja el refresh en una cookie httpOnly. |
+| | `POST /api/v1/auth/refresh/` | Sin cuerpo: rota el refresh de la cookie httpOnly `poki_refresh` y devuelve `{"access"}`. |
+| | `POST /api/v1/auth/logout/` | Sin cuerpo: revoca el refresh de la cookie y la elimina (idempotente). |
 | | `GET /api/v1/auth/me/` | Perfil del usuario autenticado. |
 | | `POST /api/v1/auth/change-password/` | Cambio de contraseña del usuario actual. |
 | | `POST /api/v1/auth/2fa/setup/` · `enable/` · `disable/` | Configuración, activación y desactivación de segundo factor TOTP. |
@@ -136,10 +136,12 @@ Cada elemento de `cribs` incluye además todos los campos de `GET /api/v1/cribs/
 
 ## 3. Canales WebSocket en Tiempo Real (`/ws/v1/`)
 
-Las conexiones WebSocket requieren autenticación mediante token JWT en el query string (`?token=<access_token>`) o sesión activa, y autorizan únicamente a roles clínicos/administrativos (`admin`, `neonatologist`, `nurse`).
+Las conexiones WebSocket se autentican con el access token JWT enviado como subprotocolo (`new WebSocket(url, ["bearer", accessToken])`) o, en clientes que no son navegador, con la cabecera `Authorization: Bearer`. Solo se autorizan los roles clínicos y administrativos (`admin`, `neonatologist`, `nurse`). Códigos de cierre: `4401` (sin token o token inválido), `4403` (rol no autorizado), `4404` (cuna o paciente inexistente).
 
 | Ruta WebSocket | Eventos emitidos |
 |---|---|
-| `ws/v1/cribs/{crib_id}/` | `telemetry.reading` (lectura + alertas activas/autorresueltas), `alert.acknowledged`, `alert.resolved`. |
-| `ws/v1/patients/{patient_id}/` | `telemetry.reading`, `alert.acknowledged`, `alert.resolved` del paciente indicado. |
-| `ws/v1/alerts/` | Flujo global de telemetría y alertas de toda la unidad neonatal. |
+| `ws/v1/cribs/{crib_id}/stream/` | `telemetry.reading` (lectura + alertas activas/autorresueltas), `alert.triggered` (p. ej. cuna offline), `alert.acknowledged`, `alert.resolved` de la cuna. |
+| `ws/v1/patients/{patient_id}/stream/` | Los mismos eventos para el paciente indicado (cada conexión queda auditada). |
+| `ws/v1/monitoring/stream/` | Flujo de telemetría y alertas de toda la unidad neonatal. |
+
+Al conectar se recibe `{"event": "stream.connected", ...}`. Enviar `{"action": "ping"}` responde `{"event": "stream.pong"}`.

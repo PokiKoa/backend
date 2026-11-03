@@ -11,6 +11,14 @@ Poki Koa protege los datos clínicos neonatales mediante autenticación diferenc
   - `ACCESS_TOKEN_LIFETIME`: 15 minutos.
   - `REFRESH_TOKEN_LIFETIME`: 8 horas (alineado a la duración de un turno clínico).
   - **Rotación y revocación:** `ROTATE_REFRESH_TOKENS = True` y `BLACKLIST_AFTER_ROTATION = True`. Al cerrar sesión (`POST /api/v1/auth/logout/`), el refresh token queda invalidado en la lista negra.
+- **Transporte de tokens en el navegador:**
+  - El **access token** se entrega en el cuerpo JSON y el frontend lo guarda **solo en memoria**, enviándolo como `Authorization: Bearer <access>`.
+  - El **refresh token** nunca aparece en el cuerpo JSON. Viaja en la cookie `poki_refresh` con `HttpOnly`, `Path=/api/v1/auth/`, `SameSite=Lax` (configurable) y `Secure` en producción. Un XSS no puede leerlo. El frontend llama a `POST /api/v1/auth/refresh/` y a `/logout/` con `credentials: "include"` y sin cuerpo.
+  - **CSRF:** si la petición trae `Origin`, la cookie solo se acepta cuando ese origen está en `CORS_ALLOWED_ORIGINS` o es el del propio backend; si no, se responde `403`. Con `SameSite=Lax` el navegador además no adjunta la cookie en peticiones `POST` de otros sitios.
+  - **Frontend en otro dominio:** si el frontend vive en otro sitio (no solo en otro puerto), define `REFRESH_COOKIE_SAMESITE=None` (en `prod.py`, `Secure` ya es obligatorio). La verificación de `Origin` sigue protegiendo frente a CSRF.
+  - `CORS_ALLOW_CREDENTIALS = True` permite que el navegador envíe la cookie a los orígenes de `CORS_ALLOWED_ORIGINS`.
+  - Recargar la página pierde el access token en memoria; basta con llamar a `/auth/refresh/` al iniciar la aplicación para recuperar la sesión desde la cookie.
+- **WebSocket:** los navegadores no permiten cabeceras personalizadas en WebSocket, así que el access token se envía como subprotocolo: `new WebSocket(url, ["bearer", accessToken])`. El servidor confirma el subprotocolo `bearer` al aceptar. El token en la URL (`?token=`) ya no se acepta, para que no quede en logs de proxies.
 - **Protección contra fuerza bruta:**
   - Política de contraseñas de mínimo 10 caracteres con exigencia de mayúsculas, minúsculas y dígitos (`ClinicalPasswordValidator`).
   - Rate limiting en login (`5/min`).

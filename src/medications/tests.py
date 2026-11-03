@@ -1,4 +1,3 @@
-from datetime import time
 from decimal import Decimal
 
 from django.test import TestCase
@@ -130,7 +129,7 @@ class MedicationsServiceTests(TestCase):
                 patient_id=self.patient.id,
                 medication_id=caffeine.id,
                 dose="10 mg IV cada 24h",
-                scheduled_time=time(8, 0),
+                starts_at=timezone.now(),
             )
 
         p1 = create_prescription(
@@ -138,7 +137,7 @@ class MedicationsServiceTests(TestCase):
             patient_id=self.patient.id,
             medication_id=caffeine.id,
             dose="10 mg IV",
-            scheduled_time=time(8, 0),
+            starts_at=timezone.now(),
             route=AdministrationRoute.IV,
             units_per_administration=1,
         )
@@ -147,7 +146,7 @@ class MedicationsServiceTests(TestCase):
             patient_id=self.patient.id,
             medication_id=caffeine.id,
             dose="10 mg IV",
-            scheduled_time=time(20, 0),
+            starts_at=timezone.now(),
             route=AdministrationRoute.IV,
             units_per_administration=1,
         )
@@ -162,7 +161,7 @@ class MedicationsServiceTests(TestCase):
             prescription=p1,
             notes="Administrado por vía venosa central sin incidentes.",
         )
-        self.assertEqual(administered.status, PrescriptionStatus.ADMINISTERED)
+        self.assertEqual(administered.prescription.status, PrescriptionStatus.COMPLETED)
         self.assertEqual(administered.administered_by_id, self.nurse.id)
         caffeine.refresh_from_db()
         self.assertEqual(caffeine.stock, 0)
@@ -175,7 +174,7 @@ class MedicationsServiceTests(TestCase):
         with self.assertRaises(ConflictDomainError):
             administer_prescription(actor=self.nurse, prescription=p2)
         p2.refresh_from_db()
-        self.assertEqual(p2.status, PrescriptionStatus.PENDING)
+        self.assertEqual(p2.status, PrescriptionStatus.ACTIVE)
         caffeine.refresh_from_db()
         self.assertEqual(caffeine.stock, 0)
 
@@ -269,7 +268,7 @@ class MedicationsEndpointTests(APITestCase):
                 "dose": "90 mg IV lento",
                 "units_per_administration": 1,
                 "route": "IV",
-                "scheduled_time": "09:00:00",
+                "starts_at": timezone.now().isoformat(),
             },
             format="json",
         )
@@ -284,7 +283,7 @@ class MedicationsEndpointTests(APITestCase):
                 "dose": "90 mg IV lento",
                 "units_per_administration": 1,
                 "route": "IV",
-                "scheduled_time": "21:00:00",
+                "starts_at": timezone.now().isoformat(),
             },
             format="json",
         )
@@ -298,7 +297,7 @@ class MedicationsEndpointTests(APITestCase):
             format="json",
         )
         self.assertEqual(adm_res.status_code, status.HTTP_200_OK)
-        self.assertEqual(adm_res.data["status"], PrescriptionStatus.ADMINISTERED)
+        self.assertEqual(adm_res.data["status"], PrescriptionStatus.COMPLETED)
 
         # Intentar doble administración por API devuelve 409 Conflict
         dup_adm = self.client.post(

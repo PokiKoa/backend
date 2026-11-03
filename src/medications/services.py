@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
@@ -16,8 +16,11 @@ from poki_koa.exceptions import (
     PermissionDomainError,
 )
 
+from . import schedule
 from .models import (
+    MAX_FREQUENCY_HOURS,
     AdministrationRoute,
+    MedicationAdministration,
     MedicationCatalogItem,
     Prescription,
     PrescriptionStatus,
@@ -188,7 +191,9 @@ def create_prescription(
     patient_id: int,
     medication_id: int,
     dose: str,
-    scheduled_time: time,
+    starts_at: datetime,
+    frequency_hours: int | None = None,
+    ends_at: datetime | None = None,
     route: str = AdministrationRoute.IV,
     units_per_administration: int = 1,
     ip_address: str | None = None,
@@ -207,6 +212,19 @@ def create_prescription(
         raise DomainError(
             "Las unidades a descontar por administración deben ser al menos 1."
         )
+    if timezone.is_naive(starts_at) or (ends_at is not None and timezone.is_naive(ends_at)):
+        raise DomainError("Las fechas de la indicación deben incluir zona horaria.")
+    if frequency_hours is not None and not 1 <= frequency_hours <= MAX_FREQUENCY_HOURS:
+        raise DomainError(
+            f"La frecuencia debe estar entre 1 y {MAX_FREQUENCY_HOURS} horas."
+        )
+    if ends_at is not None and frequency_hours is None:
+        raise DomainError("Una dosis única no admite fecha de término.")
+
+    # Se trunca al minuto para que los horarios de dosis sean comparables de forma exacta
+    starts_at = starts_at.replace(second=0, microsecond=0)
+    if ends_at is not None and ends_at <= starts_at:
+        raise DomainError("La fecha de término debe ser posterior a la primera dosis.")
 
     with transaction.atomic():
         patient = Patient.objects.select_for_update().filter(pk=patient_id).first()
@@ -238,8 +256,10 @@ def create_prescription(
             dose=cleaned_dose,
             units_per_administration=units_per_administration,
             route=route,
-            scheduled_time=scheduled_time,
-            status=PrescriptionStatus.PENDING,
+            starts_at=starts_at,
+            frequency_hours=frequency_hours,
+            ends_at=ends_at,
+            status=PrescriptionStatus.ACTIVE,
         )
 
         record_audit_event(
@@ -253,7 +273,9 @@ def create_prescription(
                 "dose",
                 "units_per_administration",
                 "route",
-                "scheduled_time",
+                "starts_at",
+                "frequency_hours",
+                "ends_at",
                 "status",
             ],
             ip_address=ip_address,
@@ -262,18 +284,24 @@ def create_prescription(
     return prescription
 
 
+def _format_local(when: datetime) -> str:
+    return timezone.localtime(when).strftime("%d-%m-%Y %H:%M")
+
+
 def administer_prescription(
     *,
     actor: User,
     prescription: Prescription,
+    scheduled_for: datetime | None = None,
     notes: str = "",
     ip_address: str | None = None,
-) -> Prescription:
+) -> MedicationAdministration:
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo un Neonatólogo o Matrona/Enfermera puede administrar medicamentos a un paciente."
         )
 
+    now = timezone.now()
     with transaction.atomic():
         locked_prescription = Prescription.objects.select_for_update().get(
             pk=prescription.pk
@@ -281,14 +309,43 @@ def administer_prescription(
         locked_medication = MedicationCatalogItem.objects.select_for_update().get(
             pk=locked_prescription.medication_id
         )
+        patient_status = Patient.objects.values_list("status", flat=True).get(
+            pk=locked_prescription.patient_id
+        )
 
-        if locked_prescription.patient.status != PatientStatus.ACTIVE:
+        if patient_status != PatientStatus.ACTIVE:
             raise ConflictDomainError(
                 "No se puede administrar medicación a un paciente ya egresado."
             )
-        if locked_prescription.status != PrescriptionStatus.PENDING:
+        if locked_prescription.status != PrescriptionStatus.ACTIVE:
             raise ConflictDomainError(
-                "La indicación médica ya fue administrada o cancelada previamente."
+                "La indicación médica ya fue completada o cancelada previamente."
+            )
+
+        if scheduled_for is None:
+            slot = schedule.latest_due_slot(locked_prescription, now)
+            if slot is None:
+                raise ConflictDomainError(
+                    "Aún no corresponde administrar esta indicación; la primera dosis es el "
+                    f"{_format_local(locked_prescription.starts_at)}."
+                )
+        else:
+            slot = scheduled_for
+            if not schedule.is_valid_slot(locked_prescription, slot):
+                raise DomainError(
+                    "El horario indicado no corresponde a una dosis programada de esta indicación.",
+                    details={"scheduled_for": ["Horario de dosis inválido."]},
+                )
+            if slot > now + schedule.EARLY_ADMINISTRATION_WINDOW:
+                early_minutes = int(schedule.EARLY_ADMINISTRATION_WINDOW.total_seconds() // 60)
+                raise ConflictDomainError(
+                    f"La dosis del {_format_local(slot)} aún no puede administrarse; "
+                    f"se permite con hasta {early_minutes} minutos de anticipación."
+                )
+
+        if locked_prescription.administrations.filter(scheduled_for=slot).exists():
+            raise ConflictDomainError(
+                f"La dosis programada para el {_format_local(slot)} ya fue administrada."
             )
         if not locked_medication.is_active:
             raise ConflictDomainError(
@@ -302,19 +359,20 @@ def administer_prescription(
         locked_medication.stock -= locked_prescription.units_per_administration
         locked_medication.save(update_fields=["stock", "updated_at"])
 
-        locked_prescription.status = PrescriptionStatus.ADMINISTERED
-        locked_prescription.administered_by = actor
-        locked_prescription.administered_at = timezone.now()
-        locked_prescription.administration_notes = (notes or "").strip()
-        locked_prescription.save(
-            update_fields=[
-                "status",
-                "administered_by",
-                "administered_at",
-                "administration_notes",
-                "updated_at",
-            ]
+        administration = MedicationAdministration.objects.create(
+            prescription=locked_prescription,
+            scheduled_for=slot,
+            administered_at=now,
+            administered_by=actor,
+            units_deducted=locked_prescription.units_per_administration,
+            notes=(notes or "").strip(),
         )
+
+        changed_fields = ["administrations", "stock"]
+        if slot == schedule.last_slot(locked_prescription):
+            locked_prescription.status = PrescriptionStatus.COMPLETED
+            locked_prescription.save(update_fields=["status", "updated_at"])
+            changed_fields.append("status")
 
         record_audit_event(
             action=AuditAction.ADMINISTER_MEDICATION,
@@ -322,18 +380,12 @@ def administer_prescription(
             resource_id=locked_prescription.id,
             actor_user=actor,
             patient_id=locked_prescription.patient_id,
-            changed_fields=[
-                "status",
-                "administered_by_id",
-                "administered_at",
-                "administration_notes",
-                "stock",
-            ],
+            changed_fields=changed_fields,
             ip_address=ip_address,
         )
 
-    locked_prescription.medication = locked_medication
-    return locked_prescription
+    administration.prescription = locked_prescription
+    return administration
 
 
 def cancel_prescription(
@@ -352,16 +404,16 @@ def cancel_prescription(
         locked_prescription = Prescription.objects.select_for_update().get(
             pk=prescription.pk
         )
-        if locked_prescription.status != PrescriptionStatus.PENDING:
+        if locked_prescription.status != PrescriptionStatus.ACTIVE:
             raise ConflictDomainError(
-                "Solo se pueden cancelar indicaciones que aún se encuentren pendientes."
+                "Solo se pueden cancelar indicaciones que aún se encuentren vigentes."
             )
 
         locked_prescription.status = PrescriptionStatus.CANCELLED
-        if reason and reason.strip():
-            locked_prescription.administration_notes = reason.strip()
+        locked_prescription.cancelled_at = timezone.now()
+        locked_prescription.cancellation_reason = (reason or "").strip()
         locked_prescription.save(
-            update_fields=["status", "administration_notes", "updated_at"]
+            update_fields=["status", "cancelled_at", "cancellation_reason", "updated_at"]
         )
 
         record_audit_event(
@@ -370,7 +422,7 @@ def cancel_prescription(
             resource_id=locked_prescription.id,
             actor_user=actor,
             patient_id=locked_prescription.patient_id,
-            changed_fields=["status", "administration_notes"],
+            changed_fields=["status", "cancelled_at", "cancellation_reason"],
             ip_address=ip_address,
         )
 
@@ -378,10 +430,13 @@ def cancel_prescription(
 
 
 def cancel_pending_prescriptions_on_discharge(*, patient: Patient) -> int:
+    now = timezone.now()
     return Prescription.objects.filter(
         patient=patient,
-        status=PrescriptionStatus.PENDING,
+        status=PrescriptionStatus.ACTIVE,
     ).update(
         status=PrescriptionStatus.CANCELLED,
-        updated_at=timezone.now(),
+        cancelled_at=now,
+        cancellation_reason="Egreso del paciente",
+        updated_at=now,
     )

@@ -3,7 +3,12 @@ from typing import ClassVar
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import MedicationCatalogItem, Prescription, PrescriptionStatus
+from .models import (
+    MedicationAdministration,
+    MedicationCatalogItem,
+    Prescription,
+    PrescriptionStatus,
+)
 
 
 @admin.register(MedicationCatalogItem)
@@ -37,8 +42,27 @@ class MedicationCatalogItemAdmin(admin.ModelAdmin):
         )
 
 
+class MedicationAdministrationInline(admin.TabularInline):
+    model = MedicationAdministration
+    extra = 0
+    can_delete = False
+    fields: ClassVar[list[str]] = [
+        "scheduled_for",
+        "administered_at",
+        "administered_by",
+        "units_deducted",
+        "notes",
+    ]
+    readonly_fields = fields
+
+    def has_add_permission(self, request, obj=None) -> bool:
+        # Las dosis solo se registran por el servicio para descontar stock de forma atómica
+        return False
+
+
 @admin.register(Prescription)
 class PrescriptionAdmin(admin.ModelAdmin):
+    inlines: ClassVar[list] = [MedicationAdministrationInline]
     list_display: ClassVar[list[str]] = [
         "id",
         "patient",
@@ -46,10 +70,11 @@ class PrescriptionAdmin(admin.ModelAdmin):
         "dose",
         "units_per_administration",
         "route",
-        "scheduled_time",
+        "starts_at",
+        "frequency_hours",
+        "ends_at",
         "status_badge",
         "prescribed_by",
-        "administered_by",
     ]
     list_filter: ClassVar[list[str]] = ["status", "route"]
     search_fields: ClassVar[list[str]] = [
@@ -61,8 +86,8 @@ class PrescriptionAdmin(admin.ModelAdmin):
     @admin.display(description="Estado")
     def status_badge(self, obj: Prescription) -> str:
         colors = {
-            PrescriptionStatus.PENDING: ("#fef3c7", "#92400e"),
-            PrescriptionStatus.ADMINISTERED: ("#d1fae5", "#065f46"),
+            PrescriptionStatus.ACTIVE: ("#fef3c7", "#92400e"),
+            PrescriptionStatus.COMPLETED: ("#d1fae5", "#065f46"),
             PrescriptionStatus.CANCELLED: ("#f1f5f9", "#475569"),
         }
         bg, fg = colors.get(obj.status, ("#f1f5f9", "#334155"))

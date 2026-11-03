@@ -1,4 +1,4 @@
-from datetime import time, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase
@@ -69,7 +69,7 @@ class MedicationEdgeCaseTests(TestCase):
             patient_id=self.patient.id,
             medication_id=self.item.id,
             dose="2.5 ml/kg",
-            scheduled_time=time(8, 0),
+            starts_at=timezone.now(),
             units_per_administration=units,
         )
 
@@ -153,14 +153,14 @@ class MedicationEdgeCaseTests(TestCase):
                 patient_id=self.patient.id,
                 medication_id=self.item.id,
                 dose="1 ml",
-                scheduled_time=time(9, 0),
+                starts_at=timezone.now(),
             )
         base = {
             "actor": self.neonatologist,
             "patient_id": self.patient.id,
             "medication_id": self.item.id,
             "dose": "1 ml",
-            "scheduled_time": time(9, 0),
+            "starts_at": timezone.now(),
         }
         for override in ({"dose": " "}, {"route": "NASAL"}, {"units_per_administration": 0}):
             with self.subTest(override=override), self.assertRaises(DomainError):
@@ -182,14 +182,14 @@ class MedicationEdgeCaseTests(TestCase):
         second = self._prescribe(units=1)
 
         administered = administer_prescription(actor=self.nurse, prescription=first)
-        self.assertEqual(administered.status, PrescriptionStatus.ADMINISTERED)
+        self.assertEqual(administered.prescription.status, PrescriptionStatus.COMPLETED)
         self.item.refresh_from_db()
         self.assertEqual(self.item.stock, 0)
 
         with self.assertRaises(ConflictDomainError):
             administer_prescription(actor=self.nurse, prescription=second)
         second.refresh_from_db()
-        self.assertEqual(second.status, PrescriptionStatus.PENDING)
+        self.assertEqual(second.status, PrescriptionStatus.ACTIVE)
 
     def test_double_administration_and_cancelled_prescriptions_are_blocked(self) -> None:
         prescription = self._prescribe()

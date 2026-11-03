@@ -44,7 +44,7 @@ def get_clinical_dashboard_stats() -> dict[str, Any]:
             stock__lte=F("min_stock_alert"),
         ).count(),
         "pending_prescriptions_count": Prescription.objects.filter(
-            status=PrescriptionStatus.PENDING
+            status=PrescriptionStatus.ACTIVE
         ).count(),
         "active_patients": active_patients,
         "recent_alerts": list(open_alerts_qs.order_by("-triggered_at")[:6]),

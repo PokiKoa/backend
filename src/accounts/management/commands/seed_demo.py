@@ -199,8 +199,12 @@ class Command(BaseCommand):
                     actor=neo,
                     patient_id=p1_obj.id,
                     medication_id=caffeine.id,
-                    dose="7.5 mg IV lento",
-                    scheduled_time=time(8, 0),
+                    dose="5 mg/kg IV lento",
+                    # Mantención cada 24 h desde las 08:00 de hoy
+                    starts_at=timezone.make_aware(
+                        timezone.datetime.combine(today, time(8, 0))
+                    ),
+                    frequency_hours=24,
                     route=AdministrationRoute.IV,
                     units_per_administration=1,
                 )
@@ -210,7 +214,8 @@ class Command(BaseCommand):
                     patient_id=p2_obj.id,
                     medication_id=surfactant.id,
                     dose="100 mg/kg endotraqueal",
-                    scheduled_time=time(12, 0),
+                    # Dosis única dentro de una hora
+                    starts_at=timezone.now() + timedelta(hours=1),
                     route=AdministrationRoute.ET,
                     units_per_administration=1,
                 )

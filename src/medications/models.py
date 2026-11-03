@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import ClassVar
 
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -15,9 +15,12 @@ class AdministrationRoute(models.TextChoices):
 
 
 class PrescriptionStatus(models.TextChoices):
-    PENDING = "pending", "Pendiente"
-    ADMINISTERED = "administered", "Administrado"
-    CANCELLED = "cancelled", "Cancelado"
+    ACTIVE = "active", "Vigente"
+    COMPLETED = "completed", "Completada"
+    CANCELLED = "cancelled", "Cancelada"
+
+
+MAX_FREQUENCY_HOURS = 168
 
 
 class MedicationCatalogItem(models.Model):
@@ -88,33 +91,32 @@ class Prescription(models.Model):
         choices=AdministrationRoute.choices,
         default=AdministrationRoute.IV,
     )
-    scheduled_time = models.TimeField()
+    starts_at = models.DateTimeField()
+    # Nulo = dosis única; con valor, las dosis se programan cada N horas desde starts_at
+    frequency_hours = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(MAX_FREQUENCY_HOURS)],
+    )
+    ends_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(
         max_length=16,
         choices=PrescriptionStatus.choices,
-        default=PrescriptionStatus.PENDING,
+        default=PrescriptionStatus.ACTIVE,
         db_index=True,
     )
-
-    administered_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="administered_prescriptions",
-    )
-    administered_at = models.DateTimeField(null=True, blank=True)
-    administration_notes = models.TextField(blank=True, default="")
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancellation_reason = models.TextField(blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering: ClassVar[list[str]] = ["scheduled_time", "-id"]
+        ordering: ClassVar[list[str]] = ["starts_at", "-id"]
         indexes: ClassVar[list[models.Index]] = [
             models.Index(
-                fields=["patient", "status", "scheduled_time"],
-                name="presc_patient_status_time_idx",
+                fields=["patient", "status", "starts_at"],
+                name="presc_patient_status_start_idx",
             ),
         ]
         constraints: ClassVar[list[models.CheckConstraint]] = [
@@ -122,9 +124,52 @@ class Prescription(models.Model):
                 condition=models.Q(units_per_administration__gte=1),
                 name="prescription_units_positive",
             ),
+            models.CheckConstraint(
+                condition=models.Q(frequency_hours__isnull=True)
+                | models.Q(frequency_hours__gte=1, frequency_hours__lte=MAX_FREQUENCY_HOURS),
+                name="prescription_frequency_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(ends_at__isnull=True)
+                | models.Q(frequency_hours__isnull=False, ends_at__gt=models.F("starts_at")),
+                name="prescription_end_after_start_for_recurring",
+            ),
         ]
         verbose_name = "Indicación Médica"
         verbose_name_plural = "Indicaciones Médicas"
 
     def __str__(self) -> str:
-        return f"{self.medication.name} ({self.dose}) -> {self.patient.full_name} [{self.status}]"
+        return f"{self.medication.name} {self.dose} ({self.get_status_display()})"
+
+
+class MedicationAdministration(models.Model):
+    prescription = models.ForeignKey(
+        Prescription,
+        on_delete=models.PROTECT,
+        related_name="administrations",
+    )
+    scheduled_for = models.DateTimeField()
+    administered_at = models.DateTimeField()
+    administered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="medication_administrations",
+    )
+    units_deducted = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["-scheduled_for", "-id"]
+        constraints: ClassVar[list[models.UniqueConstraint]] = [
+            # Garantía a nivel de base de datos contra la doble administración de una misma dosis
+            models.UniqueConstraint(
+                fields=["prescription", "scheduled_for"],
+                name="administration_unique_dose_slot",
+            ),
+        ]
+        verbose_name = "Administración de Medicamento"
+        verbose_name_plural = "Administraciones de Medicamentos"
+
+    def __str__(self) -> str:
+        return f"Dosis {self.scheduled_for:%Y-%m-%d %H:%M} de indicación #{self.prescription_id}"

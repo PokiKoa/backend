@@ -17,7 +17,12 @@ from poki_koa.exceptions import (
 
 from .authentication import DeviceApiKeyAuthentication, DevicePrincipal
 from .models import Crib, CribStatus
-from .services import create_crib, rotate_crib_api_key, update_crib
+from .services import (
+    create_crib,
+    detect_offline_cribs,
+    rotate_crib_api_key,
+    update_crib,
+)
 
 
 class DevicesServiceAndAuthTests(TestCase):
@@ -245,3 +250,77 @@ class DevicesEndpointTests(APITestCase):
                 patient_id=patient.id,
             ).exists()
         )
+
+    def test_detect_offline_cribs_and_auto_resolve_on_telemetry_recovery(self) -> None:
+        from alerts.models import Alert, AlertSeverity, AlertStatus, AlertType
+
+        crib, raw_key = create_crib(
+            actor=self.admin,
+            code="C-205",
+            name="Cuna Monitoreo",
+            location="UCI-A",
+        )
+        patient = admit_patient(
+            actor=self.neonatologist,
+            medical_record_number="RN-2026-099",
+            full_name="Bebé Offline Test",
+            sex="M",
+            birth_date=timezone.localdate() - timedelta(days=1),
+            gestational_age_weeks="33.0",
+            birth_weight_g=1850,
+            crib_id=crib.id,
+        )
+
+        # Simular última telemetría hace 5 minutos
+        Crib.objects.filter(pk=crib.pk).update(
+            last_telemetry_at=timezone.now() - timedelta(minutes=5)
+        )
+
+        with self.assertRaises(DomainError):
+            detect_offline_cribs(timeout_seconds=5)
+
+        # Ejecutar verificación por endpoint REST
+        self.client.force_authenticate(user=self.nurse)
+        res = self.client.post(
+            "/api/v1/cribs/check-offline/",
+            {"timeout_seconds": 120},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["transitioned_count"], 1)
+
+        crib.refresh_from_db()
+        self.assertEqual(crib.status, CribStatus.OFFLINE)
+
+        offline_alert = Alert.objects.get(
+            crib=crib,
+            alert_type=AlertType.SENSOR_FAULT,
+            status=AlertStatus.ACTIVE,
+        )
+        self.assertEqual(offline_alert.severity, AlertSeverity.CRITICAL)
+        self.assertEqual(offline_alert.patient_id, patient.id)
+
+        # Cuando el dispositivo vuelve a reportar telemetría, la cuna vuelve a OCCUPIED
+        # y la alerta de fallo de señal se autorresuelve automáticamente
+        self.client.force_authenticate(user=None)
+        telemetry_res = self.client.post(
+            f"/api/v1/cribs/{crib.id}/telemetry/",
+            {
+                "heart_rate": 140,
+                "spo2": 97,
+                "temperature": "36.8",
+                "sleep_state": "asleep",
+                "cannula_connected": True,
+                "iv_line_active": True,
+            },
+            format="json",
+            HTTP_X_DEVICE_API_KEY=raw_key,
+        )
+        self.assertEqual(telemetry_res.status_code, status.HTTP_201_CREATED)
+
+        crib.refresh_from_db()
+        self.assertEqual(crib.status, CribStatus.OCCUPIED)
+
+        offline_alert.refresh_from_db()
+        self.assertEqual(offline_alert.status, AlertStatus.RESOLVED)
+        self.assertEqual(offline_alert.resolution_reason, "auto_normalized")

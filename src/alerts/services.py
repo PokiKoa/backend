@@ -26,8 +26,10 @@ from vitals.rules import (
 
 from .models import (
     Alert,
+    AlertSeverity,
     AlertStatus,
     AlertThresholdConfig,
+    AlertType,
     ResolutionReason,
 )
 from .policies import EVALUATED_ALERT_TYPES, evaluate_vital_reading
@@ -403,3 +405,87 @@ def resolve_patient_alerts_on_discharge(*, patient: Patient, actor: User) -> int
         resolution_reason=ResolutionReason.PATIENT_DISCHARGED,
         last_evaluated_at=now,
     )
+
+
+def trigger_or_deduplicate_offline_alert(
+    *,
+    crib,
+    patient: Patient | None,
+    timeout_seconds: int,
+) -> Alert:
+    now = timezone.now()
+    severity = (
+        AlertSeverity.CRITICAL if patient is not None else AlertSeverity.WARNING
+    )
+    message = (
+        f"Pérdida de señal de telemetría en la cuna {crib.code} "
+        f"(sin lecturas por más de {timeout_seconds} s)."
+    )
+
+    with transaction.atomic():
+        existing_open = list(
+            Alert.objects.select_for_update().filter(
+                crib=crib,
+                alert_type=AlertType.SENSOR_FAULT,
+                status__in=[AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED],
+            )
+        )
+        matching_open: Alert | None = None
+        for open_alert in existing_open:
+            if open_alert.severity == severity and matching_open is None:
+                matching_open = open_alert
+            else:
+                open_alert.status = AlertStatus.RESOLVED
+                open_alert.resolution_reason = ResolutionReason.SEVERITY_ESCALATED
+                open_alert.resolved_at = now
+                open_alert.last_evaluated_at = now
+                open_alert.save(
+                    update_fields=[
+                        "status",
+                        "resolution_reason",
+                        "resolved_at",
+                        "last_evaluated_at",
+                    ]
+                )
+
+        if matching_open is not None:
+            matching_open.patient = patient
+            matching_open.message = message
+            matching_open.threshold_value = Decimal(timeout_seconds)
+            matching_open.occurrence_count += 1
+            matching_open.last_evaluated_at = now
+            matching_open.save(
+                update_fields=[
+                    "patient",
+                    "message",
+                    "threshold_value",
+                    "occurrence_count",
+                    "last_evaluated_at",
+                ]
+            )
+            alert = matching_open
+        else:
+            alert = Alert.objects.create(
+                crib=crib,
+                patient=patient,
+                alert_type=AlertType.SENSOR_FAULT,
+                severity=severity,
+                status=AlertStatus.ACTIVE,
+                message=message,
+                threshold_value=Decimal(timeout_seconds),
+                occurrence_count=1,
+                triggered_at=now,
+                last_evaluated_at=now,
+            )
+
+    from vitals.realtime import broadcast_alert_event
+
+    from .serializers import AlertSerializer
+
+    broadcast_alert_event(
+        event_name="alert.triggered",
+        alert_data=AlertSerializer(alert).data,
+        crib_id=alert.crib_id,
+        patient_id=alert.patient_id,
+    )
+    return alert

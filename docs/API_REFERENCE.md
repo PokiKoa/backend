@@ -63,7 +63,8 @@ Los listados utilizan paginación estándar (`page_size = 20`, configurable medi
 | **Cunas / IoT** | `GET, POST, PATCH /api/v1/cribs/` | Gestión de cunas e incubadoras de la unidad. |
 | | `POST /api/v1/cribs/{id}/assign-patient/` | Asignación transaccional de un paciente activo a la cuna. |
 | | `POST /api/v1/cribs/{id}/release/` | Liberación de cuna ocupada. |
-| | `POST /api/v1/cribs/{id}/rotate-api-key/` | Rotación de credencial IoT de la cuna (`admin`). |
+| | `POST /api/v1/cribs/{id}/rotate-key/` | Rotación de credencial IoT de la cuna (`admin`). |
+| | `POST /api/v1/cribs/check-offline/` | Detecta cunas sin telemetría reciente, las marca `offline` y emite alertas (`sensor_fault`). |
 | | `POST /api/v1/cribs/{id}/telemetry/` | Ingesta de lectura de signos vitales (vía `X-Device-Api-Key` o personal autorizado). |
 | **Signos Vitales** | `GET /api/v1/vitals/` | Consulta filtrable de lecturas históricas de telemetría. |
 | **Alertas** | `GET /api/v1/alerts/` | Listado de alertas clínicas y técnicas. |

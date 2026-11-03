@@ -21,7 +21,12 @@ from .serializers import (
     CribSerializer,
     CribUpdateSerializer,
 )
-from .services import create_crib, rotate_crib_api_key, update_crib
+from .services import (
+    create_crib,
+    detect_offline_cribs,
+    rotate_crib_api_key,
+    update_crib,
+)
 
 
 class CribViewSet(
@@ -200,3 +205,37 @@ class CribViewSet(
             evaluation.auto_resolved_alerts, many=True
         ).data
         return Response(response_data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        summary="Evalúa y marca como offline las cunas activas que superaron el tiempo sin telemetría",
+        request=None,
+    )
+    @action(detail=False, methods=["post"], url_path="check-offline")
+    def check_offline(self, request: Request) -> Response:
+        if request.user.role not in {
+            UserRole.ADMIN,
+            UserRole.NEONATOLOGIST,
+            UserRole.NURSE,
+        }:
+            raise PermissionDomainError(
+                "Solo el personal clínico o administrativo puede ejecutar la verificación de cunas desconectadas."
+            )
+        raw_timeout = (
+            request.data.get("timeout_seconds", 120)
+            if isinstance(request.data, dict)
+            else 120
+        )
+        try:
+            timeout_seconds = int(raw_timeout)
+        except (TypeError, ValueError):
+            timeout_seconds = 120
+
+        offline_cribs = detect_offline_cribs(timeout_seconds=timeout_seconds)
+        return Response(
+            {
+                "timeout_seconds": timeout_seconds,
+                "transitioned_count": len(offline_cribs),
+                "cribs": CribSerializer(offline_cribs, many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )

@@ -1,8 +1,11 @@
+from datetime import timedelta
 from typing import Any
 
 from django.db import transaction
+from django.utils import timezone
 
 from accounts.models import User, UserRole
+from alerts.services import trigger_or_deduplicate_offline_alert
 from audit.models import AuditAction
 from audit.services import record_audit_event
 from poki_koa.exceptions import ConflictDomainError, DomainError, PermissionDomainError
@@ -159,3 +162,45 @@ def rotate_crib_api_key(
             ip_address=ip_address,
         )
     return raw_key
+
+
+def detect_offline_cribs(*, timeout_seconds: int = 120) -> list[Crib]:
+    if timeout_seconds < 10:
+        raise DomainError(
+            "El umbral de inactividad para detectar cunas desconectadas debe ser de al menos 10 segundos."
+        )
+
+    cutoff = timezone.now() - timedelta(seconds=timeout_seconds)
+    candidates = list(
+        Crib.objects.filter(
+            is_device_active=True,
+            status__in=[CribStatus.OCCUPIED, CribStatus.AVAILABLE],
+            last_telemetry_at__isnull=False,
+            last_telemetry_at__lt=cutoff,
+        ).order_by("id")
+    )
+
+    offline_cribs: list[Crib] = []
+    for candidate in candidates:
+        with transaction.atomic():
+            locked_crib = Crib.objects.select_for_update().get(pk=candidate.pk)
+            if (
+                not locked_crib.is_device_active
+                or locked_crib.status not in {CribStatus.OCCUPIED, CribStatus.AVAILABLE}
+                or locked_crib.last_telemetry_at is None
+                or locked_crib.last_telemetry_at >= cutoff
+            ):
+                continue
+
+            current_patient = getattr(locked_crib, "current_patient", None)
+            locked_crib.status = CribStatus.OFFLINE
+            locked_crib.save(update_fields=["status", "updated_at"])
+
+            trigger_or_deduplicate_offline_alert(
+                crib=locked_crib,
+                patient=current_patient,
+                timeout_seconds=timeout_seconds,
+            )
+            offline_cribs.append(locked_crib)
+
+    return offline_cribs

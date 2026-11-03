@@ -20,6 +20,7 @@ EVALUATED_ALERT_TYPES: tuple[str, ...] = (
     AlertType.SPO2,
     AlertType.TEMPERATURE,
     AlertType.CANNULA,
+    AlertType.SENSOR_FAULT,
 )
 
 

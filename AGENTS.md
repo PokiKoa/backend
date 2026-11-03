@@ -43,6 +43,9 @@ Ejecutar desde la raíz del repositorio:
 uv sync                                  # instala dependencias desde uv.lock
 uv run poki_koa migrate                  # aplica migraciones
 uv run poki_koa makemigrations --check   # verifica que no falten migraciones
+uv run poki_koa seed_demo                # carga datos clínicos ficticios y usuario admin / admin2026
+uv run poki_koa check_offline_cribs      # evalúa cunas sin telemetría reciente y genera alertas
+uv run uvicorn poki_koa.asgi:application --app-dir src --reload  # servidor ASGI (HTTP + WebSockets)
 uv run pytest                            # ejecuta la suite de pruebas con pytest
 uv run poki_koa test                     # ejecuta la suite de pruebas de Django
 uv run ruff check src                    # verifica linter y estilo
@@ -61,14 +64,6 @@ uv run ruff check src                    # verifica linter y estilo
 - Comentarios en español, solo cuando expliquen un *porqué* no obvio (sin docstrings redundantes).
 - Una sola fuente de verdad por regla de negocio (p. ej. rangos de signos vitales).
 - Si una prueba falla, corrige la causa; no relajes aserciones para que pasen.
+- En PostgreSQL, nunca encadenes `.select_related(...)` sobre relaciones anulables (`null=True` o `OneToOneField` inverso) junto con `.select_for_update()`, ya que PostgreSQL rechaza `FOR UPDATE` en el lado anulable de un `LEFT OUTER JOIN`.
+- En plantillas HTML del backend (`templates/`), mantén un estilo clínico sobrio: sin emojis, sin gradientes y con esquinas redondeadas estandarizadas en `0.5rem`.
 - Toda tarea debe separarse en commits pequeños y comprensibles en español; nunca envíes todo en un solo commit.
-
-## 6. Estado de fases de reescritura (`rewrite/v2`)
-
-- [x] **Fase 1:** Tag `entrega2`, rama `rewrite/v2`, documentación de arquitectura (`docs/`) y esquema de datos (`DATA_SCHEMA.md`).
-- [x] **Fase 2:** Cuentas, roles, autenticación JWT, bloqueo, rate limiting y auditoría (`accounts`, `audit`).
-- [x] **Fase 3:** Pacientes (alta, edición, egreso lógico), planes de cuidado, observaciones y cunas (`patients`, `devices`).
-- [x] **Fase 4:** Ingesta de telemetría con histórico y motor de alertas (`vitals`, `alerts`).
-- [x] **Fase 5:** Tiempo real por WebSocket autenticado (Django Channels + Redis).
-- [x] **Fase 6:** Catálogo de medicamentos con stock, prescripciones y administración atómica (`medications`).
-- [x] **Fase 7:** CI (GitHub Actions) y Docker (`Dockerfile`, `docker-compose.yml`).

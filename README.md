@@ -51,6 +51,10 @@ uv run pytest
 uv run poki_koa test
 ```
 
+## Desarrollo junto al frontend
+
+El frontend (React + Vite) vive en [PokiKoa/frontend](https://github.com/PokiKoa/frontend), rama `rewrite/v2`. Clónalo junto a este repositorio (`../frontend`) y sigue su README: levanta este backend con `uvicorn`, opcionalmente `simulate_telemetry`, y luego `npm run dev`. Vite redirige `/api` y `/ws` a `http://localhost:8000`, así la cookie httpOnly del refresh funciona sin CORS. Usuarios de demo de `seed_demo`: `admin` / `admin2026`, y `dr.soto`, `matrona.diaz` y `qf.silva` con `Clinica#2026`.
+
 ## Contrato OpenAPI para el frontend
 
 `openapi/schema.yml` es el contrato versionado de la API; CI verifica que coincida con el código. El frontend puede generar sus tipos TypeScript desde ese archivo sin autenticarse contra el backend (`/api/v1/schema/` exige sesión):

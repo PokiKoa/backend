@@ -35,6 +35,7 @@ erDiagram
 
     USER {
         bigint id PK
+        string username UK
         string email UK
         string full_name
         string role "admin | neonatologist | nurse | pharmacist"
@@ -215,12 +216,12 @@ erDiagram
 
 ### 2.1 `accounts` — Cuentas, Roles y Seguridad de Acceso
 - **`User`** (`AbstractBaseUser`, `PermissionsMixin`):
-  - `USERNAME_FIELD = "email"`.
+  - `USERNAME_FIELD = "username"`.
   - `role`: `ADMIN`, `NEONATOLOGIST`, `NURSE`, `PHARMACIST`.
   - `shift`: `MORNING`, `AFTERNOON`, `NIGHT` (opcional).
   - Control de bloqueo por fuerza bruta: `failed_login_attempts` y `locked_until`.
   - Soporte 2FA: `is_two_factor_enabled` y `totp_secret`.
-  - Índices: `email` (único), `(role, is_active)`.
+  - Índices: `username` (único), `email` (único), `(role, is_active)`.
 
 ### 2.2 `audit` — Auditoría Clínica sin Exposición de PHI
 - **`AuditLog`**:

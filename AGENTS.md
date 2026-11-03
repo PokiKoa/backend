@@ -29,9 +29,9 @@ La evidencia académica de la versión prototipo inicial (v1) se conserva en el 
 - `medications`: Catálogo con stock (`MedicationCatalogItem`) e indicaciones por paciente (`Prescription`) con administración atómica y descuento de stock sin doble administración.
 
 ### Documentación de arquitectura (`docs/`)
-- [ADR-001](docs/ADR-001.md): Qué se tomó y qué se descartó de `~/IncuNest`.
-- [ADR-002](docs/ADR-002.md): Contrato `/api/v1/` y mapeo de campos de v1 a v2.
-- [ADR-003](docs/ADR-003.md): Autenticación JWT, RBAC, API keys de dispositivos y decisión sobre 2FA (TOTP).
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md): Arquitectura modular por dominios, reglas fisiológicas y ciclo de vida de alertas.
+- [API_REFERENCE.md](docs/API_REFERENCE.md): Contrato REST `/api/v1/`, canales WebSocket `/ws/v1/` y formato de errores.
+- [SECURITY_AND_RBAC.md](docs/SECURITY_AND_RBAC.md): Autenticación JWT, matriz RBAC, API keys de dispositivos y 2FA (TOTP).
 - [DATA_SCHEMA.md](docs/DATA_SCHEMA.md): Esquema de datos relacional v2, diagrama ER e invariantes.
 
 ## 3. Comandos
@@ -64,7 +64,7 @@ uv run ruff check src                    # verifica linter y estilo
 
 ## 6. Estado de fases de reescritura (`rewrite/v2`)
 
-- [x] **Fase 1:** Tag `entrega2`, rama `rewrite/v2`, ADR de IncuNest (`ADR-001` a `ADR-003`) y esquema de datos (`DATA_SCHEMA.md`).
+- [x] **Fase 1:** Tag `entrega2`, rama `rewrite/v2`, documentación de arquitectura (`docs/`) y esquema de datos (`DATA_SCHEMA.md`).
 - [x] **Fase 2:** Cuentas, roles, autenticación JWT, bloqueo, rate limiting y auditoría (`accounts`, `audit`).
 - [x] **Fase 3:** Pacientes (alta, edición, egreso lógico), planes de cuidado, observaciones y cunas (`patients`, `devices`).
 - [x] **Fase 4:** Ingesta de telemetría con histórico y motor de alertas (`vitals`, `alerts`).

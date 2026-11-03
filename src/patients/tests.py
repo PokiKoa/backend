@@ -174,7 +174,7 @@ class PatientsServiceTests(TestCase):
         )
         self.assertEqual(patient.weight_records.count(), 1)
 
-        # Registrar el mismo peso consecutivo no duplica la fila (regla IncuNest)
+        # Registrar el mismo peso consecutivo no duplica la fila
         dup_record = record_patient_weight(
             actor=self.nurse,
             patient=patient,

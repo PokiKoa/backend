@@ -23,6 +23,7 @@ docker compose up --build
 ```bash
 uv sync
 uv run poki_koa migrate
+uv run poki_koa seed_demo   # Carga datos clínicos de prueba y superusuario admin / admin2026
 uv run poki_koa runserver
 ```
 
@@ -35,10 +36,10 @@ uv run pytest
 uv run poki_koa test
 ```
 
-## Documentación y Decisiones de Arquitectura
+## Documentación del Proyecto
 
-- [AGENTS.md](./AGENTS.md): Guía operativa, reglas de código y estado del proyecto.
-- [docs/ADR-001.md](./docs/ADR-001.md): Extracción de dominio desde IncuNest y qué se descartó.
-- [docs/ADR-002.md](./docs/ADR-002.md): Contrato `/api/v1/` y mapeo de campos respecto a la v1 (`entrega2`).
-- [docs/ADR-003.md](./docs/ADR-003.md): Autenticación JWT, RBAC, API keys por dispositivo y decisión sobre 2FA (TOTP).
-- [docs/DATA_SCHEMA.md](./docs/DATA_SCHEMA.md): Esquema de datos relacional v2 y diagrama ER.
+- [AGENTS.md](./AGENTS.md): Guía operativa, reglas de código y convenciones del repositorio.
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md): Arquitectura modular por dominios, reglas fisiológicas y ciclo de vida de alertas.
+- [docs/API_REFERENCE.md](./docs/API_REFERENCE.md): Contrato REST `/api/v1/`, canales WebSocket `/ws/v1/` y formato de errores.
+- [docs/SECURITY_AND_RBAC.md](./docs/SECURITY_AND_RBAC.md): Autenticación JWT, matriz de permisos RBAC, API keys por dispositivo y 2FA (TOTP).
+- [docs/DATA_SCHEMA.md](./docs/DATA_SCHEMA.md): Esquema de datos relacional v2, diagrama ER e invariantes.

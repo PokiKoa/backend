@@ -482,7 +482,7 @@ def record_patient_weight(
                 "No se pueden añadir registros de peso a un paciente egresado."
             )
 
-        # Regla de deduplicación extraída de IncuNest: si el último punto tiene el mismo peso, no duplica fila
+        # Deduplicación: si el último punto registrado tiene el mismo peso, no duplica fila
         last_record = locked_patient.weight_records.order_by("-recorded_at", "-id").first()
         if last_record is not None and last_record.weight_g == weight_g:
             return last_record

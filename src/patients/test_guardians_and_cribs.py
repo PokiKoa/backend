@@ -111,7 +111,7 @@ class GuardianDataTests(TestCase):
         patient = self._admit(
             mother_rut="12.345.678-5",
             mother_first_names="  Ana María ",
-            mother_last_names="Tuki Pakarati",
+            mother_last_names="Rojas Muñoz",
             mother_phone="+56 9 8765 4321",
             father_rut="",
         )
@@ -387,7 +387,7 @@ class PatientEndpointExtensionsTests(APITestCase):
             self.crib_a,
             mother_rut="12.345.678-5",
             mother_first_names="Ana",
-            mother_last_names="Tuki",
+            mother_last_names="Rojas",
             mother_phone="912345678",
         )
         self.assertEqual(data["mother_rut"], "12345678-5")

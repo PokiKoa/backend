@@ -116,7 +116,7 @@ class Command(BaseCommand):
             p1 = admit_patient(
                 actor=neo,
                 medical_record_number="RN-2026-001",
-                full_name="RN Mateo Ariki Huke (Ficticio)",
+                full_name="RN Mateo González Rojas (Ficticio)",
                 sex="M",
                 birth_date=today - timedelta(days=4),
                 gestational_age_weeks=Decimal("31.5"),
@@ -128,12 +128,12 @@ class Command(BaseCommand):
                 # RUT y teléfonos ficticios (dígito verificador válido, números de ejemplo)
                 guardians={
                     "mother_rut": "16.482.937-5",
-                    "mother_first_names": "Hina Marama",
-                    "mother_last_names": "Huke Tepano",
+                    "mother_first_names": "Camila Andrea",
+                    "mother_last_names": "Rojas Muñoz",
                     "mother_phone": "+56 9 5555 0101",
                     "father_rut": "15.739.204-2",
-                    "father_first_names": "Tama",
-                    "father_last_names": "Ariki Pate",
+                    "father_first_names": "Felipe Ignacio",
+                    "father_last_names": "González Pérez",
                     "father_phone": "+56 9 5555 0102",
                 },
             )
@@ -168,7 +168,7 @@ class Command(BaseCommand):
             p2 = admit_patient(
                 actor=neo,
                 medical_record_number="RN-2026-002",
-                full_name="RN Vaihere Tuki Pakarati (Ficticia)",
+                full_name="RN Sofía Contreras Fuentes (Ficticia)",
                 sex="F",
                 birth_date=today - timedelta(days=2),
                 gestational_age_weeks=Decimal("29.0"),
@@ -179,8 +179,8 @@ class Command(BaseCommand):
                 crib_id=cribs["C-02"].id,
                 guardians={
                     "mother_rut": "17.205.846-9",
-                    "mother_first_names": "Moana",
-                    "mother_last_names": "Pakarati Tuki",
+                    "mother_first_names": "Valentina Paz",
+                    "mother_last_names": "Contreras Fuentes",
                     "mother_phone": "+56 9 5555 0201",
                 },
             )

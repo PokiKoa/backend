@@ -451,3 +451,31 @@ class PatientEndpointExtensionsTests(APITestCase):
         deleted = self.client.post(url, {"confirmation": "RN-E-1"}, format="json")
         self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(self.client.get(f"/api/v1/patients/{patient['id']}/").status_code, 404)
+
+
+class CribQrLookupTests(APITestCase):
+    """Los QR pegados en las cunas resuelven la cuna por su código exacto."""
+
+    def setUp(self) -> None:
+        self.admin = _user("admin_q@pokikoa.cl", UserRole.ADMIN)
+        self.nurse = _user("nurse_q@pokikoa.cl", UserRole.NURSE)
+        self.neo = _user("neo_q@pokikoa.cl", UserRole.NEONATOLOGIST)
+        self.crib, _ = create_crib(actor=self.admin, code="Q-01")
+        create_crib(actor=self.admin, code="Q-010")
+        self.patient = admit_patient(
+            actor=self.neo,
+            medical_record_number="RN-Q-1",
+            full_name="RN QR (Ficticio)",
+            sex="F",
+            birth_date=timezone.localdate(),
+            gestational_age_weeks=Decimal("38.0"),
+            birth_weight_g=3100,
+            crib_id=self.crib.id,
+        )
+        self.client.force_authenticate(user=self.nurse)
+
+    def test_code_filter_is_exact_and_returns_current_patient(self) -> None:
+        results = self.client.get("/api/v1/cribs/?code=Q-01").data["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["current_patient_id"], self.patient.id)
+        self.assertEqual(self.client.get("/api/v1/cribs/?code=NO-EXISTE").data["count"], 0)

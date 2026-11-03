@@ -40,7 +40,8 @@ class CribViewSet(
     queryset = Crib.objects.select_related("current_patient").all().order_by("code")
     serializer_class = CribSerializer
     permission_classes: ClassVar[list] = [IsAuthenticated]
-    filterset_fields: ClassVar[list[str]] = ["status", "is_device_active"]
+    # `code` exacto: lo usan los QR pegados en cada cuna para encontrarla
+    filterset_fields: ClassVar[list[str]] = ["code", "status", "is_device_active"]
     search_fields: ClassVar[list[str]] = ["code", "name", "location"]
     ordering_fields: ClassVar[list[str]] = ["code", "status", "last_telemetry_at", "created_at"]
     ordering: ClassVar[list[str]] = ["code"]

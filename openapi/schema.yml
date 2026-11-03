@@ -820,6 +820,10 @@ paths:
       operationId: cribs_list
       parameters:
       - in: query
+        name: code
+        schema:
+          type: string
+      - in: query
         name: is_device_active
         schema:
           type: boolean
@@ -1071,6 +1075,10 @@ paths:
       operationId: cribs_swap_create
       summary: Intercambia a los pacientes de dos cunas ocupadas sin egresarlos
       parameters:
+      - in: query
+        name: code
+        schema:
+          type: string
       - in: path
         name: id
         schema:

@@ -29,6 +29,15 @@ uv run poki_koa seed_demo     # Carga datos clínicos de prueba y superusuario a
 uv run uvicorn poki_koa.asgi:application --app-dir src --reload  # HTTP + WebSockets
 ```
 
+Para desarrollar el frontend con datos en vivo, con el servidor ya levantado y en otra terminal:
+
+```bash
+uv run poki_koa simulate_telemetry               # lecturas cada 5 s en las cunas ocupadas
+uv run poki_koa simulate_telemetry --anomaly-rate 0.3 --interval 2  # más episodios y alertas
+```
+
+El simulador rota la API Key de cada cuna simulada (por eso solo corre con `DEBUG=True`) y envía las lecturas por HTTP, de modo que los WebSockets las reciben sin necesidad de Redis. Genera episodios de bradicardia, taquicardia, desaturación, hipo/hipertermia y desconexión de cánula que luego se recuperan, ejercitando la creación y la autorresolución de alertas.
+
 Sin `.env` ni `DJANGO_SETTINGS_MODULE` exportada, `asgi.py` y `wsgi.py` cargan `settings.prod` y fallan si falta `SECRET_KEY`: es intencional para que un despliegue mal configurado nunca arranque con `DEBUG`. `uv run poki_koa runserver` no sirve WebSockets.
 
 ## Verificación y Pruebas

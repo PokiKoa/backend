@@ -32,7 +32,7 @@ Poki Koa protege los datos clínicos neonatales mediante autenticación diferenc
 ## 2. Autenticación de Dispositivos / Cunas IoT (`X-Device-Api-Key`)
 
 - Los monitores e incubadoras nunca comparten credenciales de usuarios humanos ni utilizan JWT.
-- Cada `Crib` almacena únicamente un prefijo público (`api_key_prefix`) y el hash SHA-256 (`api_key_hash`) de su clave. La clave en texto plano solo se muestra una vez al crear la cuna o al rotarla (`POST /api/v1/cribs/{id}/rotate-api-key/`).
+- Cada `Crib` almacena únicamente un prefijo público (`api_key_prefix`) y el hash SHA-256 (`api_key_hash`) de su clave. La clave en texto plano solo se muestra una vez al crear la cuna o al rotarla (`POST /api/v1/cribs/{id}/rotate-key/`).
 - El endpoint `POST /api/v1/cribs/{id}/telemetry/` valida mediante comparación en tiempo constante (`hmac.compare_digest`) que la cabecera `X-Device-Api-Key` corresponda específicamente a la cuna `{id}` y que `is_device_active=True`.
 
 ---
@@ -42,7 +42,12 @@ Poki Koa protege los datos clínicos neonatales mediante autenticación diferenc
 | Recurso / Operación | `admin` | `neonatologist` | `nurse` (Matrona/Enfermera) | `pharmacist` | Dispositivo (`API Key`) |
 |---|---|---|---|---|---|
 | Gestión de usuarios (`/api/v1/users/`) | CRUD | — | — | — | — |
-| Consulta de auditoría (`/api/v1/audit-logs/`) | Lectura | — | — | — | — |
+| Consulta de auditoría (`/api/v1/audit-logs/`, `summary/`) | Lectura | — | — | — | — |
+| Directorio de personal (`/api/v1/staff/`) | Lectura | Lectura | Lectura | Lectura | — |
+| Turnos (`/api/v1/shifts/`) y asignaciones: consultar | Lectura | Lectura | Lectura | Lectura | — |
+| Asignaciones de turno: crear / eliminar | Sí | — | — | — | — |
+| Mis cunas del turno vigente (`shift-assignments/mine/`) | Sí | Sí | Sí | Sí (vacío) | — |
+| Reportes (`/api/v1/reports/summary/`, `series/`) | Lectura | Lectura | Lectura | Lectura | — |
 | Cunas: crear/editar/rotar API key | Sí | Lectura | Lectura | Lectura | — |
 | Cunas: asignar / liberar paciente | Sí | Sí | Sí | — | — |
 | Pacientes: admisión y datos de enfermería | Lectura | Sí | Sí | Lectura | — |

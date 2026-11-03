@@ -75,6 +75,12 @@ GET /api/v1/alerts/?is_open=true&crib=3&triggered_after=2026-11-03T03:00:00-03:0
 | | `GET /api/v1/auth/me/` | Perfil del usuario autenticado. |
 | | `POST /api/v1/auth/change-password/` | Cambio de contraseña propia (`current_password`, `new_password`). Revoca las demás sesiones y devuelve un nuevo `{"access"}` con su cookie de refresh. Una contraseña actual incorrecta responde `400`. |
 | | `POST /api/v1/auth/2fa/setup/` · `enable/` · `disable/` | Configuración, activación y desactivación de segundo factor TOTP. |
+| **Personal** | `GET /api/v1/staff/` | Directorio de solo lectura de usuarios activos (`id`, `full_name`, `role`, `shift`) para cualquier usuario autenticado; filtros `role`, `shift` y `search`. |
+| **Turnos** | `GET /api/v1/shifts/` | Catálogo fijo de turnos (`value`, `label`, `starts_at`, `ends_at`, `is_current`). |
+| | `GET, POST /api/v1/shift-assignments/` · `DELETE …/{id}/` | Asignaciones de personal a cuna por fecha y turno; filtros `date`, `date_after`, `date_before`, `shift`, `user`, `crib`. Crear y eliminar es solo para `admin`. |
+| | `GET /api/v1/shift-assignments/mine/` | Cunas asignadas al usuario en el turno vigente: `{date, shift, cribs}`, con cada cuna en el mismo formato de `monitoring/overview/`. |
+| **Reportes** | `GET /api/v1/reports/summary/` | Resumen operativo: pacientes, cunas (ocupación), indicaciones por estado, dosis del día, stock crítico, alertas abiertas por severidad y tipo, planes activos y personal por turno. |
+| | `GET /api/v1/reports/series/?days=14` | Ingresos y alertas por día local (1 a 90 días). |
 | **Usuarios** | `GET, POST /api/v1/users/` | Listado y creación de cuentas de personal (`admin`). |
 | | `GET, PUT, PATCH /api/v1/users/{id}/` | Detalle y actualización de rol, turno o estado activo (`admin`). |
 | **Pacientes** | `GET, POST /api/v1/patients/` | Listado y admisión clínica de recién nacidos. |
@@ -103,6 +109,7 @@ GET /api/v1/alerts/?is_open=true&crib=3&triggered_after=2026-11-03T03:00:00-03:0
 | | `GET /api/v1/prescriptions/{id}/administrations/` | Historial paginado de dosis administradas. |
 | | `POST /api/v1/prescriptions/{id}/cancel/` | Cancelación de una indicación vigente (`neonatologist`). |
 | **Auditoría** | `GET /api/v1/audit-logs/` | Registro inmutable de eventos clínicos y de seguridad (`admin`). |
+| | `GET /api/v1/audit-logs/summary/` | Total de eventos por acción, con los mismos filtros del listado (`admin`). |
 
 ### 2.1 Resumen de la unidad (`GET /api/v1/monitoring/overview/`)
 

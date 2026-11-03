@@ -7,6 +7,8 @@ El modelo de datos se organiza en **7 aplicaciones de dominio** independientes d
 ```mermaid
 erDiagram
     USER ||--o{ AUDIT_LOG : "generates"
+    USER ||--o{ SHIFT_ASSIGNMENT : "works"
+    CRIB ||--o{ SHIFT_ASSIGNMENT : "is staffed by"
     USER ||--o{ PATIENT : "attends (attending_physician)"
     USER ||--o{ PATIENT : "discharges (discharged_by)"
     USER ||--o{ WEIGHT_RECORD : "records"
@@ -48,6 +50,16 @@ erDiagram
         datetime locked_until
         datetime created_at
         datetime updated_at
+    }
+
+    SHIFT_ASSIGNMENT {
+        bigint id PK
+        bigint user_id FK
+        bigint crib_id FK
+        date date "día en que comienza el turno"
+        string shift "morning | afternoon | night"
+        bigint created_by_id FK
+        datetime created_at
     }
 
     AUDIT_LOG {
@@ -235,6 +247,8 @@ erDiagram
   - Control de bloqueo por fuerza bruta: `failed_login_attempts` y `locked_until`.
   - Soporte 2FA: `is_two_factor_enabled` y `totp_secret`.
   - Índices: `username` (único), `email` (único), `(role, is_active)`.
+- **Turnos (`SHIFT_HOURS`):** fuente única del horario en hora local: mañana 07–15, tarde 15–23 y noche 23–07. La noche cruza la medianoche y pertenece a la fecha en que comienza (por eso, a las 03:00 el turno vigente es la noche del día anterior).
+- **`ShiftAssignment`**: asigna un profesional (`nurse` o `neonatologist`, activo) a una cuna en una fecha y turno; solo el `admin` la crea o elimina, y cada cambio queda en `AuditLog`. La restricción única `shift_assignment_unique` (`user`, `crib`, `date`, `shift`) impide duplicados. Una cuna puede tener varios profesionales, y un profesional, varias cunas.
 
 ### 2.2 `audit` — Auditoría Clínica sin Exposición de PHI
 - **`AuditLog`**:

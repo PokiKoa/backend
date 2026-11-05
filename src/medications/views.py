@@ -65,7 +65,9 @@ class MedicationCatalogViewSet(
     ]
     ordering: ClassVar[list[str]] = ["name"]
 
-    @extend_schema(request=MedicationCatalogCreateSerializer, responses={201: MedicationCatalogItemSerializer})
+    @extend_schema(
+        request=MedicationCatalogCreateSerializer, responses={201: MedicationCatalogItemSerializer}
+    )
     def create(self, request: Request, *args, **kwargs) -> Response:
         serializer = MedicationCatalogCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -85,7 +87,9 @@ class MedicationCatalogViewSet(
             status=status.HTTP_201_CREATED,
         )
 
-    @extend_schema(request=MedicationCatalogUpdateSerializer, responses={200: MedicationCatalogItemSerializer})
+    @extend_schema(
+        request=MedicationCatalogUpdateSerializer, responses={200: MedicationCatalogItemSerializer}
+    )
     def update(self, request: Request, *args, **kwargs) -> Response:
         item = self.get_object()
         serializer = MedicationCatalogUpdateSerializer(data=request.data)
@@ -101,7 +105,9 @@ class MedicationCatalogViewSet(
             status=status.HTTP_200_OK,
         )
 
-    @extend_schema(request=MedicationCatalogUpdateSerializer, responses={200: MedicationCatalogItemSerializer})
+    @extend_schema(
+        request=MedicationCatalogUpdateSerializer, responses={200: MedicationCatalogItemSerializer}
+    )
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
         return self.update(request, *args, **kwargs)
 

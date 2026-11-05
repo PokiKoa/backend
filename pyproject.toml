@@ -88,5 +88,28 @@ show_contexts = false
 [tool.coverage.xml]
 output = "coverage.xml"
 
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["staticfiles", "htmlcov"]
+
+[tool.ruff.format]
+# Las migraciones las genera Django; no se reformatean para mantener su diff mínimo.
+exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
+# E/F/W: pycodestyle + pyflakes · I: orden de imports · B: bugbear · C90/PLR: complejidad
+select = ["E", "F", "W", "I", "B", "C90", "PLR0912", "PLR0915"]
+# El largo de línea lo gobierna `ruff format`; las cadenas y comentarios largos en español no se parten.
+ignore = ["E501"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
 [tool.ruff.lint.per-file-ignores]
 "**/migrations/*" = ["RUF012", "I001"]
+"src/poki_koa/settings/*" = ["F403", "F405"]
+"src/poki_koa/asgi.py" = ["E402"]
+"src/accounts/management/commands/seed_demo.py" = ["C901", "PLR0912", "PLR0915"]  # script lineal de datos de demo
+"**/tests.py" = ["C901", "PLR0912", "PLR0915"]
+"**/test_*.py" = ["C901", "PLR0912", "PLR0915"]

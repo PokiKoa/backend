@@ -327,7 +327,9 @@ class ShiftAssignmentViewSet(
     filterset_class = ShiftAssignmentFilter
     ordering_fields: ClassVar[list[str]] = ["date", "shift"]
 
-    @extend_schema(request=ShiftAssignmentCreateSerializer, responses={201: ShiftAssignmentSerializer})
+    @extend_schema(
+        request=ShiftAssignmentCreateSerializer, responses={201: ShiftAssignmentSerializer}
+    )
     def create(self, request: Request, *args, **kwargs) -> Response:
         serializer = ShiftAssignmentCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

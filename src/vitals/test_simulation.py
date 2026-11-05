@@ -30,11 +30,15 @@ class TelemetrySimulationGeneratorTests(TestCase):
             payload = next_payload(state, rng, anomaly_rate=0)
             validated = validate_telemetry_payload(payload)
             self.assertTrue(
-                rules.DEFAULT_HR_CRITICAL_LOW < validated.heart_rate < rules.DEFAULT_HR_CRITICAL_HIGH
+                rules.DEFAULT_HR_CRITICAL_LOW
+                < validated.heart_rate
+                < rules.DEFAULT_HR_CRITICAL_HIGH
             )
             self.assertGreaterEqual(validated.spo2, rules.DEFAULT_SPO2_CRITICAL_LOW)
             self.assertTrue(
-                rules.DEFAULT_TEMP_CRITICAL_LOW < validated.temperature < rules.DEFAULT_TEMP_CRITICAL_HIGH
+                rules.DEFAULT_TEMP_CRITICAL_LOW
+                < validated.temperature
+                < rules.DEFAULT_TEMP_CRITICAL_HIGH
             )
             self.assertTrue(validated.cannula_connected)
 
@@ -104,7 +108,9 @@ class SimulateTelemetryCommandTests(TestCase):
 
     @override_settings(DEBUG=True)
     def test_direct_mode_ingests_only_occupied_cribs(self) -> None:
-        output = self._call("--mode", "direct", "--iterations", "2", "--interval", "0", "--seed", "3")
+        output = self._call(
+            "--mode", "direct", "--iterations", "2", "--interval", "0", "--seed", "3"
+        )
         self.assertEqual(VitalSignReading.objects.filter(crib=self.crib).count(), 2)
         self.assertFalse(VitalSignReading.objects.filter(crib=self.empty_crib).exists())
         self.assertIn("C-SIM-1", output)
@@ -113,8 +119,16 @@ class SimulateTelemetryCommandTests(TestCase):
     @override_settings(DEBUG=True)
     def test_direct_mode_with_anomalies_generates_alerts(self) -> None:
         self._call(
-            "--mode", "direct", "--iterations", "8", "--interval", "0",
-            "--anomaly-rate", "1", "--seed", "5",
+            "--mode",
+            "direct",
+            "--iterations",
+            "8",
+            "--interval",
+            "0",
+            "--anomaly-rate",
+            "1",
+            "--seed",
+            "5",
         )
         self.assertTrue(Alert.objects.filter(crib=self.crib).exists())
 
@@ -127,7 +141,9 @@ class SimulateTelemetryCommandTests(TestCase):
             self._call("--cribs", "c-sim-1", "--iterations", "1", "--base-url", "http://api.test/")
 
         request = urlopen.call_args.args[0]
-        self.assertEqual(request.full_url, f"http://api.test/api/v1/cribs/{self.crib.id}/telemetry/")
+        self.assertEqual(
+            request.full_url, f"http://api.test/api/v1/cribs/{self.crib.id}/telemetry/"
+        )
         sent_key = request.get_header("X-device-api-key")
         self.crib.refresh_from_db()
         self.assertTrue(verify_device_api_key(sent_key, self.crib.api_key_hash))

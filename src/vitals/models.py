@@ -61,12 +61,8 @@ class VitalSignReading(models.Model):
     class Meta:
         ordering: ClassVar[list[str]] = ["-recorded_at", "-id"]
         indexes: ClassVar[list[models.Index]] = [
-            models.Index(
-                fields=["patient", "-recorded_at"], name="vitals_patient_ts_idx"
-            ),
-            models.Index(
-                fields=["crib", "-recorded_at"], name="vitals_crib_ts_idx"
-            ),
+            models.Index(fields=["patient", "-recorded_at"], name="vitals_patient_ts_idx"),
+            models.Index(fields=["crib", "-recorded_at"], name="vitals_crib_ts_idx"),
         ]
         constraints: ClassVar[list[models.CheckConstraint]] = [
             models.CheckConstraint(

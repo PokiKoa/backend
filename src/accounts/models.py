@@ -39,7 +39,9 @@ class UserManager(BaseUserManager["User"]):
         **extra_fields: Any,
     ) -> "User":
         effective_username = (username or "").strip().lower()
-        normalized_email = self.normalize_email(email.strip()).lower() if email and email.strip() else ""
+        normalized_email = (
+            self.normalize_email(email.strip()).lower() if email and email.strip() else ""
+        )
         if not effective_username and normalized_email:
             effective_username = normalized_email.split("@")[0]
 
@@ -134,9 +136,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class ShiftAssignment(models.Model):
-    user = models.ForeignKey(
-        User, on_delete=models.PROTECT, related_name="shift_assignments"
-    )
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="shift_assignments")
     crib = models.ForeignKey(
         "devices.Crib", on_delete=models.PROTECT, related_name="shift_assignments"
     )

@@ -42,12 +42,8 @@ class CribSerializer(serializers.ModelSerializer):
 class CribCreateSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=20)
     name = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
-    location = serializers.CharField(
-        max_length=100, required=False, allow_blank=True, default=""
-    )
-    status = serializers.ChoiceField(
-        choices=CribStatus.choices, default=CribStatus.AVAILABLE
-    )
+    location = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    status = serializers.ChoiceField(choices=CribStatus.choices, default=CribStatus.AVAILABLE)
     is_device_active = serializers.BooleanField(default=True)
 
 

@@ -23,7 +23,10 @@ class Command(BaseCommand):
             help="Repite la verificación cada N segundos sin terminar (0 = una sola vez).",
         )
         parser.add_argument(
-            "--max-runs", type=int, default=0, help="Límite de ejecuciones con --every (0 = sin límite)."
+            "--max-runs",
+            type=int,
+            default=0,
+            help="Límite de ejecuciones con --every (0 = sin límite).",
         )
 
     def handle(self, *args, **options) -> None:

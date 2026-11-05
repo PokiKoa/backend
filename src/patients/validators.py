@@ -58,7 +58,5 @@ def normalize_phone(value: str, *, label: str) -> str:
     if digits.startswith("56") and len(digits) == 11:
         digits = digits[2:]
     if not digits.isdigit() or len(digits) != 9:
-        raise DomainError(
-            f"El teléfono {label} debe tener 9 dígitos (ej. +56 9 1234 5678)."
-        )
+        raise DomainError(f"El teléfono {label} debe tener 9 dígitos (ej. +56 9 1234 5678).")
     return f"+56{digits}"

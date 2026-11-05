@@ -90,9 +90,7 @@ class AuthenticationEdgeCaseTests(TestCase):
         self.assertEqual(missing.exception.code, "two_factor_required")
 
         with self.assertRaises(AuthenticationDomainError) as invalid:
-            authenticate_user(
-                username="enfermera.edge", password=PASSWORD, otp_code="123"
-            )
+            authenticate_user(username="enfermera.edge", password=PASSWORD, otp_code="123")
         self.assertEqual(invalid.exception.code, "invalid_two_factor_code")
 
         ok = authenticate_user(
@@ -257,9 +255,7 @@ class UserAdministrationEdgeCaseTests(TestCase):
                 update_user_by_admin(actor=self.admin, target_user=target, data=invalid)
 
         with self.assertRaises(ConflictDomainError):
-            update_user_by_admin(
-                actor=self.admin, target_user=target, data={"username": "ocupado"}
-            )
+            update_user_by_admin(actor=self.admin, target_user=target, data={"username": "ocupado"})
         with self.assertRaises(ConflictDomainError):
             update_user_by_admin(
                 actor=self.admin,

@@ -7,9 +7,7 @@ from .models import AuditLog
 
 class AuditLogSerializer(serializers.ModelSerializer):
     actor_email = serializers.EmailField(source="actor_user.email", read_only=True, default=None)
-    actor_name = serializers.CharField(
-        source="actor_user.full_name", read_only=True, default=None
-    )
+    actor_name = serializers.CharField(source="actor_user.full_name", read_only=True, default=None)
 
     class Meta:
         model = AuditLog

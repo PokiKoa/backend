@@ -78,9 +78,7 @@ def build_operations_summary(now: datetime | None = None) -> dict[str, Any]:
                 .annotate(n=Count("id"))
                 .order_by()
             ),
-            "assignments_current_shift_day": ShiftAssignment.objects.filter(
-                date=shift_day
-            ).count(),
+            "assignments_current_shift_day": ShiftAssignment.objects.filter(date=shift_day).count(),
         },
     }
 

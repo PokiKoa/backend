@@ -23,7 +23,9 @@ class SeedDemoCommandTests(TestCase):
         admin_user = User.objects.get(username="admin")
         self.assertTrue(admin_user.is_superuser)
         self.assertTrue(admin_user.check_password("admin2026"))
-        self.assertEqual(Patient.objects.filter(medical_record_number__startswith="RN-2026").count(), 2)
+        self.assertEqual(
+            Patient.objects.filter(medical_record_number__startswith="RN-2026").count(), 2
+        )
         mateo = Patient.objects.get(medical_record_number="RN-2026-001")
         self.assertEqual(mateo.mother_rut, "16482937-5")
         self.assertEqual(mateo.father_phone, "+56955550102")

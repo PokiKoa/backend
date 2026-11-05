@@ -283,7 +283,11 @@ class PermanentDeleteTests(TestCase):
 
     def _populate_clinical_record(self) -> None:
         item = create_catalog_item(
-            actor=self.admin, name="Cafeína", active_ingredient="Cafeína", concentration_mg="20", stock=5
+            actor=self.admin,
+            name="Cafeína",
+            active_ingredient="Cafeína",
+            concentration_mg="20",
+            stock=5,
         )
         prescription = create_prescription(
             actor=self.neo,
@@ -330,7 +334,9 @@ class PermanentDeleteTests(TestCase):
         self.assertTrue(Alert.objects.filter(patient=self.patient).exists())
         patient_id = self.patient.id
 
-        delete_patient_permanently(actor=self.admin, patient=self.patient, confirmation=" rn-del-1 ")
+        delete_patient_permanently(
+            actor=self.admin, patient=self.patient, confirmation=" rn-del-1 "
+        )
 
         self.assertFalse(Patient.objects.filter(pk=patient_id).exists())
         for model in (

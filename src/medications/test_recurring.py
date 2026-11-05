@@ -55,9 +55,7 @@ class ScheduleFunctionTests(SimpleTestCase):
         self.assertEqual(
             schedule.latest_due_slot(p, T0 + timedelta(hours=7)), T0 + timedelta(hours=8)
         )
-        self.assertEqual(
-            schedule.latest_due_slot(p, T0 + timedelta(hours=6)), T0
-        )
+        self.assertEqual(schedule.latest_due_slot(p, T0 + timedelta(hours=6)), T0)
         bounded = _unsaved(frequency_hours=8, ends_at=T0 + timedelta(hours=9))
         self.assertEqual(
             schedule.latest_due_slot(bounded, T0 + timedelta(days=2)), T0 + timedelta(hours=8)
@@ -67,15 +65,21 @@ class ScheduleFunctionTests(SimpleTestCase):
 class RecurringPrescriptionServiceTests(TestCase):
     def setUp(self) -> None:
         self.neo = User.objects.create_user(
-            email="neo_rec@pokikoa.cl", full_name="Neo Rec", password=PASSWORD,
+            email="neo_rec@pokikoa.cl",
+            full_name="Neo Rec",
+            password=PASSWORD,
             role=UserRole.NEONATOLOGIST,
         )
         self.nurse = User.objects.create_user(
-            email="nurse_rec@pokikoa.cl", full_name="Enf Rec", password=PASSWORD,
+            email="nurse_rec@pokikoa.cl",
+            full_name="Enf Rec",
+            password=PASSWORD,
             role=UserRole.NURSE,
         )
         pharmacist = User.objects.create_user(
-            email="qf_rec@pokikoa.cl", full_name="QF Rec", password=PASSWORD,
+            email="qf_rec@pokikoa.cl",
+            full_name="QF Rec",
+            password=PASSWORD,
             role=UserRole.PHARMACIST,
         )
         self.patient = admit_patient(
@@ -88,8 +92,11 @@ class RecurringPrescriptionServiceTests(TestCase):
             birth_weight_g=1300,
         )
         self.item = create_catalog_item(
-            actor=pharmacist, name="Ampicilina", active_ingredient="Ampicilina",
-            concentration_mg="500", stock=10,
+            actor=pharmacist,
+            name="Ampicilina",
+            active_ingredient="Ampicilina",
+            concentration_mg="500",
+            stock=10,
         )
         self.now = timezone.now().replace(second=0, microsecond=0)
 
@@ -162,9 +169,7 @@ class RecurringPrescriptionServiceTests(TestCase):
         self.assertEqual(administration.scheduled_for, p.starts_at + timedelta(hours=16))
         self.assertEqual(administration.prescription.status, PrescriptionStatus.COMPLETED)
         with self.assertRaisesMessage(ConflictDomainError, "completada o cancelada"):
-            administer_prescription(
-                actor=self.nurse, prescription=p, scheduled_for=p.starts_at
-            )
+            administer_prescription(actor=self.nurse, prescription=p, scheduled_for=p.starts_at)
 
     def test_schedule_state_reports_next_dose_and_overdue(self) -> None:
         p = self._prescribe()
@@ -195,15 +200,21 @@ class RecurringPrescriptionServiceTests(TestCase):
 class RecurringPrescriptionEndpointTests(APITestCase):
     def setUp(self) -> None:
         self.neo = User.objects.create_user(
-            email="neo_rep@pokikoa.cl", full_name="Neo Rep", password=PASSWORD,
+            email="neo_rep@pokikoa.cl",
+            full_name="Neo Rep",
+            password=PASSWORD,
             role=UserRole.NEONATOLOGIST,
         )
         self.nurse = User.objects.create_user(
-            email="nurse_rep@pokikoa.cl", full_name="Enf Rep", password=PASSWORD,
+            email="nurse_rep@pokikoa.cl",
+            full_name="Enf Rep",
+            password=PASSWORD,
             role=UserRole.NURSE,
         )
         pharmacist = User.objects.create_user(
-            email="qf_rep@pokikoa.cl", full_name="QF Rep", password=PASSWORD,
+            email="qf_rep@pokikoa.cl",
+            full_name="QF Rep",
+            password=PASSWORD,
             role=UserRole.PHARMACIST,
         )
         self.patient = admit_patient(
@@ -216,8 +227,11 @@ class RecurringPrescriptionEndpointTests(APITestCase):
             birth_weight_g=2100,
         )
         self.item = create_catalog_item(
-            actor=pharmacist, name="Gentamicina", active_ingredient="Gentamicina",
-            concentration_mg="10", stock=5,
+            actor=pharmacist,
+            name="Gentamicina",
+            active_ingredient="Gentamicina",
+            concentration_mg="10",
+            stock=5,
         )
 
     def test_recurring_flow_with_schedule_fields_and_history(self) -> None:
@@ -242,7 +256,9 @@ class RecurringPrescriptionEndpointTests(APITestCase):
 
         self.client.force_authenticate(user=self.nurse)
         given = self.client.post(
-            f"/api/v1/prescriptions/{presc_id}/administer/", {"notes": "Sin incidentes"}, format="json"
+            f"/api/v1/prescriptions/{presc_id}/administer/",
+            {"notes": "Sin incidentes"},
+            format="json",
         )
         self.assertEqual(given.status_code, status.HTTP_200_OK)
         self.assertEqual(given.data["administrations_count"], 1)

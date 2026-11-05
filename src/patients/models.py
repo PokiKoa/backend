@@ -144,9 +144,7 @@ class Patient(models.Model):
                 name="patient_birth_weight_range",
             ),
             models.CheckConstraint(
-                condition=models.Q(
-                    current_weight_g__gte=200, current_weight_g__lte=10000
-                ),
+                condition=models.Q(current_weight_g__gte=200, current_weight_g__lte=10000),
                 name="patient_current_weight_range",
             ),
         ]
@@ -158,9 +156,7 @@ class Patient(models.Model):
 
     @property
     def age_days(self) -> int:
-        reference_date = (
-            self.discharged_at.date() if self.discharged_at else timezone.localdate()
-        )
+        reference_date = self.discharged_at.date() if self.discharged_at else timezone.localdate()
         return max(0, (reference_date - self.birth_date).days)
 
 
@@ -245,9 +241,7 @@ class WeightRecord(models.Model):
     class Meta:
         ordering: ClassVar[list[str]] = ["-recorded_at", "-id"]
         indexes: ClassVar[list[models.Index]] = [
-            models.Index(
-                fields=["patient", "-recorded_at"], name="weight_patient_ts_idx"
-            ),
+            models.Index(fields=["patient", "-recorded_at"], name="weight_patient_ts_idx"),
         ]
         constraints: ClassVar[list[models.CheckConstraint]] = [
             models.CheckConstraint(
@@ -317,9 +311,7 @@ class ClinicalObservation(models.Model):
     class Meta:
         ordering: ClassVar[list[str]] = ["-created_at", "-id"]
         indexes: ClassVar[list[models.Index]] = [
-            models.Index(
-                fields=["patient", "-created_at"], name="obs_patient_ts_idx"
-            ),
+            models.Index(fields=["patient", "-created_at"], name="obs_patient_ts_idx"),
         ]
         verbose_name = "Observación Clínica"
         verbose_name_plural = "Observaciones Clínicas"

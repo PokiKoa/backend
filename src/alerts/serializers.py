@@ -16,9 +16,7 @@ from .models import Alert, AlertThresholdConfig
 
 class AlertSerializer(serializers.ModelSerializer):
     crib_code = serializers.CharField(source="crib.code", read_only=True)
-    patient_name = serializers.CharField(
-        source="patient.full_name", read_only=True, default=None
-    )
+    patient_name = serializers.CharField(source="patient.full_name", read_only=True, default=None)
     acknowledged_by_name = serializers.CharField(
         source="acknowledged_by.full_name", read_only=True, default=None
     )

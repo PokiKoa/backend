@@ -78,16 +78,12 @@ class ApiFilterTests(APITestCase):
         heavy = self._admit("RN-F-003", 3100)
         self.client.force_authenticate(user=self.neonatologist)
 
-        res = self.client.get(
-            "/api/v1/patients/", {"min_weight_g": 1500, "max_weight_g": 2500}
-        )
+        res = self.client.get("/api/v1/patients/", {"min_weight_g": 1500, "max_weight_g": 2500})
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual({p["id"] for p in res.data["results"]}, {medium.id})
 
         res_min = self.client.get("/api/v1/patients/", {"min_weight_g": 2000})
-        self.assertEqual(
-            {p["id"] for p in res_min.data["results"]}, {medium.id, heavy.id}
-        )
+        self.assertEqual({p["id"] for p in res_min.data["results"]}, {medium.id, heavy.id})
 
         past = (timezone.now() - timedelta(days=1)).isoformat()
         res_after = self.client.get("/api/v1/patients/", {"admitted_after": past})
@@ -124,9 +120,7 @@ class ApiFilterTests(APITestCase):
 
         low_res = self.client.get("/api/v1/medication-catalog/", {"low_stock": "true"})
         self.assertEqual(low_res.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            {m["id"] for m in low_res.data["results"]}, {low.id, boundary.id}
-        )
+        self.assertEqual({m["id"] for m in low_res.data["results"]}, {low.id, boundary.id})
 
         ok_res = self.client.get("/api/v1/medication-catalog/", {"low_stock": "false"})
         self.assertEqual({m["id"] for m in ok_res.data["results"]}, {healthy.id})
@@ -143,7 +137,5 @@ class ApiFilterTests(APITestCase):
         after_res = self.client.get("/api/v1/audit-logs/", {"timestamp_after": future})
         self.assertEqual(after_res.data["count"], 0)
 
-        invalid_res = self.client.get(
-            "/api/v1/audit-logs/", {"timestamp_after": "no-es-fecha"}
-        )
+        invalid_res = self.client.get("/api/v1/audit-logs/", {"timestamp_after": "no-es-fecha"})
         self.assertEqual(invalid_res.status_code, status.HTTP_400_BAD_REQUEST)

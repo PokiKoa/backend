@@ -15,12 +15,8 @@ from .serializers import AuditLogSerializer
 
 
 class AuditLogFilter(django_filters.FilterSet):
-    timestamp_after = django_filters.IsoDateTimeFilter(
-        field_name="timestamp", lookup_expr="gte"
-    )
-    timestamp_before = django_filters.IsoDateTimeFilter(
-        field_name="timestamp", lookup_expr="lte"
-    )
+    timestamp_after = django_filters.IsoDateTimeFilter(field_name="timestamp", lookup_expr="gte")
+    timestamp_before = django_filters.IsoDateTimeFilter(field_name="timestamp", lookup_expr="lte")
 
     class Meta:
         model = AuditLog

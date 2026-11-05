@@ -32,9 +32,7 @@ def _build_health_payload() -> dict[str, Any]:
     db_latency_ms = round((time.perf_counter() - start) * 1000, 2)
 
     channel_layer = get_channel_layer()
-    channel_backend = (
-        channel_layer.__class__.__name__ if channel_layer is not None else "disabled"
-    )
+    channel_backend = channel_layer.__class__.__name__ if channel_layer is not None else "disabled"
     stats = get_clinical_dashboard_stats()
 
     return {

@@ -54,24 +54,12 @@ class AlertThresholdConfig(models.Model):
         blank=True,
         related_name="alert_threshold_config",
     )
-    heart_rate_critical_low = models.PositiveSmallIntegerField(
-        default=DEFAULT_HR_CRITICAL_LOW
-    )
-    heart_rate_warning_low = models.PositiveSmallIntegerField(
-        default=DEFAULT_HR_WARNING_LOW
-    )
-    heart_rate_warning_high = models.PositiveSmallIntegerField(
-        default=DEFAULT_HR_WARNING_HIGH
-    )
-    heart_rate_critical_high = models.PositiveSmallIntegerField(
-        default=DEFAULT_HR_CRITICAL_HIGH
-    )
-    spo2_critical_low = models.PositiveSmallIntegerField(
-        default=DEFAULT_SPO2_CRITICAL_LOW
-    )
-    spo2_warning_low = models.PositiveSmallIntegerField(
-        default=DEFAULT_SPO2_WARNING_LOW
-    )
+    heart_rate_critical_low = models.PositiveSmallIntegerField(default=DEFAULT_HR_CRITICAL_LOW)
+    heart_rate_warning_low = models.PositiveSmallIntegerField(default=DEFAULT_HR_WARNING_LOW)
+    heart_rate_warning_high = models.PositiveSmallIntegerField(default=DEFAULT_HR_WARNING_HIGH)
+    heart_rate_critical_high = models.PositiveSmallIntegerField(default=DEFAULT_HR_CRITICAL_HIGH)
+    spo2_critical_low = models.PositiveSmallIntegerField(default=DEFAULT_SPO2_CRITICAL_LOW)
+    spo2_warning_low = models.PositiveSmallIntegerField(default=DEFAULT_SPO2_WARNING_LOW)
     temp_critical_low = models.DecimalField(
         max_digits=4,
         decimal_places=1,
@@ -224,4 +212,6 @@ class Alert(models.Model):
         verbose_name_plural = "Alertas Clínicas"
 
     def __str__(self) -> str:
-        return f"[{self.severity.upper()}] {self.alert_type} - Cuna {self.crib.code} ({self.status})"
+        return (
+            f"[{self.severity.upper()}] {self.alert_type} - Cuna {self.crib.code} ({self.status})"
+        )

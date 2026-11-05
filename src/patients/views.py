@@ -41,18 +41,10 @@ from .services import (
 
 
 class PatientFilter(django_filters.FilterSet):
-    admitted_after = django_filters.IsoDateTimeFilter(
-        field_name="admitted_at", lookup_expr="gte"
-    )
-    admitted_before = django_filters.IsoDateTimeFilter(
-        field_name="admitted_at", lookup_expr="lte"
-    )
-    min_weight_g = django_filters.NumberFilter(
-        field_name="current_weight_g", lookup_expr="gte"
-    )
-    max_weight_g = django_filters.NumberFilter(
-        field_name="current_weight_g", lookup_expr="lte"
-    )
+    admitted_after = django_filters.IsoDateTimeFilter(field_name="admitted_at", lookup_expr="gte")
+    admitted_before = django_filters.IsoDateTimeFilter(field_name="admitted_at", lookup_expr="lte")
+    min_weight_g = django_filters.NumberFilter(field_name="current_weight_g", lookup_expr="gte")
+    max_weight_g = django_filters.NumberFilter(field_name="current_weight_g", lookup_expr="lte")
     active = django_filters.BooleanFilter(
         method="filter_active",
         help_text="true: pacientes en la unidad; false: egresados, trasladados o fallecidos.",
@@ -134,9 +126,7 @@ class PatientViewSet(
             birth_weight_g=serializer.validated_data["birth_weight_g"],
             current_weight_g=serializer.validated_data.get("current_weight_g"),
             diagnosis=serializer.validated_data.get("diagnosis", ""),
-            attending_physician_id=serializer.validated_data.get(
-                "attending_physician_id"
-            ),
+            attending_physician_id=serializer.validated_data.get("attending_physician_id"),
             crib_id=serializer.validated_data.get("crib_id"),
             guardians={
                 field: serializer.validated_data[field]
@@ -145,9 +135,7 @@ class PatientViewSet(
             },
             ip_address=get_client_ip(request),
         )
-        return Response(
-            PatientSerializer(patient).data, status=status.HTTP_201_CREATED
-        )
+        return Response(PatientSerializer(patient).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(request=PatientUpdateSerializer, responses={200: PatientSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
@@ -331,9 +319,7 @@ class CarePlanViewSet(
             status=serializer.validated_data["status"],
             ip_address=get_client_ip(request),
         )
-        return Response(
-            CarePlanSerializer(plan).data, status=status.HTTP_201_CREATED
-        )
+        return Response(CarePlanSerializer(plan).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(request=CarePlanUpdateSerializer, responses={200: CarePlanSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
@@ -371,7 +357,9 @@ class ClinicalObservationViewSet(
     ordering_fields: ClassVar[list[str]] = ["created_at", "category"]
     ordering: ClassVar[list[str]] = ["-created_at", "-id"]
 
-    @extend_schema(request=ClinicalObservationCreateSerializer, responses={201: ClinicalObservationSerializer})
+    @extend_schema(
+        request=ClinicalObservationCreateSerializer, responses={201: ClinicalObservationSerializer}
+    )
     def create(self, request: Request, *args, **kwargs) -> Response:
         serializer = ClinicalObservationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

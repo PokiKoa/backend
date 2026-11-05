@@ -125,9 +125,7 @@ class MedicationEdgeCaseTests(TestCase):
 
         # Nombre ASCII: SQLite solo compara sin mayúsculas en ASCII (PostgreSQL sí en Unicode)
         with self.assertRaises(ConflictDomainError):
-            update_catalog_item(
-                actor=self.pharmacist, item=self.item, data={"name": "CAFEINA"}
-            )
+            update_catalog_item(actor=self.pharmacist, item=self.item, data={"name": "CAFEINA"})
 
         updated = update_catalog_item(
             actor=self.pharmacist,
@@ -171,9 +169,7 @@ class MedicationEdgeCaseTests(TestCase):
         with self.assertRaises(NotFoundDomainError):
             create_prescription(**{**base, "medication_id": 999999})
 
-        update_catalog_item(
-            actor=self.pharmacist, item=self.item, data={"is_active": False}
-        )
+        update_catalog_item(actor=self.pharmacist, item=self.item, data={"is_active": False})
         with self.assertRaises(ConflictDomainError):
             create_prescription(**base)
 
@@ -216,17 +212,13 @@ class MedicationEdgeCaseTests(TestCase):
 
     def test_inactive_medication_cannot_be_administered(self) -> None:
         prescription = self._prescribe()
-        update_catalog_item(
-            actor=self.pharmacist, item=self.item, data={"is_active": False}
-        )
+        update_catalog_item(actor=self.pharmacist, item=self.item, data={"is_active": False})
         with self.assertRaises(ConflictDomainError):
             administer_prescription(actor=self.nurse, prescription=prescription)
 
     def test_discharge_cancels_pending_and_blocks_new_prescriptions(self) -> None:
         pending = self._prescribe()
-        discharge_patient(
-            actor=self.neonatologist, patient=self.patient, outcome="survived"
-        )
+        discharge_patient(actor=self.neonatologist, patient=self.patient, outcome="survived")
         pending.refresh_from_db()
         self.assertEqual(pending.status, PrescriptionStatus.CANCELLED)
 

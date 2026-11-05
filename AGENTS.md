@@ -50,6 +50,7 @@ uv run uvicorn poki_koa.asgi:application --app-dir src --reload  # servidor ASGI
 uv run pytest                            # ejecuta la suite de pruebas con pytest
 uv run poki_koa test                     # ejecuta la suite de pruebas de Django
 uv run ruff check src                    # verifica linter y estilo
+uv run ruff format src                   # aplica el formato (CI exige `ruff format --check src`)
 uv run poki_koa spectacular --validate --fail-on-warn --file openapi/schema.yml  # regenera el contrato OpenAPI versionado
 ```
 

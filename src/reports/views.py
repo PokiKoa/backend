@@ -32,7 +32,11 @@ class ActivitySeriesView(APIView):
 
     @extend_schema(
         summary="Serie diaria de ingresos y alertas (días locales)",
-        parameters=[OpenApiParameter("days", int, description="Días hacia atrás, de 1 a 90 (por defecto 14).")],
+        parameters=[
+            OpenApiParameter(
+                "days", int, description="Días hacia atrás, de 1 a 90 (por defecto 14)."
+            )
+        ],
         responses={200: ActivityPointSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:

@@ -247,9 +247,7 @@ class CribViewSet(
                 "Solo el personal clínico o administrativo puede ejecutar la verificación de cunas desconectadas."
             )
         raw_timeout = (
-            request.data.get("timeout_seconds", 120)
-            if isinstance(request.data, dict)
-            else 120
+            request.data.get("timeout_seconds", 120) if isinstance(request.data, dict) else 120
         )
         try:
             timeout_seconds = int(raw_timeout)

@@ -66,9 +66,7 @@ class MedicationCatalogUpdateSerializer(serializers.Serializer):
 
 
 class MedicationAdministrationSerializer(serializers.ModelSerializer):
-    administered_by_name = serializers.CharField(
-        source="administered_by.full_name", read_only=True
-    )
+    administered_by_name = serializers.CharField(source="administered_by.full_name", read_only=True)
 
     class Meta:
         model = MedicationAdministration
@@ -89,9 +87,7 @@ class PrescriptionSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
     medication_name = serializers.CharField(source="medication.name", read_only=True)
     medication_unit = serializers.CharField(source="medication.unit", read_only=True)
-    prescribed_by_name = serializers.CharField(
-        source="prescribed_by.full_name", read_only=True
-    )
+    prescribed_by_name = serializers.CharField(source="prescribed_by.full_name", read_only=True)
     next_dose_at = serializers.SerializerMethodField()
     is_overdue = serializers.SerializerMethodField()
     last_administered_slot = serializers.SerializerMethodField()
@@ -156,9 +152,7 @@ class PrescriptionCreateSerializer(serializers.Serializer):
     patient_id = serializers.IntegerField(min_value=1)
     medication_id = serializers.IntegerField(min_value=1)
     dose = serializers.CharField(max_length=100)
-    units_per_administration = serializers.IntegerField(
-        min_value=1, required=False, default=1
-    )
+    units_per_administration = serializers.IntegerField(min_value=1, required=False, default=1)
     route = serializers.ChoiceField(
         choices=AdministrationRoute.choices,
         default=AdministrationRoute.IV,

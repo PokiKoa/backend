@@ -87,7 +87,9 @@ class TelemetryAlertConsumer(AsyncJsonWebsocketConsumer):
 
         # Si el cliente ofreció el subprotocolo de autenticación, el navegador exige que se confirme
         offered = self.scope.get("subprotocols") or []
-        await self.accept(subprotocol=WS_AUTH_SUBPROTOCOL if WS_AUTH_SUBPROTOCOL in offered else None)
+        await self.accept(
+            subprotocol=WS_AUTH_SUBPROTOCOL if WS_AUTH_SUBPROTOCOL in offered else None
+        )
         await self.send_json(
             {
                 "event": "stream.connected",

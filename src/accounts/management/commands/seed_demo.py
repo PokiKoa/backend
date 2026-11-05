@@ -21,7 +21,9 @@ from vitals.services import ingest_telemetry
 
 
 class Command(BaseCommand):
-    help = "Carga datos ficticios de demostración neonatal y asegura el superusuario admin/admin2026."
+    help = (
+        "Carga datos ficticios de demostración neonatal y asegura el superusuario admin/admin2026."
+    )
 
     def handle(self, *args, **options) -> None:
         admin_user, _ = User.objects.get_or_create(
@@ -232,9 +234,7 @@ class Command(BaseCommand):
                     medication_id=caffeine.id,
                     dose="5 mg/kg IV lento",
                     # Mantención cada 24 h desde las 08:00 de hoy
-                    starts_at=timezone.make_aware(
-                        timezone.datetime.combine(today, time(8, 0))
-                    ),
+                    starts_at=timezone.make_aware(timezone.datetime.combine(today, time(8, 0))),
                     frequency_hours=24,
                     route=AdministrationRoute.IV,
                     units_per_administration=1,

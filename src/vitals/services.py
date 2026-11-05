@@ -70,9 +70,7 @@ def ingest_telemetry(
         update_fields = ["last_telemetry_at", "updated_at"]
         if locked_crib.status == CribStatus.OFFLINE:
             locked_crib.status = (
-                CribStatus.OCCUPIED
-                if current_patient is not None
-                else CribStatus.AVAILABLE
+                CribStatus.OCCUPIED if current_patient is not None else CribStatus.AVAILABLE
             )
             update_fields.append("status")
         locked_crib.save(update_fields=update_fields)
@@ -81,12 +79,8 @@ def ingest_telemetry(
 
     broadcast_telemetry_reading(
         reading_data=VitalSignReadingSerializer(reading).data,
-        active_alerts_data=AlertSerializer(
-            evaluation.active_or_updated_alerts, many=True
-        ).data,
-        auto_resolved_alerts_data=AlertSerializer(
-            evaluation.auto_resolved_alerts, many=True
-        ).data,
+        active_alerts_data=AlertSerializer(evaluation.active_or_updated_alerts, many=True).data,
+        auto_resolved_alerts_data=AlertSerializer(evaluation.auto_resolved_alerts, many=True).data,
         crib_id=reading.crib_id,
         patient_id=reading.patient_id,
     )
@@ -121,9 +115,7 @@ def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
     if crib_ids is not None:
         crib_qs = crib_qs.filter(pk__in=crib_ids)
         open_alerts = open_alerts.filter(crib_id__in=crib_ids)
-    cribs = list(
-        crib_qs.annotate(latest_reading_id=Subquery(latest_reading_id)).order_by("code")
-    )
+    cribs = list(crib_qs.annotate(latest_reading_id=Subquery(latest_reading_id)).order_by("code"))
 
     readings = VitalSignReading.objects.select_related("crib", "patient").in_bulk(
         [c.latest_reading_id for c in cribs if c.latest_reading_id is not None]
@@ -131,10 +123,7 @@ def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
 
     alert_counts: dict[int, dict[str, int]] = {}
     unit_alerts = _empty_alert_counts()
-    grouped = (
-        open_alerts.values("crib_id", "severity")
-        .annotate(n=Count("id"))
-    )
+    grouped = open_alerts.values("crib_id", "severity").annotate(n=Count("id"))
     for row in grouped:
         counts = alert_counts.setdefault(row["crib_id"], _empty_alert_counts())
         counts[row["severity"]] += row["n"]

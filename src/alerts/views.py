@@ -27,9 +27,7 @@ from .services import (
 
 class AlertFilter(django_filters.FilterSet):
     is_open = django_filters.BooleanFilter(method="filter_is_open")
-    triggered_after = django_filters.IsoDateTimeFilter(
-        field_name="triggered_at", lookup_expr="gte"
-    )
+    triggered_after = django_filters.IsoDateTimeFilter(field_name="triggered_at", lookup_expr="gte")
     triggered_before = django_filters.IsoDateTimeFilter(
         field_name="triggered_at", lookup_expr="lte"
     )
@@ -49,9 +47,7 @@ class AlertFilter(django_filters.FilterSet):
 
     def filter_is_open(self, queryset, name: str, value: bool):
         if value:
-            return queryset.filter(
-                status__in=[AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED]
-            )
+            return queryset.filter(status__in=[AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED])
         return queryset.filter(status=AlertStatus.RESOLVED)
 
 

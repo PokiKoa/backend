@@ -14,12 +14,8 @@ from .services import build_unit_overview
 
 
 class VitalSignReadingFilter(django_filters.FilterSet):
-    recorded_after = django_filters.IsoDateTimeFilter(
-        field_name="recorded_at", lookup_expr="gte"
-    )
-    recorded_before = django_filters.IsoDateTimeFilter(
-        field_name="recorded_at", lookup_expr="lte"
-    )
+    recorded_after = django_filters.IsoDateTimeFilter(field_name="recorded_at", lookup_expr="gte")
+    recorded_before = django_filters.IsoDateTimeFilter(field_name="recorded_at", lookup_expr="lte")
 
     class Meta:
         model = VitalSignReading

@@ -40,9 +40,7 @@ class RefreshCookieFlowTests(APITestCase):
 
     def test_refresh_rotates_cookie_and_revokes_previous_token(self) -> None:
         first = self._login().cookies[COOKIE].value
-        refreshed = self.client.post(
-            "/api/v1/auth/refresh/", HTTP_ORIGIN="http://localhost:5173"
-        )
+        refreshed = self.client.post("/api/v1/auth/refresh/", HTTP_ORIGIN="http://localhost:5173")
         self.assertEqual(refreshed.status_code, status.HTTP_200_OK)
         self.assertEqual(set(refreshed.data), {"access"})
         second = refreshed.cookies[COOKIE].value

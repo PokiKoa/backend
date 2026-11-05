@@ -72,12 +72,7 @@ def _validate_threshold_values(config: AlertThresholdConfig) -> None:
             "critical_low < warning_low < warning_high < critical_high dentro del rango fisiológico (1..260 lpm)."
         )
 
-    if not (
-        SPO2_MIN
-        < config.spo2_critical_low
-        < config.spo2_warning_low
-        <= SPO2_MAX
-    ):
+    if not (SPO2_MIN < config.spo2_critical_low < config.spo2_warning_low <= SPO2_MAX):
         raise DomainError(
             "Los umbrales de SpO2 deben cumplir orden estricto: "
             "0 < critical_low < warning_low <= 100."
@@ -414,9 +409,7 @@ def trigger_or_deduplicate_offline_alert(
     timeout_seconds: int,
 ) -> Alert:
     now = timezone.now()
-    severity = (
-        AlertSeverity.CRITICAL if patient is not None else AlertSeverity.WARNING
-    )
+    severity = AlertSeverity.CRITICAL if patient is not None else AlertSeverity.WARNING
     message = (
         f"Pérdida de señal de telemetría en la cuna {crib.code} "
         f"(sin lecturas por más de {timeout_seconds} s)."

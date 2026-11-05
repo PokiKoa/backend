@@ -65,6 +65,7 @@ Sin `.env` ni `DJANGO_SETTINGS_MODULE` exportada, `asgi.py` y `wsgi.py` cargan `
 
 ```bash
 uv run ruff check src
+uv run ruff format --check src   # verifica el formato (use `ruff format src` para aplicarlo)
 uv run poki_koa makemigrations --check
 uv run pytest
 uv run poki_koa test

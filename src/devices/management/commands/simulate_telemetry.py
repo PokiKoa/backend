@@ -39,7 +39,9 @@ class Command(BaseCommand):
             "--iterations", type=int, default=0, help="Número de rondas (0 = sin límite)."
         )
         parser.add_argument(
-            "--cribs", default="", help="Códigos de cuna separados por coma (por defecto: todas las ocupadas)."
+            "--cribs",
+            default="",
+            help="Códigos de cuna separados por coma (por defecto: todas las ocupadas).",
         )
         parser.add_argument(
             "--anomaly-rate",
@@ -142,7 +144,9 @@ class Command(BaseCommand):
         # Solo se informa el conteo de alertas: los valores clínicos no se vuelcan en la salida
         if alert_count:
             self.stdout.write(
-                self.style.WARNING(f"{crib.code}: lectura enviada, {alert_count} alerta(s) activa(s)")
+                self.style.WARNING(
+                    f"{crib.code}: lectura enviada, {alert_count} alerta(s) activa(s)"
+                )
             )
         else:
             self.stdout.write(f"{crib.code}: lectura enviada")

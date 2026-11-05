@@ -439,9 +439,7 @@ class PatientsEndpointTests(APITestCase):
         )
         self.assertEqual(obs_post.status_code, status.HTTP_201_CREATED)
 
-        obs_list = self.client.get(
-            f"/api/v1/observations/?patient={patient_id}&category=nursing"
-        )
+        obs_list = self.client.get(f"/api/v1/observations/?patient={patient_id}&category=nursing")
         self.assertEqual(obs_list.status_code, status.HTTP_200_OK)
         self.assertEqual(obs_list.data["count"], 1)
 

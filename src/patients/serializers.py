@@ -22,9 +22,7 @@ class PatientSerializer(serializers.ModelSerializer):
     attending_physician_name = serializers.CharField(
         source="attending_physician.full_name", read_only=True, default=None
     )
-    crib_code = serializers.CharField(
-        source="crib.code", read_only=True, default=None
-    )
+    crib_code = serializers.CharField(source="crib.code", read_only=True, default=None)
 
     class Meta:
         model = Patient
@@ -93,9 +91,7 @@ class PatientCreateSerializer(GuardianFieldsMixin):
         min_value=200, max_value=10000, required=False, allow_null=True, default=None
     )
     diagnosis = serializers.CharField(required=False, allow_blank=True, default="")
-    attending_physician_id = serializers.IntegerField(
-        required=False, allow_null=True, default=None
-    )
+    attending_physician_id = serializers.IntegerField(required=False, allow_null=True, default=None)
     crib_id = serializers.IntegerField(required=False, allow_null=True, default=None)
 
 
@@ -110,13 +106,9 @@ class PatientUpdateSerializer(GuardianFieldsMixin):
         max_value=Decimal("45.0"),
         required=False,
     )
-    current_weight_g = serializers.IntegerField(
-        min_value=200, max_value=10000, required=False
-    )
+    current_weight_g = serializers.IntegerField(min_value=200, max_value=10000, required=False)
     diagnosis = serializers.CharField(required=False, allow_blank=True)
-    attending_physician_id = serializers.IntegerField(
-        required=False, allow_null=True
-    )
+    attending_physician_id = serializers.IntegerField(required=False, allow_null=True)
     crib_id = serializers.IntegerField(required=False, allow_null=True)
 
 
@@ -137,9 +129,7 @@ class PatientPermanentDeleteSerializer(serializers.Serializer):
 
 class CribMovementSerializer(serializers.ModelSerializer):
     kind_label = serializers.CharField(source="get_kind_display", read_only=True)
-    moved_by_name = serializers.CharField(
-        source="moved_by.full_name", read_only=True, default=None
-    )
+    moved_by_name = serializers.CharField(source="moved_by.full_name", read_only=True, default=None)
 
     class Meta:
         model = CribMovement
@@ -183,9 +173,7 @@ class WeightRecordCreateSerializer(serializers.Serializer):
 
 class CarePlanSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
-    created_by_name = serializers.CharField(
-        source="created_by.full_name", read_only=True
-    )
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True)
 
     class Meta:
         model = CarePlan
@@ -210,9 +198,7 @@ class CarePlanCreateSerializer(serializers.Serializer):
     care_area = serializers.CharField(max_length=100)
     intervention = serializers.CharField(max_length=255)
     frequency = serializers.CharField(max_length=50)
-    status = serializers.ChoiceField(
-        choices=CarePlanStatus.choices, default=CarePlanStatus.ACTIVE
-    )
+    status = serializers.ChoiceField(choices=CarePlanStatus.choices, default=CarePlanStatus.ACTIVE)
 
 
 class CarePlanUpdateSerializer(serializers.Serializer):

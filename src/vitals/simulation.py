@@ -10,9 +10,7 @@ from .rules import SleepState
 NORMAL_TARGETS = {
     "heart_rate": (rules.DEFAULT_HR_WARNING_LOW + rules.DEFAULT_HR_WARNING_HIGH) / 2,
     "spo2": (rules.DEFAULT_SPO2_WARNING_LOW + rules.SPO2_MAX) / 2,
-    "temperature": float(
-        (rules.DEFAULT_TEMP_WARNING_LOW + rules.DEFAULT_TEMP_WARNING_HIGH) / 2
-    ),
+    "temperature": float((rules.DEFAULT_TEMP_WARNING_LOW + rules.DEFAULT_TEMP_WARNING_HIGH) / 2),
 }
 
 EPISODE_TARGETS: dict[str, tuple[str, float]] = {

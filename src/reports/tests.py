@@ -32,19 +32,28 @@ CRITICAL_READING = {
 class ReportsTests(APITestCase):
     def setUp(self) -> None:
         self.admin = User.objects.create_user(
-            email="admin_rep@pokikoa.cl", full_name="Admin Rep", password=PASSWORD,
+            email="admin_rep@pokikoa.cl",
+            full_name="Admin Rep",
+            password=PASSWORD,
             role=UserRole.ADMIN,
         )
         self.neo = User.objects.create_user(
-            email="neo_rep2@pokikoa.cl", full_name="Neo Rep", password=PASSWORD,
-            role=UserRole.NEONATOLOGIST, shift="morning",
+            email="neo_rep2@pokikoa.cl",
+            full_name="Neo Rep",
+            password=PASSWORD,
+            role=UserRole.NEONATOLOGIST,
+            shift="morning",
         )
         self.nurse = User.objects.create_user(
-            email="nurse_rep2@pokikoa.cl", full_name="Enf Rep", password=PASSWORD,
+            email="nurse_rep2@pokikoa.cl",
+            full_name="Enf Rep",
+            password=PASSWORD,
             role=UserRole.NURSE,
         )
         pharmacist = User.objects.create_user(
-            email="qf_rep2@pokikoa.cl", full_name="QF Rep", password=PASSWORD,
+            email="qf_rep2@pokikoa.cl",
+            full_name="QF Rep",
+            password=PASSWORD,
             role=UserRole.PHARMACIST,
         )
         self.crib, _ = create_crib(actor=self.admin, code="C-REP-1")
@@ -57,12 +66,19 @@ class ReportsTests(APITestCase):
         discharge_patient(actor=self.neo, patient=discharged, outcome="survived")
 
         item = create_catalog_item(
-            actor=pharmacist, name="Cafeína Rep", active_ingredient="Cafeína",
-            concentration_mg="20", stock=3, min_stock_alert=5,
+            actor=pharmacist,
+            name="Cafeína Rep",
+            active_ingredient="Cafeína",
+            concentration_mg="20",
+            stock=3,
+            min_stock_alert=5,
         )
         prescription = create_prescription(
-            actor=self.neo, patient_id=patient.id, medication_id=item.id,
-            dose="5 mg/kg", starts_at=timezone.now(),
+            actor=self.neo,
+            patient_id=patient.id,
+            medication_id=item.id,
+            dose="5 mg/kg",
+            starts_at=timezone.now(),
         )
         administer_prescription(actor=self.nurse, prescription=prescription)
         ingest_telemetry(crib=self.crib, payload=CRITICAL_READING, is_device_authenticated=True)

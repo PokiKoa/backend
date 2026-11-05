@@ -1,3 +1,5 @@
+"""Comando que simula telemetría de cunas ocupadas para desarrollo."""
+
 import json
 import random
 import time
@@ -17,12 +19,15 @@ from vitals.simulation import SimulatedCribState, next_payload
 
 
 class Command(BaseCommand):
+    """Simula lecturas con episodios anómalos y su recuperación para probar el frontend (solo ``DEBUG=True``)."""
+
     help = (
         "Simula telemetría de cunas ocupadas para desarrollo del frontend "
         "(solo con DEBUG=True). Genera episodios fuera de rango y su recuperación."
     )
 
     def add_arguments(self, parser) -> None:
+        """Declara las opciones de modo, servidor, intervalo, rondas, cunas, tasa de anomalías y semilla."""
         parser.add_argument(
             "--mode",
             choices=["http", "direct"],
@@ -52,6 +57,11 @@ class Command(BaseCommand):
         parser.add_argument("--seed", type=int, default=None)
 
     def handle(self, *args, **options) -> None:
+        """Genera lecturas en rondas, por HTTP contra el servidor o ingiriéndolas en este proceso.
+
+        Raises:
+            CommandError: Si ``DEBUG`` está desactivado o las opciones son inválidas.
+        """
         # Rotar API keys invalida las credenciales de dispositivos reales: nunca en producción
         if not settings.DEBUG:
             raise CommandError("El simulador de telemetría solo puede ejecutarse con DEBUG=True.")

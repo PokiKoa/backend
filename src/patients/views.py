@@ -1,3 +1,5 @@
+"""Vistas de pacientes: ficha, egreso, peso, cunas, signos vitales, planes de cuidado y observaciones."""
+
 from typing import ClassVar
 
 import django_filters
@@ -41,6 +43,8 @@ from .services import (
 
 
 class PatientFilter(django_filters.FilterSet):
+    """Filtros del listado de pacientes: estado, sexo, médico, cuna, fecha de ingreso, peso y ``active``."""
+
     admitted_after = django_filters.IsoDateTimeFilter(field_name="admitted_at", lookup_expr="gte")
     admitted_before = django_filters.IsoDateTimeFilter(field_name="admitted_at", lookup_expr="lte")
     min_weight_g = django_filters.NumberFilter(field_name="current_weight_g", lookup_expr="gte")
@@ -51,6 +55,7 @@ class PatientFilter(django_filters.FilterSet):
     )
 
     def filter_active(self, queryset, name, value):
+        """``active=true`` devuelve pacientes en la unidad; ``false``, los egresados, trasladados o fallecidos."""
         if value:
             return queryset.filter(status=PatientStatus.ACTIVE)
         return queryset.exclude(status=PatientStatus.ACTIVE)
@@ -77,6 +82,8 @@ class PatientViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
+    """Ficha clínica de pacientes: listado, detalle, ingreso, edición y acciones asociadas (egreso, pesos, cunas, vitales, umbrales)."""
+
     queryset = (
         Patient.objects.select_related(
             "attending_physician",
@@ -100,6 +107,7 @@ class PatientViewSet(
     ordering: ClassVar[list[str]] = ["-admitted_at", "-id"]
 
     def retrieve(self, request: Request, *args, **kwargs) -> Response:
+        """Responde 200 con el paciente y registra el acceso de lectura en la auditoría."""
         patient = self.get_object()
         record_audit_event(
             action=AuditAction.READ,
@@ -114,6 +122,7 @@ class PatientViewSet(
 
     @extend_schema(request=PatientCreateSerializer, responses={201: PatientSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
+        """Ingresa un paciente y responde 201."""
         serializer = PatientCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         patient = admit_patient(
@@ -139,6 +148,7 @@ class PatientViewSet(
 
     @extend_schema(request=PatientUpdateSerializer, responses={200: PatientSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
+        """Actualiza datos del paciente y responde 200."""
         patient = self.get_object()
         serializer = PatientUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -152,6 +162,7 @@ class PatientViewSet(
 
     @extend_schema(request=PatientUpdateSerializer, responses={200: PatientSerializer})
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
+        """Actualiza parcialmente al paciente (mismo flujo que ``update``)."""
         return self.update(request, *args, **kwargs)
 
     @extend_schema(
@@ -161,6 +172,7 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["post"], url_path="delete-permanently")
     def delete_permanently(self, request: Request, pk=None) -> Response:
+        """Elimina definitivamente al paciente y su registro clínico (solo Administrador); responde 204."""
         patient = self.get_object()
         serializer = PatientPermanentDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -178,6 +190,7 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["get"], url_path="crib-movements", pagination_class=None)
     def crib_movements(self, request: Request, pk=None) -> Response:
+        """Responde 200 con el historial de asignaciones, traslados, intercambios y liberaciones de cuna."""
         patient = self.get_object()
         movements = patient.crib_movements.select_related("moved_by").all()
         return Response(CribMovementSerializer(movements, many=True).data)
@@ -189,6 +202,7 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["post"], url_path="discharge")
     def discharge(self, request: Request, pk=None) -> Response:
+        """Egresa al paciente (alta, traslado o fallecimiento); responde 200 con el paciente."""
         patient = self.get_object()
         serializer = PatientDischargeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -209,6 +223,7 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["get", "post"], url_path="weights")
     def weights(self, request: Request, pk=None) -> Response:
+        """GET lista la curva ponderal; POST registra una medición de peso (201)."""
         patient = self.get_object()
         if request.method == "GET":
             qs = patient.weight_records.select_related("recorded_by").all()
@@ -239,6 +254,7 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["get"], url_path="vitals")
     def vitals(self, request: Request, pk=None) -> Response:
+        """Responde 200 con el historial paginado de signos vitales del paciente."""
         from vitals.serializers import VitalSignReadingSerializer
         from vitals.views import VitalSignReadingFilter
 
@@ -259,6 +275,7 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["get", "put", "patch"], url_path="alert-thresholds")
     def alert_thresholds(self, request: Request, pk=None) -> Response:
+        """GET consulta los umbrales efectivos; PUT/PATCH los personalizan para el paciente."""
         from alerts.serializers import (
             AlertThresholdConfigSerializer,
             AlertThresholdConfigUpdateSerializer,
@@ -294,6 +311,8 @@ class CarePlanViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
+    """Planes de cuidado de pacientes (listar, ver, crear y editar)."""
+
     queryset = (
         CarePlan.objects.select_related("patient", "created_by")
         .all()
@@ -308,6 +327,7 @@ class CarePlanViewSet(
 
     @extend_schema(request=CarePlanCreateSerializer, responses={201: CarePlanSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
+        """Crea un plan de cuidado y responde 201."""
         serializer = CarePlanCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         plan = create_care_plan(
@@ -323,6 +343,7 @@ class CarePlanViewSet(
 
     @extend_schema(request=CarePlanUpdateSerializer, responses={200: CarePlanSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
+        """Actualiza un plan de cuidado y responde 200."""
         plan = self.get_object()
         serializer = CarePlanUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -336,6 +357,7 @@ class CarePlanViewSet(
 
     @extend_schema(request=CarePlanUpdateSerializer, responses={200: CarePlanSerializer})
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
+        """Actualiza parcialmente un plan (mismo flujo que ``update``)."""
         return self.update(request, *args, **kwargs)
 
 
@@ -345,6 +367,8 @@ class ClinicalObservationViewSet(
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
 ):
+    """Observaciones clínicas de pacientes (listar, ver y crear)."""
+
     queryset = (
         ClinicalObservation.objects.select_related("patient", "author")
         .all()
@@ -361,6 +385,7 @@ class ClinicalObservationViewSet(
         request=ClinicalObservationCreateSerializer, responses={201: ClinicalObservationSerializer}
     )
     def create(self, request: Request, *args, **kwargs) -> Response:
+        """Registra una observación clínica y responde 201."""
         serializer = ClinicalObservationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         observation = create_clinical_observation(

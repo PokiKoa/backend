@@ -1,3 +1,5 @@
+"""Excepciones de dominio y manejador global que unifica el formato de error de la API."""
+
 from typing import Any
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -18,6 +20,12 @@ from rest_framework.views import exception_handler
 
 
 class DomainError(Exception):
+    """Error de negocio con código HTTP, código de error y detalles por campo.
+
+    Los servicios lanzan subclases; ``custom_exception_handler`` las traduce a
+    ``{"error": {"code", "message", "details"}}``. Por defecto responde 400.
+    """
+
     status_code: int = status.HTTP_400_BAD_REQUEST
     default_code: str = "domain_error"
     default_message: str = "Error en la operación solicitada."
@@ -39,12 +47,16 @@ class DomainError(Exception):
 
 
 class AuthenticationDomainError(DomainError):
+    """Credenciales o token inválidos (HTTP 401)."""
+
     status_code = status.HTTP_401_UNAUTHORIZED
     default_code = "authentication_failed"
     default_message = "Credenciales de autenticación inválidas."
 
 
 class AccountLockedError(DomainError):
+    """Cuenta bloqueada temporalmente por intentos fallidos (HTTP 423)."""
+
     status_code = status.HTTP_423_LOCKED
     default_code = "account_locked"
     default_message = (
@@ -53,18 +65,24 @@ class AccountLockedError(DomainError):
 
 
 class PermissionDomainError(DomainError):
+    """El rol del usuario no permite la operación (HTTP 403)."""
+
     status_code = status.HTTP_403_FORBIDDEN
     default_code = "permission_denied"
     default_message = "No tiene permisos para realizar esta acción."
 
 
 class NotFoundDomainError(DomainError):
+    """El recurso referenciado no existe (HTTP 404)."""
+
     status_code = status.HTTP_404_NOT_FOUND
     default_code = "not_found"
     default_message = "El recurso solicitado no existe."
 
 
 class ConflictDomainError(DomainError):
+    """La operación choca con el estado actual del recurso (HTTP 409)."""
+
     status_code = status.HTTP_409_CONFLICT
     default_code = "conflict"
     default_message = "La operación entra en conflicto con el estado actual del recurso."
@@ -104,6 +122,16 @@ def _describe_api_exception(exc: Exception, response_data: Any) -> tuple[str, st
 
 
 def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:
+    """Traduce cualquier excepción a la envoltura de error estándar de la API.
+
+    Args:
+        exc: Excepción levantada por la vista.
+        context: Contexto de DRF (vista, petición).
+
+    Returns:
+        Respuesta con ``{"error": {"code", "message", "details"}}``, o ``None`` si la excepción no
+        es de API y debe propagarse (error 500).
+    """
     if isinstance(exc, DomainError):
         return Response(
             {

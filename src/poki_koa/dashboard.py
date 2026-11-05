@@ -1,3 +1,5 @@
+"""Estadísticas para la portada HTML del servicio."""
+
 from typing import Any
 
 from django.db.models import F
@@ -9,6 +11,9 @@ from patients.models import Patient, PatientStatus
 
 
 def get_clinical_dashboard_stats() -> dict[str, Any]:
+    """Devuelve contadores (pacientes, cunas, alertas, medicamentos con stock bajo e indicaciones vigentes),
+    los 10 últimos pacientes activos y las 6 alertas abiertas más recientes.
+    """
     active_patients = list(
         Patient.objects.filter(status=PatientStatus.ACTIVE)
         .select_related("crib", "attending_physician")

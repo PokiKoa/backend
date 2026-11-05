@@ -1,3 +1,5 @@
+"""Vistas de reportes operativos de la unidad."""
+
 from typing import ClassVar
 
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -14,6 +16,8 @@ from .services import build_activity_series, build_operations_summary
 
 
 class OperationsSummaryView(APIView):
+    """Resumen operativo: pacientes, cunas, medicación, alertas y personal."""
+
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
     @extend_schema(
@@ -21,6 +25,7 @@ class OperationsSummaryView(APIView):
         responses={200: OperationsSummarySerializer},
     )
     def get(self, request: Request) -> Response:
+        """Responde 200 con los contadores del resumen operativo."""
         return Response(
             OperationsSummarySerializer(build_operations_summary()).data,
             status=status.HTTP_200_OK,
@@ -28,6 +33,8 @@ class OperationsSummaryView(APIView):
 
 
 class ActivitySeriesView(APIView):
+    """Serie diaria de ingresos y alertas."""
+
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
     @extend_schema(
@@ -40,6 +47,7 @@ class ActivitySeriesView(APIView):
         responses={200: ActivityPointSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
+        """Responde 200 con la serie de ``days`` días (1 a 90, por defecto 14); 400 si está fuera de rango."""
         try:
             days = int(request.query_params.get("days", 14))
         except ValueError as exc:

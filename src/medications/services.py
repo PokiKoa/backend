@@ -1,3 +1,5 @@
+"""Servicios de medicación: catálogo con stock, indicaciones médicas y administración de dosis."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -39,6 +41,27 @@ def create_catalog_item(
     is_active: bool = True,
     ip_address: str | None = None,
 ) -> MedicationCatalogItem:
+    """Registra un medicamento en el catálogo.
+
+    Args:
+        actor: Químico Farmacéutico o Administrador.
+        name: Nombre comercial único (sin distinguir mayúsculas).
+        active_ingredient: Principio activo.
+        concentration_mg: Concentración en mg (mayor que cero).
+        unit: Unidad de presentación (p. ej. ``ampolla``).
+        stock: Existencias iniciales.
+        min_stock_alert: Umbral de alerta de stock mínimo.
+        is_active: Si el medicamento queda disponible para prescribir.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El ítem creado.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede gestionar el catálogo.
+        ConflictDomainError: Si el nombre ya existe.
+        DomainError: Si algún valor es inválido.
+    """
     if actor.role not in {UserRole.ADMIN, UserRole.PHARMACIST}:
         raise PermissionDomainError(
             "Solo un Químico Farmacéutico o Administrador puede registrar medicamentos en el catálogo."
@@ -481,6 +504,21 @@ def cancel_prescription(
     reason: str = "",
     ip_address: str | None = None,
 ) -> Prescription:
+    """Cancela una indicación médica vigente.
+
+    Args:
+        actor: Neonatólogo que cancela.
+        prescription: Indicación a cancelar; se relee con bloqueo de fila.
+        reason: Motivo de la cancelación.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La indicación cancelada.
+
+    Raises:
+        PermissionDomainError: Si el actor no es Neonatólogo.
+        ConflictDomainError: Si la indicación ya no está vigente.
+    """
     if actor.role != UserRole.NEONATOLOGIST:
         raise PermissionDomainError("Solo un Neonatólogo puede cancelar una indicación médica.")
 
@@ -512,6 +550,14 @@ def cancel_prescription(
 
 
 def cancel_pending_prescriptions_on_discharge(*, patient: Patient) -> int:
+    """Cancela las indicaciones vigentes de un paciente que es egresado.
+
+    Args:
+        patient: Paciente egresado.
+
+    Returns:
+        Número de indicaciones canceladas.
+    """
     now = timezone.now()
     return Prescription.objects.filter(
         patient=patient,

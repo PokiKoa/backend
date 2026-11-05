@@ -1,3 +1,5 @@
+"""Manejo de la cookie httpOnly que guarda el refresh token JWT."""
+
 from django.conf import settings
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -10,6 +12,12 @@ def _config() -> dict:
 
 
 def set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    """Guarda el refresh token en una cookie httpOnly con la vigencia del token.
+
+    Args:
+        response: Respuesta a la que se adjunta la cookie.
+        refresh_token: Refresh token en texto.
+    """
     config = _config()
     response.set_cookie(
         config["NAME"],
@@ -24,6 +32,11 @@ def set_refresh_cookie(response: Response, refresh_token: str) -> None:
 
 
 def clear_refresh_cookie(response: Response) -> None:
+    """Elimina la cookie del refresh token.
+
+    Args:
+        response: Respuesta que expira la cookie en el navegador.
+    """
     config = _config()
     response.delete_cookie(
         config["NAME"], path=config["PATH"], domain=config["DOMAIN"], samesite=config["SAMESITE"]
@@ -31,6 +44,17 @@ def clear_refresh_cookie(response: Response) -> None:
 
 
 def read_refresh_cookie(request: Request) -> str:
+    """Lee el refresh token de la cookie tras validar el ``Origin`` (defensa CSRF).
+
+    Args:
+        request: Petición entrante.
+
+    Returns:
+        El token, o cadena vacía si no hay cookie.
+
+    Raises:
+        PermissionDomainError: Si el ``Origin`` no es el propio ni está en ``CORS_ALLOWED_ORIGINS``.
+    """
     # El navegador adjunta la cookie de forma automática: se exige un Origin conocido para que
     # otro sitio no pueda rotar ni revocar la sesión (CSRF) cuando SameSite=None
     origin = request.headers.get("Origin")

@@ -1,3 +1,5 @@
+"""Comando que carga datos ficticios de demostración (usuarios, cunas, pacientes, medicación y telemetría)."""
+
 from datetime import time, timedelta
 from decimal import Decimal
 
@@ -21,11 +23,14 @@ from vitals.services import ingest_telemetry
 
 
 class Command(BaseCommand):
+    """Carga datos ficticios de demostración neonatal y asegura el usuario ``admin``. Solo para desarrollo."""
+
     help = (
         "Carga datos ficticios de demostración neonatal y asegura el superusuario admin/admin2026."
     )
 
     def handle(self, *args, **options) -> None:
+        """Crea de forma idempotente usuarios, cunas, pacientes, catálogo, indicaciones y lecturas de ejemplo."""
         admin_user, _ = User.objects.get_or_create(
             username="admin",
             defaults={

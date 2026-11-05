@@ -1,3 +1,5 @@
+"""Comando que detecta cunas sin telemetría reciente."""
+
 import time
 
 from django.core.management.base import BaseCommand, CommandError
@@ -7,9 +9,12 @@ from devices.services import detect_offline_cribs
 
 
 class Command(BaseCommand):
+    """Marca como offline las cunas sin lecturas recientes y genera sus alertas de pérdida de señal."""
+
     help = "Detecta cunas sin telemetría reciente, actualiza su estado a offline y genera alertas de fallo de señal."
 
     def add_arguments(self, parser) -> None:
+        """Declara ``--timeout-seconds``, ``--every`` y ``--max-runs``."""
         parser.add_argument(
             "--timeout-seconds",
             type=int,
@@ -30,6 +35,11 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options) -> None:
+        """Ejecuta la verificación una vez o la repite cada ``--every`` segundos.
+
+        Raises:
+            CommandError: Si ``--every`` es negativo.
+        """
         timeout_seconds: int = options["timeout_seconds"]
         every: int = options["every"]
         if every < 0:

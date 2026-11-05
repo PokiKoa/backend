@@ -1,3 +1,5 @@
+"""Modelos de pacientes: ficha del recién nacido, movimientos de cuna, peso, planes de cuidado y observaciones."""
+
 from decimal import Decimal
 from typing import ClassVar
 
@@ -8,11 +10,15 @@ from django.utils import timezone
 
 
 class PatientSex(models.TextChoices):
+    """Sexo del paciente (``F`` o ``M``)."""
+
     FEMALE = "F", "Femenino"
     MALE = "M", "Masculino"
 
 
 class PatientStatus(models.TextChoices):
+    """Estado del paciente: activo, dado de alta, trasladado o fallecido."""
+
     ACTIVE = "active", "Activo en unidad"
     DISCHARGED = "discharged", "Egresado (alta)"
     TRANSFERRED = "transferred", "Trasladado"
@@ -20,6 +26,8 @@ class PatientStatus(models.TextChoices):
 
 
 class DischargeOutcome(models.TextChoices):
+    """Desenlace clínico del egreso."""
+
     SURVIVED = "survived", "Sobrevivió / Alta domiciliaria"
     TRANSFERRED = "transferred", "Trasladado a otra unidad"
     DECEASED = "deceased", "Fallecido"
@@ -27,6 +35,8 @@ class DischargeOutcome(models.TextChoices):
 
 
 class DischargeCause(models.TextChoices):
+    """Causa clínica de egreso, obligatoria cuando el desenlace es fallecimiento."""
+
     NONE = "none", "No aplica"
     PREMATURITY = "prematurity", "Prematuridad"
     PERINATAL_ASPHYXIA = "perinatal_asphyxia", "Asfixia perinatal"
@@ -37,12 +47,16 @@ class DischargeCause(models.TextChoices):
 
 
 class CarePlanStatus(models.TextChoices):
+    """Estado de un plan de cuidado."""
+
     ACTIVE = "active", "Activo"
     SUSPENDED = "suspended", "Suspendido"
     COMPLETED = "completed", "Finalizado"
 
 
 class ObservationCategory(models.TextChoices):
+    """Categoría de una observación clínica."""
+
     GENERAL = "general", "General"
     NURSING = "nursing", "Enfermería / Matronería"
     MEDICAL = "medical", "Evolución Médica"
@@ -51,6 +65,8 @@ class ObservationCategory(models.TextChoices):
 
 
 class Patient(models.Model):
+    """Recién nacido ingresado a la unidad: datos clínicos, apoderados, cuna actual y datos de egreso (baja lógica)."""
+
     medical_record_number = models.CharField(max_length=30, unique=True)
     full_name = models.CharField(max_length=200)
     sex = models.CharField(max_length=1, choices=PatientSex.choices)
@@ -156,11 +172,14 @@ class Patient(models.Model):
 
     @property
     def age_days(self) -> int:
+        """Edad en días hasta hoy, o hasta el egreso si el paciente ya fue egresado."""
         reference_date = self.discharged_at.date() if self.discharged_at else timezone.localdate()
         return max(0, (reference_date - self.birth_date).days)
 
 
 class CribMovementKind(models.TextChoices):
+    """Tipo de movimiento de cuna: asignación, traslado, intercambio, liberación o egreso."""
+
     ASSIGN = "assign", "Asignación de cuna"
     MOVE = "move", "Traslado entre cunas"
     SWAP = "swap", "Intercambio de cunas"
@@ -221,6 +240,8 @@ class CribMovement(models.Model):
 
 
 class WeightRecord(models.Model):
+    """Medición de peso en gramos de un paciente (curva ponderal)."""
+
     patient = models.ForeignKey(
         Patient,
         on_delete=models.PROTECT,
@@ -257,6 +278,8 @@ class WeightRecord(models.Model):
 
 
 class CarePlan(models.Model):
+    """Plan de cuidado de un paciente: área, intervención, frecuencia y estado."""
+
     patient = models.ForeignKey(
         Patient,
         on_delete=models.PROTECT,
@@ -289,6 +312,8 @@ class CarePlan(models.Model):
 
 
 class ClinicalObservation(models.Model):
+    """Observación clínica de texto libre registrada por personal sobre un paciente."""
+
     patient = models.ForeignKey(
         Patient,
         on_delete=models.PROTECT,

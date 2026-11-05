@@ -1,3 +1,5 @@
+"""Servicios de pacientes: ingreso, edición, egreso, cunas, peso, planes de cuidado y observaciones."""
+
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -167,6 +169,32 @@ def admit_patient(
     guardians: dict[str, Any] | None = None,
     ip_address: str | None = None,
 ) -> Patient:
+    """Registra el ingreso de un recién nacido, con cuna y medición de peso inicial opcionales.
+
+    Args:
+        actor: Neonatólogo o Matrona/Enfermera que ingresa al paciente.
+        medical_record_number: Ficha clínica única (se normaliza a mayúsculas).
+        full_name: Nombre completo.
+        sex: ``F`` o ``M``.
+        birth_date: Fecha de nacimiento (no futura).
+        gestational_age_weeks: Edad gestacional, entre 20 y 45 semanas.
+        birth_weight_g: Peso de nacimiento, entre 200 y 8000 g.
+        current_weight_g: Peso actual; por defecto el de nacimiento.
+        diagnosis: Diagnóstico inicial.
+        attending_physician_id: Neonatólogo a cargo.
+        crib_id: Cuna a asignar.
+        guardians: Datos de madre y padre (RUT y teléfono se normalizan).
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El paciente creado.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede ingresar pacientes.
+        ConflictDomainError: Ficha duplicada o cuna no disponible.
+        NotFoundDomainError: Si el médico o la cuna no existen.
+        DomainError: Si algún dato es inválido o está fuera de rango.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo Neonatólogos o Matronas/Enfermeras pueden registrar el ingreso de un paciente."
@@ -438,6 +466,24 @@ def discharge_patient(
     notes: str = "",
     ip_address: str | None = None,
 ) -> Patient:
+    """Egresa a un paciente (alta, traslado o fallecimiento) y libera su cuna.
+
+    Args:
+        actor: Neonatólogo que firma el egreso.
+        patient: Paciente activo.
+        outcome: Desenlace (``DischargeOutcome``).
+        cause: Causa clínica; obligatoria si el desenlace es fallecimiento.
+        notes: Observaciones de egreso.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El paciente egresado.
+
+    Raises:
+        PermissionDomainError: Si el actor no es Neonatólogo.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si el desenlace o la causa son inválidos.
+    """
     if actor.role != UserRole.NEONATOLOGIST:
         raise PermissionDomainError(
             "Solo un Neonatólogo está autorizado para firmar el egreso clínico de un paciente."
@@ -528,6 +574,22 @@ def assign_patient_to_crib(
     patient_id: int,
     ip_address: str | None = None,
 ) -> Crib:
+    """Asigna un paciente activo a una cuna disponible.
+
+    Args:
+        actor: Neonatólogo o Matrona/Enfermera.
+        crib: Cuna destino; se relee con bloqueo de fila.
+        patient_id: Paciente a asignar.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La cuna ocupada.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede asignar cunas.
+        NotFoundDomainError: Si el paciente no existe.
+        ConflictDomainError: Cuna no disponible u ocupada, o paciente ya asignado a ella.
+    """
     if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo el personal clínico o administrativo puede asignar pacientes a una cuna."
@@ -590,6 +652,20 @@ def release_patient_from_crib(
     crib: Crib,
     ip_address: str | None = None,
 ) -> Crib:
+    """Libera una cuna ocupada, desasignando a su paciente.
+
+    Args:
+        actor: Neonatólogo o Matrona/Enfermera.
+        crib: Cuna a liberar.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La cuna disponible.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede liberar cunas.
+        ConflictDomainError: Si la cuna ya estaba libre.
+    """
     if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo el personal clínico o administrativo puede liberar una cuna."
@@ -772,6 +848,22 @@ def record_patient_weight(
     weight_g: int,
     ip_address: str | None = None,
 ) -> WeightRecord:
+    """Registra una medición de peso y actualiza el peso actual del paciente.
+
+    Args:
+        actor: Personal clínico que mide.
+        patient: Paciente activo.
+        weight_g: Peso en gramos (200 a 10000).
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El registro de peso; si el último registro tiene el mismo peso, lo devuelve sin duplicar.
+
+    Raises:
+        PermissionDomainError: Si el rol no es clínico.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si el peso está fuera de rango.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError("Solo el personal clínico puede registrar mediciones de peso.")
     if not (200 <= weight_g <= 10000):
@@ -820,6 +912,26 @@ def create_care_plan(
     status: str = CarePlanStatus.ACTIVE,
     ip_address: str | None = None,
 ) -> CarePlan:
+    """Crea un plan de cuidado para un paciente activo.
+
+    Args:
+        actor: Personal clínico.
+        patient_id: Paciente destinatario.
+        care_area: Área de cuidado (obligatoria).
+        intervention: Intervención (obligatoria).
+        frequency: Frecuencia (obligatoria).
+        status: Estado inicial del plan.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El plan creado.
+
+    Raises:
+        PermissionDomainError: Si el rol no es clínico.
+        NotFoundDomainError: Si el paciente no existe.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si faltan campos o el estado es inválido.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError("Solo el personal clínico puede crear planes de cuidado.")
     if status not in set(CarePlanStatus.values):
@@ -867,6 +979,22 @@ def update_care_plan(
     data: dict[str, Any],
     ip_address: str | None = None,
 ) -> CarePlan:
+    """Actualiza parcialmente un plan de cuidado de un paciente activo.
+
+    Args:
+        actor: Personal clínico.
+        care_plan: Plan a modificar; se relee con bloqueo de fila.
+        data: Solo los campos a cambiar.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El plan actualizado.
+
+    Raises:
+        PermissionDomainError: Si el rol no es clínico.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si algún campo queda vacío o el estado es inválido.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError("Solo el personal clínico puede actualizar planes de cuidado.")
 
@@ -913,6 +1041,24 @@ def create_clinical_observation(
     category: str = ObservationCategory.GENERAL,
     ip_address: str | None = None,
 ) -> ClinicalObservation:
+    """Registra una observación clínica sobre un paciente activo.
+
+    Args:
+        actor: Personal clínico autor.
+        patient_id: Paciente observado.
+        content: Texto de la observación (obligatorio).
+        category: Categoría (``ObservationCategory``).
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La observación creada.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede registrar observaciones.
+        NotFoundDomainError: Si el paciente no existe.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si la categoría es inválida o el contenido está vacío.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo el personal clínico puede registrar observaciones clínicas."

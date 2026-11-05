@@ -1,3 +1,5 @@
+"""Modelo de lecturas de signos vitales."""
+
 from typing import ClassVar
 
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -16,6 +18,8 @@ from .rules import (
 
 
 class VitalSignReading(models.Model):
+    """Lectura de telemetría de una cuna: frecuencia cardíaca, SpO2, temperatura y estado del equipo."""
+
     crib = models.ForeignKey(
         "devices.Crib",
         on_delete=models.PROTECT,

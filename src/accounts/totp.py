@@ -1,3 +1,5 @@
+"""Implementación TOTP (RFC 6238) para la verificación en dos pasos, sin dependencias externas."""
+
 import base64
 import hashlib
 import hmac
@@ -8,6 +10,7 @@ from urllib.parse import quote
 
 
 def generate_totp_secret() -> str:
+    """Genera un secreto aleatorio de 160 bits codificado en Base32 (sin relleno)."""
     return base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
 
 
@@ -18,6 +21,20 @@ def generate_totp_code(
     step_seconds: int = 30,
     digits: int = 6,
 ) -> str:
+    """Calcula el código TOTP de un instante.
+
+    Args:
+        secret: Secreto Base32.
+        timestamp: Instante UNIX; por defecto, ahora.
+        step_seconds: Duración de cada ventana.
+        digits: Largo del código.
+
+    Returns:
+        Código numérico con ceros a la izquierda.
+
+    Raises:
+        ValueError: Si el secreto está vacío.
+    """
     if not secret:
         raise ValueError("El secreto TOTP no puede estar vacío.")
     normalized = secret.strip().upper().replace(" ", "")
@@ -43,6 +60,18 @@ def verify_totp_code(
     window: int = 1,
     step_seconds: int = 30,
 ) -> bool:
+    """Verifica un código TOTP tolerando desfase de reloj.
+
+    Args:
+        secret: Secreto Base32 del usuario.
+        code: Código de 6 dígitos ingresado.
+        timestamp: Instante UNIX; por defecto, ahora.
+        window: Ventanas de tolerancia a cada lado del instante actual.
+        step_seconds: Duración de cada ventana.
+
+    Returns:
+        ``True`` si el código coincide; ``False`` también ante entradas vacías o mal formadas.
+    """
     if not secret or not code or not isinstance(code, str):
         return False
     cleaned_code = code.strip()
@@ -62,6 +91,16 @@ def verify_totp_code(
 
 
 def build_provisioning_uri(*, secret: str, email: str, issuer: str = "PokiKoa") -> str:
+    """Arma la URI ``otpauth://`` que escanean las apps autenticadoras.
+
+    Args:
+        secret: Secreto Base32.
+        email: Cuenta que se muestra en la app.
+        issuer: Nombre del emisor.
+
+    Returns:
+        URI de aprovisionamiento.
+    """
     label = quote(f"{issuer}:{email}")
     return f"otpauth://totp/{label}?secret={secret}&issuer={quote(issuer)}& digits=6&period=30".replace(
         "& digits=6", "&digits=6"

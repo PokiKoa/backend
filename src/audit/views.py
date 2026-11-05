@@ -1,3 +1,5 @@
+"""Vistas de auditoría: consulta de solo lectura del registro de accesos y modificaciones."""
+
 from typing import ClassVar
 
 import django_filters
@@ -15,6 +17,8 @@ from .serializers import AuditLogSerializer
 
 
 class AuditLogFilter(django_filters.FilterSet):
+    """Filtros del registro de auditoría: acción, recurso, paciente, usuario y fechas."""
+
     timestamp_after = django_filters.IsoDateTimeFilter(field_name="timestamp", lookup_expr="gte")
     timestamp_before = django_filters.IsoDateTimeFilter(field_name="timestamp", lookup_expr="lte")
 
@@ -32,11 +36,15 @@ class AuditLogFilter(django_filters.FilterSet):
 
 
 class AuditActionCountSerializer(serializers.Serializer):
+    """Conteo de eventos de auditoría por acción."""
+
     action = serializers.ChoiceField(choices=AuditAction.choices)
     total = serializers.IntegerField()
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Registro de auditoría de solo lectura (sin valores clínicos, solo nombres de campos)."""
+
     queryset = AuditLog.objects.select_related("actor_user").all()
     serializer_class = AuditLogSerializer
     permission_classes: ClassVar[list] = [IsAdminRole]
@@ -56,6 +64,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     )
     @action(detail=False, methods=["get"], url_path="summary", pagination_class=None)
     def summary(self, request: Request) -> Response:
+        """Responde 200 con el conteo de eventos por acción, con los mismos filtros del listado."""
         rows = (
             self.filter_queryset(self.get_queryset())
             .order_by()

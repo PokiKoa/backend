@@ -1,3 +1,5 @@
+"""Reglas fisiológicas: rangos válidos, umbrales por defecto y validación estricta de la telemetría."""
+
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -35,12 +37,16 @@ DEFAULT_TEMP_CRITICAL_HIGH = Decimal("38.5")
 
 
 class SleepState(models.TextChoices):
+    """Estado de sueño informado por el dispositivo."""
+
     ASLEEP = "asleep", "Dormido"
     AWAKE = "awake", "Despierto"
 
 
 @dataclass(frozen=True)
 class ValidatedTelemetryPayload:
+    """Lectura de telemetría ya validada y normalizada."""
+
     heart_rate: int
     spo2: int
     temperature: Decimal

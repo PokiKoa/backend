@@ -1,3 +1,5 @@
+"""Modelos de alertas clínicas y umbrales configurables."""
+
 from typing import ClassVar
 
 from django.conf import settings
@@ -19,6 +21,8 @@ from vitals.rules import (
 
 
 class AlertType(models.TextChoices):
+    """Tipo de alerta: frecuencia cardíaca, SpO2, temperatura, cánula o falla de sensor."""
+
     HEART_RATE = "heart_rate", "Frecuencia Cardíaca"
     SPO2 = "spo2", "Saturación de Oxígeno (SpO2)"
     TEMPERATURE = "temperature", "Temperatura Corporal"
@@ -28,18 +32,24 @@ class AlertType(models.TextChoices):
 
 
 class AlertSeverity(models.TextChoices):
+    """Severidad de una alerta (información, advertencia o crítica)."""
+
     INFO = "info", "Informativa"
     WARNING = "warning", "Advertencia"
     CRITICAL = "critical", "Crítica"
 
 
 class AlertStatus(models.TextChoices):
+    """Estado del ciclo de vida de una alerta: activa, reconocida o resuelta."""
+
     ACTIVE = "active", "Activa"
     ACKNOWLEDGED = "acknowledged", "Reconocida"
     RESOLVED = "resolved", "Resuelta"
 
 
 class ResolutionReason(models.TextChoices):
+    """Motivo por el que una alerta quedó resuelta."""
+
     AUTO_NORMALIZED = "auto_normalized", "Normalización automática"
     MANUAL = "manual", "Resolución manual"
     SEVERITY_ESCALATED = "severity_escalated", "Cambio de severidad"
@@ -47,6 +57,8 @@ class ResolutionReason(models.TextChoices):
 
 
 class AlertThresholdConfig(models.Model):
+    """Umbrales de alerta de signos vitales; global (sin paciente) o personalizada por paciente."""
+
     patient = models.OneToOneField(
         "patients.Patient",
         on_delete=models.CASCADE,
@@ -126,6 +138,8 @@ class AlertThresholdConfig(models.Model):
 
 
 class Alert(models.Model):
+    """Alerta clínica generada por una lectura o por pérdida de señal, con su ciclo de vida."""
+
     crib = models.ForeignKey(
         "devices.Crib",
         on_delete=models.PROTECT,

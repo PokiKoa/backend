@@ -1,3 +1,5 @@
+"""Servicios de signos vitales: ingesta de telemetría y resumen operativo de la unidad."""
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -26,6 +28,21 @@ def ingest_telemetry(
     actor_user: User | None = None,
     is_device_authenticated: bool = False,
 ) -> tuple[VitalSignReading, AlertEvaluationSummary]:
+    """Valida y persiste una lectura de telemetría, evalúa alertas y la difunde en tiempo real.
+
+    Args:
+        crib: Cuna de origen.
+        payload: Cuerpo JSON de la lectura.
+        actor_user: Usuario que envía la lectura (alternativa al dispositivo).
+        is_device_authenticated: Si la petición se autenticó con la API Key de la cuna.
+
+    Returns:
+        Tupla ``(lectura, resumen_de_alertas)``.
+
+    Raises:
+        PermissionDomainError: Si no es un dispositivo autenticado ni personal autorizado.
+        DomainError: Si el payload no supera la validación fisiológica.
+    """
     if not is_device_authenticated and (
         actor_user is None
         or actor_user.role
@@ -98,12 +115,22 @@ def _empty_alert_counts() -> dict[str, int]:
 
 @dataclass
 class UnitOverview:
+    """Foto de la unidad: cunas con su última lectura y contadores de alertas."""
+
     generated_at: datetime
     cribs: list[Crib]
     summary: dict[str, Any] = field(default_factory=dict)
 
 
 def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
+    """Arma el panel principal de la unidad con consultas acotadas.
+
+    Args:
+        crib_ids: Limita el resumen a estas cunas; ``None`` incluye todas.
+
+    Returns:
+        Cunas ordenadas por código, con su última lectura y alertas abiertas.
+    """
     # Consultas acotadas e independientes del número de cunas para el panel principal
     latest_reading_id = (
         VitalSignReading.objects.filter(crib=OuterRef("pk"))

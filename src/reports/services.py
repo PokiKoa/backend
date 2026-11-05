@@ -1,3 +1,5 @@
+"""Servicios de reportes: resumen operativo de la unidad y serie diaria de actividad."""
+
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -30,6 +32,15 @@ def _counts(queryset, field: str, choices: list[str]) -> dict[str, int]:
 
 
 def build_operations_summary(now: datetime | None = None) -> dict[str, Any]:
+    """Construye el resumen operativo de la unidad.
+
+    Args:
+        now: Instante de referencia; por defecto, ahora.
+
+    Returns:
+        Contadores de pacientes, cunas, indicaciones, medicamentos con bajo stock, alertas abiertas, planes de cuidado y personal
+        (incluidas las asignaciones del turno vigente).
+    """
     now = now or timezone.now()
     today = timezone.localdate(now)
     shift_day, _ = current_shift(now)
@@ -84,6 +95,18 @@ def build_operations_summary(now: datetime | None = None) -> dict[str, Any]:
 
 
 def build_activity_series(*, days: int = 14, now: datetime | None = None) -> list[dict[str, Any]]:
+    """Construye la serie diaria de ingresos de pacientes y alertas disparadas.
+
+    Args:
+        days: Cantidad de días terminando en hoy (1 a ``MAX_SERIES_DAYS``).
+        now: Instante de referencia; por defecto, ahora.
+
+    Returns:
+        Un elemento por día, en orden cronológico.
+
+    Raises:
+        DomainError: Si ``days`` está fuera de rango.
+    """
     if not 1 <= days <= MAX_SERIES_DAYS:
         raise DomainError(f"El rango debe estar entre 1 y {MAX_SERIES_DAYS} días.")
     end = timezone.localdate(now or timezone.now())

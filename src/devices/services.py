@@ -1,3 +1,5 @@
+"""Servicios de cunas/dispositivos: alta, configuración, rotación de API Key y detección de cunas sin señal."""
+
 from datetime import timedelta
 from typing import Any
 
@@ -23,6 +25,25 @@ def create_crib(
     is_device_active: bool = True,
     ip_address: str | None = None,
 ) -> tuple[Crib, str]:
+    """Registra una cuna y genera su API Key de dispositivo.
+
+    Args:
+        actor: Administrador.
+        code: Código identificador único (se normaliza a mayúsculas).
+        name: Nombre descriptivo.
+        location: Ubicación física.
+        status: Estado operativo inicial (no puede ser ``occupied``).
+        is_device_active: Si el dispositivo puede enviar telemetría.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        Tupla ``(cuna, api_key_en_claro)``; la clave solo se muestra en este momento.
+
+    Raises:
+        PermissionDomainError: Si el actor no es administrador.
+        ConflictDomainError: Si el código ya existe.
+        DomainError: Si el código está vacío o el estado es inválido.
+    """
     if actor.role != UserRole.ADMIN:
         raise PermissionDomainError(
             "Solo un administrador puede registrar nuevas cunas en el sistema."
@@ -157,6 +178,19 @@ def rotate_crib_api_key(
     crib: Crib,
     ip_address: str | None = None,
 ) -> str:
+    """Rota la API Key de una cuna, invalidando la anterior.
+
+    Args:
+        actor: Administrador.
+        crib: Cuna cuyo dispositivo recibirá una nueva clave.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La nueva API Key en claro (no se vuelve a poder consultar).
+
+    Raises:
+        PermissionDomainError: Si el actor no es administrador.
+    """
     if actor.role != UserRole.ADMIN:
         raise PermissionDomainError("Solo un administrador puede rotar la API Key de una cuna.")
     raw_key, prefix, key_hash = generate_device_api_key()
@@ -177,6 +211,17 @@ def rotate_crib_api_key(
 
 
 def detect_offline_cribs(*, timeout_seconds: int = 120) -> list[Crib]:
+    """Detecta cunas activas sin telemetría reciente y dispara su alerta de pérdida de señal.
+
+    Args:
+        timeout_seconds: Segundos sin lecturas tras los cuales la cuna se considera desconectada (mínimo 10).
+
+    Returns:
+        Cunas detectadas como desconectadas.
+
+    Raises:
+        DomainError: Si ``timeout_seconds`` es menor que 10.
+    """
     if timeout_seconds < 10:
         raise DomainError(
             "El umbral de inactividad para detectar cunas desconectadas debe ser de al menos 10 segundos."

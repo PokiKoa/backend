@@ -1,3 +1,5 @@
+"""Generador de lecturas simuladas con ruido y episodios anómalos, usado por el comando ``simulate_telemetry``."""
+
 import random
 from dataclasses import dataclass
 from decimal import Decimal
@@ -32,6 +34,8 @@ LIMITS = {
 
 @dataclass
 class SimulatedCribState:
+    """Estado interno de una cuna simulada: valores actuales y episodio anómalo en curso."""
+
     heart_rate: float = NORMAL_TARGETS["heart_rate"]
     spo2: float = NORMAL_TARGETS["spo2"]
     temperature: float = NORMAL_TARGETS["temperature"]
@@ -52,6 +56,17 @@ def next_payload(
     anomaly_rate: float = 0.05,
     episode_ticks: tuple[int, int] = (3, 8),
 ) -> dict[str, Any]:
+    """Genera la siguiente lectura simulada y avanza el estado.
+
+    Args:
+        state: Estado de la cuna; se modifica.
+        rng: Generador aleatorio (permite resultados reproducibles).
+        anomaly_rate: Probabilidad de iniciar un episodio anómalo en cada lectura.
+        episode_ticks: Rango de duración de un episodio, en lecturas.
+
+    Returns:
+        Payload compatible con ``validate_telemetry_payload``.
+    """
     if state.episode is None and rng.random() < anomaly_rate:
         state.episode = rng.choice(list(EPISODE_TARGETS))
         state.episode_ticks_left = rng.randint(*episode_ticks)

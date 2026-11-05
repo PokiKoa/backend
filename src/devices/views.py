@@ -1,3 +1,5 @@
+"""Vistas de cunas/dispositivos: configuración, asignación de pacientes, telemetría y detección de cunas sin señal."""
+
 from typing import ClassVar
 
 from drf_spectacular.utils import extend_schema
@@ -37,6 +39,8 @@ class CribViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
+    """Cunas y su dispositivo de monitoreo: listado, detalle, configuración y acciones."""
+
     queryset = Crib.objects.select_related("current_patient").all().order_by("code")
     serializer_class = CribSerializer
     permission_classes: ClassVar[list] = [IsAuthenticated]
@@ -47,12 +51,14 @@ class CribViewSet(
     ordering: ClassVar[list[str]] = ["code"]
 
     def get_permissions(self):
+        """Exige rol administrador para crear, editar y rotar la clave; el resto solo autenticación."""
         if self.action in {"create", "update", "partial_update", "rotate_key"}:
             return [IsAdminRole()]
         return [IsAuthenticated()]
 
     @extend_schema(request=CribCreateSerializer, responses={201: CribSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
+        """Registra una cuna y responde 201 con la API Key en claro (solo esta vez)."""
         serializer = CribCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         crib, raw_api_key = create_crib(
@@ -70,6 +76,7 @@ class CribViewSet(
 
     @extend_schema(request=CribUpdateSerializer, responses={200: CribSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
+        """Actualiza la configuración de la cuna y responde 200."""
         crib = self.get_object()
         serializer = CribUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -84,6 +91,7 @@ class CribViewSet(
 
     @extend_schema(request=CribUpdateSerializer, responses={200: CribSerializer})
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
+        """Actualiza parcialmente la cuna (mismo flujo que ``update``)."""
         return self.update(request, *args, **kwargs)
 
     @extend_schema(
@@ -92,6 +100,7 @@ class CribViewSet(
     )
     @action(detail=True, methods=["post"], url_path="rotate-key")
     def rotate_key(self, request: Request, pk=None) -> Response:
+        """Rota la API Key del dispositivo y responde 200 con la nueva clave en claro."""
         crib = self.get_object()
         raw_api_key = rotate_crib_api_key(
             actor=request.user,
@@ -116,6 +125,7 @@ class CribViewSet(
     )
     @action(detail=True, methods=["post"], url_path="assign-patient")
     def assign_patient(self, request: Request, pk=None) -> Response:
+        """Asigna un paciente activo a la cuna y responde 200 con la cuna."""
         if request.user.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
             raise PermissionDomainError(
                 "Solo el personal clínico o administrativo puede asignar pacientes a una cuna."
@@ -141,6 +151,7 @@ class CribViewSet(
     )
     @action(detail=True, methods=["post"], url_path="release")
     def release(self, request: Request, pk=None) -> Response:
+        """Libera la cuna desvinculando a su paciente y responde 200 con la cuna."""
         if request.user.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
             raise PermissionDomainError(
                 "Solo el personal clínico o administrativo puede liberar una cuna."
@@ -163,6 +174,7 @@ class CribViewSet(
     )
     @action(detail=True, methods=["post"], url_path="swap")
     def swap(self, request: Request, pk=None) -> Response:
+        """Intercambia los pacientes de dos cunas ocupadas sin egresarlos; responde 200."""
         crib = self.get_object()
         serializer = CribSwapSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -188,6 +200,7 @@ class CribViewSet(
         permission_classes=[IsAuthenticated],
     )
     def telemetry(self, request: Request, pk=None) -> Response:
+        """GET lista el historial de lecturas de la cuna; POST ingiere una lectura (201) con API Key del dispositivo o sesión de personal."""
         from alerts.serializers import AlertSerializer
         from vitals.serializers import VitalSignReadingSerializer
         from vitals.services import ingest_telemetry
@@ -238,6 +251,7 @@ class CribViewSet(
     )
     @action(detail=False, methods=["post"], url_path="check-offline")
     def check_offline(self, request: Request) -> Response:
+        """Marca como offline las cunas activas sin telemetría reciente y responde 200 con las detectadas."""
         if request.user.role not in {
             UserRole.ADMIN,
             UserRole.NEONATOLOGIST,

@@ -1,3 +1,5 @@
+"""Modelos de cunas/dispositivos y utilidades de API Key."""
+
 import hashlib
 import hmac
 import secrets
@@ -7,6 +9,8 @@ from django.db import models
 
 
 class CribStatus(models.TextChoices):
+    """Estado operativo de una cuna: disponible, ocupada, en mantenimiento o fuera de línea."""
+
     AVAILABLE = "available", "Disponible"
     OCCUPIED = "occupied", "Ocupada"
     MAINTENANCE = "maintenance", "En mantenimiento"
@@ -14,6 +18,11 @@ class CribStatus(models.TextChoices):
 
 
 def generate_device_api_key() -> tuple[str, str, str]:
+    """Genera una API Key de dispositivo.
+
+    Returns:
+        Tupla ``(clave_en_claro, prefijo, hash_sha256)``; solo se persisten el prefijo y el hash.
+    """
     prefix_token = secrets.token_hex(4)
     secret_token = secrets.token_hex(24)
     prefix = f"pk_dev_{prefix_token}"
@@ -23,6 +32,15 @@ def generate_device_api_key() -> tuple[str, str, str]:
 
 
 def verify_device_api_key(raw_key: str, expected_hash: str) -> bool:
+    """Compara una API Key con su hash en tiempo constante.
+
+    Args:
+        raw_key: Clave en claro enviada por el dispositivo.
+        expected_hash: Hash SHA-256 almacenado.
+
+    Returns:
+        ``True`` si coinciden; ``False`` ante valores vacíos.
+    """
     if not raw_key or not expected_hash:
         return False
     candidate_hash = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
@@ -30,6 +48,8 @@ def verify_device_api_key(raw_key: str, expected_hash: str) -> bool:
 
 
 class Crib(models.Model):
+    """Cuna con su dispositivo de monitoreo: estado, paciente actual, API Key hasheada y última telemetría."""
+
     code = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=100, blank=True, default="")
     location = models.CharField(max_length=100, blank=True, default="")

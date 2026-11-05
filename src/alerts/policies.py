@@ -1,3 +1,5 @@
+"""Política de severidad: convierte una lectura en anomalías según los umbrales configurados."""
+
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -8,6 +10,8 @@ from .models import AlertSeverity, AlertThresholdConfig, AlertType
 
 @dataclass(frozen=True)
 class DetectedAnomaly:
+    """Anomalía detectada en una lectura: tipo, severidad, mensaje y valores medido y umbral."""
+
     alert_type: str
     severity: str
     message: str

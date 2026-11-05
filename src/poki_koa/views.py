@@ -1,3 +1,5 @@
+"""Vistas de infraestructura: portada con estadísticas y chequeo de salud del servicio."""
+
 import json
 import time
 from typing import Any, ClassVar
@@ -19,6 +21,14 @@ from .dashboard import get_clinical_dashboard_stats
 
 
 def root_dashboard_view(request: HttpRequest) -> HttpResponse:
+    """Renderiza la portada HTML con estadísticas agregadas de la unidad.
+
+    Args:
+        request: Petición HTTP.
+
+    Returns:
+        Página ``poki_koa/home.html`` con el contexto del panel.
+    """
     context = get_clinical_dashboard_stats()
     return render(request, "poki_koa/home.html", context)
 
@@ -32,9 +42,7 @@ def _build_health_payload() -> dict[str, Any]:
     db_latency_ms = round((time.perf_counter() - start) * 1000, 2)
 
     channel_layer = get_channel_layer()
-    channel_backend = (
-        channel_layer.__class__.__name__ if channel_layer is not None else "disabled"
-    )
+    channel_backend = channel_layer.__class__.__name__ if channel_layer is not None else "disabled"
     stats = get_clinical_dashboard_stats()
 
     return {
@@ -70,6 +78,8 @@ def _build_health_payload() -> dict[str, Any]:
 
 
 class HealthCheckView(APIView):
+    """Chequeo de salud: base de datos, canal de tiempo real y métricas; público y sin autenticación."""
+
     authentication_classes: ClassVar[list] = []
     permission_classes: ClassVar[list] = [AllowAny]
 
@@ -91,6 +101,7 @@ class HealthCheckView(APIView):
         },
     )
     def get(self, request: Request) -> HttpResponse:
+        """Responde 200 con el estado del servicio en JSON, o en HTML si el cliente lo solicita."""
         payload = _build_health_payload()
         accept = request.META.get("HTTP_ACCEPT", "")
         wants_html = (

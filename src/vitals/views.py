@@ -1,3 +1,5 @@
+"""Vistas de signos vitales: historial de lecturas y resumen operativo de la unidad."""
+
 from typing import ClassVar
 
 import django_filters
@@ -14,12 +16,10 @@ from .services import build_unit_overview
 
 
 class VitalSignReadingFilter(django_filters.FilterSet):
-    recorded_after = django_filters.IsoDateTimeFilter(
-        field_name="recorded_at", lookup_expr="gte"
-    )
-    recorded_before = django_filters.IsoDateTimeFilter(
-        field_name="recorded_at", lookup_expr="lte"
-    )
+    """Filtros del historial de lecturas: cuna, paciente y rango de fechas."""
+
+    recorded_after = django_filters.IsoDateTimeFilter(field_name="recorded_at", lookup_expr="gte")
+    recorded_before = django_filters.IsoDateTimeFilter(field_name="recorded_at", lookup_expr="lte")
 
     class Meta:
         model = VitalSignReading
@@ -39,6 +39,8 @@ class VitalSignReadingViewSet(
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
 ):
+    """Historial de lecturas de signos vitales (solo lectura)."""
+
     queryset = (
         VitalSignReading.objects.select_related("crib", "patient")
         .all()
@@ -57,6 +59,8 @@ class VitalSignReadingViewSet(
 
 
 class UnitOverviewView(APIView):
+    """Panel de la unidad: cada cuna con su paciente, última lectura y alertas abiertas."""
+
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
     @extend_schema(
@@ -64,5 +68,6 @@ class UnitOverviewView(APIView):
         responses={200: UnitOverviewSerializer},
     )
     def get(self, request: Request) -> Response:
+        """Responde 200 con el resumen de todas las cunas de la unidad."""
         overview = build_unit_overview()
         return Response(UnitOverviewSerializer(overview).data, status=status.HTTP_200_OK)

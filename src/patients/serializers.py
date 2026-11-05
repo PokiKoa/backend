@@ -1,3 +1,5 @@
+"""Serializers de pacientes, movimientos de cuna, peso, planes de cuidado y observaciones."""
+
 from decimal import Decimal
 from typing import ClassVar
 
@@ -18,13 +20,13 @@ from .models import (
 
 
 class PatientSerializer(serializers.ModelSerializer):
+    """Representación de lectura de un paciente con médico, cuna y datos de egreso."""
+
     age_days = serializers.IntegerField(read_only=True)
     attending_physician_name = serializers.CharField(
         source="attending_physician.full_name", read_only=True, default=None
     )
-    crib_code = serializers.CharField(
-        source="crib.code", read_only=True, default=None
-    )
+    crib_code = serializers.CharField(source="crib.code", read_only=True, default=None)
 
     class Meta:
         model = Patient
@@ -78,6 +80,8 @@ class GuardianFieldsMixin(serializers.Serializer):
 
 
 class PatientCreateSerializer(GuardianFieldsMixin):
+    """Entrada para ingresar un paciente (datos clínicos y de apoderados)."""
+
     medical_record_number = serializers.CharField(max_length=30)
     full_name = serializers.CharField(max_length=200)
     sex = serializers.ChoiceField(choices=PatientSex.choices)
@@ -93,13 +97,13 @@ class PatientCreateSerializer(GuardianFieldsMixin):
         min_value=200, max_value=10000, required=False, allow_null=True, default=None
     )
     diagnosis = serializers.CharField(required=False, allow_blank=True, default="")
-    attending_physician_id = serializers.IntegerField(
-        required=False, allow_null=True, default=None
-    )
+    attending_physician_id = serializers.IntegerField(required=False, allow_null=True, default=None)
     crib_id = serializers.IntegerField(required=False, allow_null=True, default=None)
 
 
 class PatientUpdateSerializer(GuardianFieldsMixin):
+    """Entrada para editar parcialmente un paciente activo."""
+
     full_name = serializers.CharField(max_length=200, required=False)
     sex = serializers.ChoiceField(choices=PatientSex.choices, required=False)
     birth_date = serializers.DateField(required=False)
@@ -110,17 +114,15 @@ class PatientUpdateSerializer(GuardianFieldsMixin):
         max_value=Decimal("45.0"),
         required=False,
     )
-    current_weight_g = serializers.IntegerField(
-        min_value=200, max_value=10000, required=False
-    )
+    current_weight_g = serializers.IntegerField(min_value=200, max_value=10000, required=False)
     diagnosis = serializers.CharField(required=False, allow_blank=True)
-    attending_physician_id = serializers.IntegerField(
-        required=False, allow_null=True
-    )
+    attending_physician_id = serializers.IntegerField(required=False, allow_null=True)
     crib_id = serializers.IntegerField(required=False, allow_null=True)
 
 
 class PatientDischargeSerializer(serializers.Serializer):
+    """Entrada para egresar a un paciente: desenlace, causa y notas."""
+
     outcome = serializers.ChoiceField(choices=DischargeOutcome.choices)
     cause = serializers.ChoiceField(
         choices=DischargeCause.choices, required=False, allow_null=True, default=None
@@ -129,6 +131,8 @@ class PatientDischargeSerializer(serializers.Serializer):
 
 
 class PatientPermanentDeleteSerializer(serializers.Serializer):
+    """Entrada del borrado definitivo: exige escribir la ficha clínica como confirmación."""
+
     confirmation = serializers.CharField(
         max_length=30,
         help_text="Número de ficha clínica del paciente, escrito para confirmar.",
@@ -136,10 +140,10 @@ class PatientPermanentDeleteSerializer(serializers.Serializer):
 
 
 class CribMovementSerializer(serializers.ModelSerializer):
+    """Representación de un movimiento de cuna del historial del paciente."""
+
     kind_label = serializers.CharField(source="get_kind_display", read_only=True)
-    moved_by_name = serializers.CharField(
-        source="moved_by.full_name", read_only=True, default=None
-    )
+    moved_by_name = serializers.CharField(source="moved_by.full_name", read_only=True, default=None)
 
     class Meta:
         model = CribMovement
@@ -160,6 +164,8 @@ class CribMovementSerializer(serializers.ModelSerializer):
 
 
 class WeightRecordSerializer(serializers.ModelSerializer):
+    """Representación de una medición de peso."""
+
     recorded_by_name = serializers.CharField(
         source="recorded_by.full_name", read_only=True, default=None
     )
@@ -178,14 +184,16 @@ class WeightRecordSerializer(serializers.ModelSerializer):
 
 
 class WeightRecordCreateSerializer(serializers.Serializer):
+    """Entrada para registrar una medición de peso."""
+
     weight_g = serializers.IntegerField(min_value=200, max_value=10000)
 
 
 class CarePlanSerializer(serializers.ModelSerializer):
+    """Representación de un plan de cuidado."""
+
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
-    created_by_name = serializers.CharField(
-        source="created_by.full_name", read_only=True
-    )
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True)
 
     class Meta:
         model = CarePlan
@@ -206,16 +214,18 @@ class CarePlanSerializer(serializers.ModelSerializer):
 
 
 class CarePlanCreateSerializer(serializers.Serializer):
+    """Entrada para crear un plan de cuidado."""
+
     patient_id = serializers.IntegerField(min_value=1)
     care_area = serializers.CharField(max_length=100)
     intervention = serializers.CharField(max_length=255)
     frequency = serializers.CharField(max_length=50)
-    status = serializers.ChoiceField(
-        choices=CarePlanStatus.choices, default=CarePlanStatus.ACTIVE
-    )
+    status = serializers.ChoiceField(choices=CarePlanStatus.choices, default=CarePlanStatus.ACTIVE)
 
 
 class CarePlanUpdateSerializer(serializers.Serializer):
+    """Entrada para editar parcialmente un plan de cuidado."""
+
     care_area = serializers.CharField(max_length=100, required=False)
     intervention = serializers.CharField(max_length=255, required=False)
     frequency = serializers.CharField(max_length=50, required=False)
@@ -223,6 +233,8 @@ class CarePlanUpdateSerializer(serializers.Serializer):
 
 
 class ClinicalObservationSerializer(serializers.ModelSerializer):
+    """Representación de una observación clínica."""
+
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
     author_name = serializers.CharField(source="author.full_name", read_only=True)
 
@@ -242,6 +254,8 @@ class ClinicalObservationSerializer(serializers.ModelSerializer):
 
 
 class ClinicalObservationCreateSerializer(serializers.Serializer):
+    """Entrada para registrar una observación clínica."""
+
     patient_id = serializers.IntegerField(min_value=1)
     category = serializers.ChoiceField(
         choices=ObservationCategory.choices, default=ObservationCategory.GENERAL

@@ -50,19 +50,27 @@ class ShiftAssignmentTests(APITestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.admin = User.objects.create_user(
-            email="admin_sh@pokikoa.cl", full_name="Admin Turnos", password=PASSWORD,
+            email="admin_sh@pokikoa.cl",
+            full_name="Admin Turnos",
+            password=PASSWORD,
             role=UserRole.ADMIN,
         )
         self.nurse = User.objects.create_user(
-            email="nurse_sh@pokikoa.cl", full_name="Matrona Turnos", password=PASSWORD,
+            email="nurse_sh@pokikoa.cl",
+            full_name="Matrona Turnos",
+            password=PASSWORD,
             role=UserRole.NURSE,
         )
         self.pharmacist = User.objects.create_user(
-            email="qf_sh@pokikoa.cl", full_name="QF Turnos", password=PASSWORD,
+            email="qf_sh@pokikoa.cl",
+            full_name="QF Turnos",
+            password=PASSWORD,
             role=UserRole.PHARMACIST,
         )
         neo = User.objects.create_user(
-            email="neo_sh@pokikoa.cl", full_name="Neo Turnos", password=PASSWORD,
+            email="neo_sh@pokikoa.cl",
+            full_name="Neo Turnos",
+            password=PASSWORD,
             role=UserRole.NEONATOLOGIST,
         )
         self.crib, _ = create_crib(actor=self.admin, code="C-SH-1")

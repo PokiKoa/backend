@@ -1,3 +1,5 @@
+"""Modelos de cuentas: usuario con rol RBAC y turno, y asignaciones de turno a cunas."""
+
 from datetime import time
 from typing import Any, ClassVar
 
@@ -8,6 +10,8 @@ from django.utils import timezone
 
 
 class UserRole(models.TextChoices):
+    """Roles RBAC del sistema: administrador, neonatólogo, matrona/enfermera y químico farmacéutico."""
+
     ADMIN = "admin", "Administrador"
     NEONATOLOGIST = "neonatologist", "Neonatólogo"
     NURSE = "nurse", "Matrona / Enfermera"
@@ -15,6 +19,8 @@ class UserRole(models.TextChoices):
 
 
 class WorkShift(models.TextChoices):
+    """Turnos de trabajo del personal (mañana, tarde y noche)."""
+
     MORNING = "morning", "Mañana"
     AFTERNOON = "afternoon", "Tarde"
     NIGHT = "night", "Noche"
@@ -30,6 +36,8 @@ SHIFT_HOURS: dict[str, tuple[time, time]] = {
 
 
 class UserManager(BaseUserManager["User"]):
+    """Manager que crea usuarios y superusuarios con contraseña hasheada."""
+
     def create_user(
         self,
         username: str | None = None,
@@ -38,8 +46,11 @@ class UserManager(BaseUserManager["User"]):
         email: str = "",
         **extra_fields: Any,
     ) -> "User":
+        """Crea un usuario normalizando el nombre de usuario y el correo; exige nombre de usuario."""
         effective_username = (username or "").strip().lower()
-        normalized_email = self.normalize_email(email.strip()).lower() if email and email.strip() else ""
+        normalized_email = (
+            self.normalize_email(email.strip()).lower() if email and email.strip() else ""
+        )
         if not effective_username and normalized_email:
             effective_username = normalized_email.split("@")[0]
 
@@ -71,6 +82,7 @@ class UserManager(BaseUserManager["User"]):
         email: str = "",
         **extra_fields: Any,
     ) -> "User":
+        """Crea un superusuario con rol Administrador y acceso al panel de administración."""
         extra_fields.setdefault("role", UserRole.ADMIN)
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
@@ -85,6 +97,8 @@ class UserManager(BaseUserManager["User"]):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    """Usuario del sistema con rol, turno, bloqueo temporal por intentos fallidos y 2FA (TOTP)."""
+
     username = models.CharField(max_length=150, unique=True)
     email = models.EmailField(max_length=254, blank=True, default="", db_index=True)
     full_name = models.CharField(max_length=150)
@@ -130,13 +144,14 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def is_temporarily_locked(self) -> bool:
+        """``True`` si la cuenta sigue bloqueada (``locked_until`` en el futuro)."""
         return bool(self.locked_until and self.locked_until > timezone.now())
 
 
 class ShiftAssignment(models.Model):
-    user = models.ForeignKey(
-        User, on_delete=models.PROTECT, related_name="shift_assignments"
-    )
+    """Asignación de un profesional a una cuna para un día y turno (única por combinación)."""
+
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="shift_assignments")
     crib = models.ForeignKey(
         "devices.Crib", on_delete=models.PROTECT, related_name="shift_assignments"
     )

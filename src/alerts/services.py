@@ -1,3 +1,5 @@
+"""Servicios de alertas: umbrales, evaluación de lecturas y ciclo de vida (reconocer, resolver, deduplicar)."""
+
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -37,6 +39,8 @@ from .policies import EVALUATED_ALERT_TYPES, evaluate_vital_reading
 
 @dataclass(frozen=True)
 class AlertEvaluationSummary:
+    """Resultado de evaluar una lectura: alertas creadas, deduplicadas y resueltas automáticamente."""
+
     created_alerts: list[Alert]
     deduplicated_alerts: list[Alert]
     auto_resolved_alerts: list[Alert]
@@ -44,10 +48,19 @@ class AlertEvaluationSummary:
 
     @property
     def active_or_updated_alerts(self) -> list[Alert]:
+        """Alertas abiertas tras la evaluación (nuevas más las deduplicadas)."""
         return [*self.created_alerts, *self.deduplicated_alerts]
 
 
 def get_effective_thresholds(patient: Patient | None = None) -> AlertThresholdConfig:
+    """Obtiene los umbrales aplicables a un paciente.
+
+    Args:
+        patient: Paciente consultado; si no tiene configuración propia se usa la global.
+
+    Returns:
+        Configuración del paciente, la global o los valores clínicos por defecto (sin persistir).
+    """
     if patient is not None:
         custom = AlertThresholdConfig.objects.filter(patient=patient).first()
         if custom is not None:
@@ -72,12 +85,7 @@ def _validate_threshold_values(config: AlertThresholdConfig) -> None:
             "critical_low < warning_low < warning_high < critical_high dentro del rango fisiológico (1..260 lpm)."
         )
 
-    if not (
-        SPO2_MIN
-        < config.spo2_critical_low
-        < config.spo2_warning_low
-        <= SPO2_MAX
-    ):
+    if not (SPO2_MIN < config.spo2_critical_low < config.spo2_warning_low <= SPO2_MAX):
         raise DomainError(
             "Los umbrales de SpO2 deben cumplir orden estricto: "
             "0 < critical_low < warning_low <= 100."
@@ -104,6 +112,22 @@ def upsert_threshold_config(
     data: dict[str, Any],
     ip_address: str | None = None,
 ) -> AlertThresholdConfig:
+    """Crea o actualiza los umbrales de alerta, globales o de un paciente.
+
+    Args:
+        actor: Neonatólogo o Administrador.
+        patient: Paciente al que aplican; ``None`` para la configuración global.
+        data: Umbrales a establecer.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La configuración vigente.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede configurar umbrales.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si los umbrales no respetan el orden estricto y el rango fisiológico.
+    """
     if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST}:
         raise PermissionDomainError(
             "Solo un Neonatólogo o Administrador puede configurar los umbrales de alerta clínica."
@@ -175,6 +199,14 @@ def upsert_threshold_config(
 
 
 def evaluate_reading_alerts(*, reading: VitalSignReading) -> AlertEvaluationSummary:
+    """Evalúa una lectura y sincroniza las alertas: crea, deduplica, escala o autorresuelve.
+
+    Args:
+        reading: Lectura recién ingerida.
+
+    Returns:
+        Resumen con las alertas creadas, deduplicadas y resueltas.
+    """
     now = timezone.now()
     thresholds = get_effective_thresholds(reading.patient)
     anomalies = evaluate_vital_reading(reading, thresholds)
@@ -285,6 +317,20 @@ def acknowledge_alert(
     alert: Alert,
     ip_address: str | None = None,
 ) -> Alert:
+    """Marca una alerta activa como reconocida.
+
+    Args:
+        actor: Personal clínico o administrativo.
+        alert: Alerta a reconocer; se relee con bloqueo de fila.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La alerta reconocida.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede reconocer alertas.
+        ConflictDomainError: Si la alerta ya fue resuelta o reconocida.
+    """
     if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo el personal clínico o administrativo puede reconocer alertas."
@@ -340,6 +386,20 @@ def resolve_alert(
     alert: Alert,
     ip_address: str | None = None,
 ) -> Alert:
+    """Resuelve manualmente una alerta abierta.
+
+    Args:
+        actor: Personal clínico o administrativo.
+        alert: Alerta a resolver; se relee con bloqueo de fila.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La alerta resuelta.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede resolver alertas.
+        ConflictDomainError: Si la alerta ya estaba resuelta.
+    """
     if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo el personal clínico o administrativo puede resolver alertas manualmente."
@@ -394,6 +454,15 @@ def resolve_alert(
 
 
 def resolve_patient_alerts_on_discharge(*, patient: Patient, actor: User) -> int:
+    """Resuelve las alertas abiertas de un paciente al egresarlo.
+
+    Args:
+        patient: Paciente egresado.
+        actor: Usuario que firma el egreso.
+
+    Returns:
+        Número de alertas resueltas.
+    """
     now = timezone.now()
     return Alert.objects.filter(
         patient=patient,
@@ -413,10 +482,18 @@ def trigger_or_deduplicate_offline_alert(
     patient: Patient | None,
     timeout_seconds: int,
 ) -> Alert:
+    """Crea la alerta de pérdida de señal de una cuna o actualiza la ya abierta.
+
+    Args:
+        crib: Cuna sin telemetría.
+        patient: Paciente asignado; con paciente la severidad es crítica, sin él, advertencia.
+        timeout_seconds: Segundos de inactividad que se informan en el mensaje.
+
+    Returns:
+        La alerta de tipo ``sensor_fault`` abierta para la cuna.
+    """
     now = timezone.now()
-    severity = (
-        AlertSeverity.CRITICAL if patient is not None else AlertSeverity.WARNING
-    )
+    severity = AlertSeverity.CRITICAL if patient is not None else AlertSeverity.WARNING
     message = (
         f"Pérdida de señal de telemetría en la cuna {crib.code} "
         f"(sin lecturas por más de {timeout_seconds} s)."

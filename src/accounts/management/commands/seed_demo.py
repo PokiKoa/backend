@@ -1,3 +1,5 @@
+"""Comando que carga datos ficticios de demostración (usuarios, cunas, pacientes, medicación y telemetría)."""
+
 from datetime import time, timedelta
 from decimal import Decimal
 
@@ -21,9 +23,14 @@ from vitals.services import ingest_telemetry
 
 
 class Command(BaseCommand):
-    help = "Carga datos ficticios de demostración neonatal y asegura el superusuario admin/admin2026."
+    """Carga datos ficticios de demostración neonatal y asegura el usuario ``admin``. Solo para desarrollo."""
+
+    help = (
+        "Carga datos ficticios de demostración neonatal y asegura el superusuario admin/admin2026."
+    )
 
     def handle(self, *args, **options) -> None:
+        """Crea de forma idempotente usuarios, cunas, pacientes, catálogo, indicaciones y lecturas de ejemplo."""
         admin_user, _ = User.objects.get_or_create(
             username="admin",
             defaults={
@@ -116,7 +123,7 @@ class Command(BaseCommand):
             p1 = admit_patient(
                 actor=neo,
                 medical_record_number="RN-2026-001",
-                full_name="RN Mateo Ariki Huke (Ficticio)",
+                full_name="RN Mateo González Rojas (Ficticio)",
                 sex="M",
                 birth_date=today - timedelta(days=4),
                 gestational_age_weeks=Decimal("31.5"),
@@ -128,12 +135,12 @@ class Command(BaseCommand):
                 # RUT y teléfonos ficticios (dígito verificador válido, números de ejemplo)
                 guardians={
                     "mother_rut": "16.482.937-5",
-                    "mother_first_names": "Hina Marama",
-                    "mother_last_names": "Huke Tepano",
+                    "mother_first_names": "Camila Andrea",
+                    "mother_last_names": "Rojas Muñoz",
                     "mother_phone": "+56 9 5555 0101",
                     "father_rut": "15.739.204-2",
-                    "father_first_names": "Tama",
-                    "father_last_names": "Ariki Pate",
+                    "father_first_names": "Felipe Ignacio",
+                    "father_last_names": "González Pérez",
                     "father_phone": "+56 9 5555 0102",
                 },
             )
@@ -168,7 +175,7 @@ class Command(BaseCommand):
             p2 = admit_patient(
                 actor=neo,
                 medical_record_number="RN-2026-002",
-                full_name="RN Vaihere Tuki Pakarati (Ficticia)",
+                full_name="RN Sofía Contreras Fuentes (Ficticia)",
                 sex="F",
                 birth_date=today - timedelta(days=2),
                 gestational_age_weeks=Decimal("29.0"),
@@ -179,8 +186,8 @@ class Command(BaseCommand):
                 crib_id=cribs["C-02"].id,
                 guardians={
                     "mother_rut": "17.205.846-9",
-                    "mother_first_names": "Moana",
-                    "mother_last_names": "Pakarati Tuki",
+                    "mother_first_names": "Valentina Paz",
+                    "mother_last_names": "Contreras Fuentes",
                     "mother_phone": "+56 9 5555 0201",
                 },
             )
@@ -232,9 +239,7 @@ class Command(BaseCommand):
                     medication_id=caffeine.id,
                     dose="5 mg/kg IV lento",
                     # Mantención cada 24 h desde las 08:00 de hoy
-                    starts_at=timezone.make_aware(
-                        timezone.datetime.combine(today, time(8, 0))
-                    ),
+                    starts_at=timezone.make_aware(timezone.datetime.combine(today, time(8, 0))),
                     frequency_hours=24,
                     route=AdministrationRoute.IV,
                     units_per_administration=1,

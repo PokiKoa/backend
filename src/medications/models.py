@@ -1,3 +1,5 @@
+"""Modelos de medicación: catálogo con stock, indicaciones médicas y administraciones."""
+
 from decimal import Decimal
 from typing import ClassVar
 
@@ -7,6 +9,8 @@ from django.db import models
 
 
 class AdministrationRoute(models.TextChoices):
+    """Vía de administración de un medicamento."""
+
     IV = "IV", "Intravenosa (IV)"
     IM = "IM", "Intramuscular (IM)"
     ET = "ET", "Endotraqueal (ET)"
@@ -15,6 +19,8 @@ class AdministrationRoute(models.TextChoices):
 
 
 class PrescriptionStatus(models.TextChoices):
+    """Estado de una indicación: vigente, completada o cancelada."""
+
     ACTIVE = "active", "Vigente"
     COMPLETED = "completed", "Completada"
     CANCELLED = "cancelled", "Cancelada"
@@ -24,6 +30,8 @@ MAX_FREQUENCY_HOURS = 168
 
 
 class MedicationCatalogItem(models.Model):
+    """Medicamento del catálogo con su concentración, unidad y stock."""
+
     name = models.CharField(max_length=150, unique=True)
     active_ingredient = models.CharField(max_length=150)
     concentration_mg = models.DecimalField(
@@ -62,10 +70,13 @@ class MedicationCatalogItem(models.Model):
 
     @property
     def is_low_stock(self) -> bool:
+        """``True`` si el stock está en o bajo el umbral de alerta mínimo."""
         return self.stock <= self.min_stock_alert
 
 
 class Prescription(models.Model):
+    """Indicación médica de un medicamento a un paciente: dosis, vía, pauta y estado."""
+
     patient = models.ForeignKey(
         "patients.Patient",
         on_delete=models.PROTECT,
@@ -143,6 +154,8 @@ class Prescription(models.Model):
 
 
 class MedicationAdministration(models.Model):
+    """Dosis efectivamente administrada de una indicación, con el stock descontado."""
+
     prescription = models.ForeignKey(
         Prescription,
         on_delete=models.PROTECT,

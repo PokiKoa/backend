@@ -1,3 +1,5 @@
+"""Servicios de auditoría: registro inmutable de accesos y modificaciones sin datos clínicos."""
+
 import re
 from collections.abc import Iterable
 from typing import Any
@@ -8,6 +10,14 @@ _FIELD_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
 def get_client_ip(request: Any) -> str | None:
+    """Obtiene la IP del cliente, priorizando ``X-Forwarded-For``.
+
+    Args:
+        request: Petición HTTP (o ``None``).
+
+    Returns:
+        IP del cliente o ``None`` si no se puede determinar.
+    """
     if request is None or not hasattr(request, "META"):
         return None
     forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -17,6 +27,18 @@ def get_client_ip(request: Any) -> str | None:
 
 
 def sanitize_changed_fields(changed_fields: Iterable[str] | None) -> list[str]:
+    """Valida y deduplica nombres de campos modificados para la auditoría.
+
+    Args:
+        changed_fields: Colección de identificadores de campo.
+
+    Returns:
+        Lista sin duplicados que conserva el orden.
+
+    Raises:
+        TypeError: Si se entrega texto libre o un diccionario.
+        ValueError: Si algún nombre no es un identificador válido (evita filtrar valores clínicos).
+    """
     if changed_fields is None:
         return []
     if isinstance(changed_fields, (str, bytes, dict)):
@@ -45,6 +67,25 @@ def record_audit_event(
     changed_fields: Iterable[str] | None = None,
     ip_address: str | None = None,
 ) -> AuditLog:
+    """Registra un evento de auditoría guardando solo nombres de campos, nunca valores.
+
+    Args:
+        action: Acción (``AuditAction``).
+        resource_type: Tipo de recurso afectado.
+        resource_id: Identificador del recurso.
+        actor_user: Usuario autor, si existe.
+        actor_device_code: Código de la cuna cuando el autor es un dispositivo.
+        patient_id: Paciente asociado, si aplica.
+        changed_fields: Nombres de campos modificados.
+        ip_address: IP de origen.
+
+    Returns:
+        El registro de auditoría creado.
+
+    Raises:
+        TypeError: Si ``changed_fields`` no es una colección de nombres.
+        ValueError: Si algún nombre de campo es inválido.
+    """
     validated_fields = sanitize_changed_fields(changed_fields)
     user_instance = (
         actor_user

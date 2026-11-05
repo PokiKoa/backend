@@ -1,3 +1,5 @@
+"""Estadísticas para la portada HTML del servicio."""
+
 from typing import Any
 
 from django.db.models import F
@@ -9,6 +11,9 @@ from patients.models import Patient, PatientStatus
 
 
 def get_clinical_dashboard_stats() -> dict[str, Any]:
+    """Devuelve contadores (pacientes, cunas, alertas, medicamentos con stock bajo e indicaciones vigentes),
+    los 10 últimos pacientes activos y las 6 alertas abiertas más recientes.
+    """
     active_patients = list(
         Patient.objects.filter(status=PatientStatus.ACTIVE)
         .select_related("crib", "attending_physician")
@@ -19,26 +24,14 @@ def get_clinical_dashboard_stats() -> dict[str, Any]:
     ).select_related("crib", "patient")
 
     return {
-        "active_patients_count": Patient.objects.filter(
-            status=PatientStatus.ACTIVE
-        ).count(),
-        "discharged_patients_count": Patient.objects.exclude(
-            status=PatientStatus.ACTIVE
-        ).count(),
+        "active_patients_count": Patient.objects.filter(status=PatientStatus.ACTIVE).count(),
+        "discharged_patients_count": Patient.objects.exclude(status=PatientStatus.ACTIVE).count(),
         "total_cribs_count": Crib.objects.count(),
-        "occupied_cribs_count": Crib.objects.filter(
-            status=CribStatus.OCCUPIED
-        ).count(),
-        "available_cribs_count": Crib.objects.filter(
-            status=CribStatus.AVAILABLE
-        ).count(),
+        "occupied_cribs_count": Crib.objects.filter(status=CribStatus.OCCUPIED).count(),
+        "available_cribs_count": Crib.objects.filter(status=CribStatus.AVAILABLE).count(),
         "open_alerts_count": open_alerts_qs.count(),
-        "critical_alerts_count": open_alerts_qs.filter(
-            severity=AlertSeverity.CRITICAL
-        ).count(),
-        "warning_alerts_count": open_alerts_qs.filter(
-            severity=AlertSeverity.WARNING
-        ).count(),
+        "critical_alerts_count": open_alerts_qs.filter(severity=AlertSeverity.CRITICAL).count(),
+        "warning_alerts_count": open_alerts_qs.filter(severity=AlertSeverity.WARNING).count(),
         "low_stock_medications_count": MedicationCatalogItem.objects.filter(
             is_active=True,
             stock__lte=F("min_stock_alert"),

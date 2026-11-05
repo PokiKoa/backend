@@ -294,9 +294,7 @@ class AccountsAndHealthEndpointTests(TestCase):
             "DEFAULT_AUTHENTICATION_CLASSES": (
                 "rest_framework_simplejwt.authentication.JWTAuthentication",
             ),
-            "DEFAULT_PERMISSION_CLASSES": (
-                "rest_framework.permissions.IsAuthenticated",
-            ),
+            "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
             "EXCEPTION_HANDLER": "poki_koa.exceptions.custom_exception_handler",
             "DEFAULT_THROTTLE_RATES": {"login": "3/min"},
         }

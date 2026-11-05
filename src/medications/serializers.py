@@ -1,3 +1,5 @@
+"""Serializers del catálogo de medicamentos, indicaciones y administraciones."""
+
 from decimal import Decimal
 from typing import ClassVar
 
@@ -16,6 +18,8 @@ from .models import (
 
 
 class MedicationCatalogItemSerializer(serializers.ModelSerializer):
+    """Representación de un medicamento del catálogo, con indicador de bajo stock."""
+
     is_low_stock = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -37,6 +41,8 @@ class MedicationCatalogItemSerializer(serializers.ModelSerializer):
 
 
 class MedicationCatalogCreateSerializer(serializers.Serializer):
+    """Entrada para registrar un medicamento."""
+
     name = serializers.CharField(max_length=150)
     active_ingredient = serializers.CharField(max_length=150)
     concentration_mg = serializers.DecimalField(
@@ -51,6 +57,8 @@ class MedicationCatalogCreateSerializer(serializers.Serializer):
 
 
 class MedicationCatalogUpdateSerializer(serializers.Serializer):
+    """Entrada para editar parcialmente un medicamento o su stock."""
+
     name = serializers.CharField(max_length=150, required=False)
     active_ingredient = serializers.CharField(max_length=150, required=False)
     concentration_mg = serializers.DecimalField(
@@ -66,9 +74,9 @@ class MedicationCatalogUpdateSerializer(serializers.Serializer):
 
 
 class MedicationAdministrationSerializer(serializers.ModelSerializer):
-    administered_by_name = serializers.CharField(
-        source="administered_by.full_name", read_only=True
-    )
+    """Representación de una dosis administrada."""
+
+    administered_by_name = serializers.CharField(source="administered_by.full_name", read_only=True)
 
     class Meta:
         model = MedicationAdministration
@@ -86,12 +94,12 @@ class MedicationAdministrationSerializer(serializers.ModelSerializer):
 
 
 class PrescriptionSerializer(serializers.ModelSerializer):
+    """Representación de una indicación con su estado de pauta: próxima dosis, atraso y administraciones."""
+
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
     medication_name = serializers.CharField(source="medication.name", read_only=True)
     medication_unit = serializers.CharField(source="medication.unit", read_only=True)
-    prescribed_by_name = serializers.CharField(
-        source="prescribed_by.full_name", read_only=True
-    )
+    prescribed_by_name = serializers.CharField(source="prescribed_by.full_name", read_only=True)
     next_dose_at = serializers.SerializerMethodField()
     is_overdue = serializers.SerializerMethodField()
     last_administered_slot = serializers.SerializerMethodField()
@@ -135,30 +143,34 @@ class PrescriptionSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.DateTimeField(allow_null=True))
     def get_next_dose_at(self, obj: Prescription):
+        """Fecha de la próxima dosis pendiente, o ``None`` si no hay."""
         value = self._state(obj).next_dose_at
         return serializers.DateTimeField().to_representation(value) if value else None
 
     @extend_schema_field(serializers.BooleanField())
     def get_is_overdue(self, obj: Prescription) -> bool:
+        """``True`` si hay una dosis vencida sin administrar."""
         return self._state(obj).is_overdue
 
     @extend_schema_field(serializers.DateTimeField(allow_null=True))
     def get_last_administered_slot(self, obj: Prescription):
+        """Horario programado de la última dosis administrada, o ``None``."""
         value = self._state(obj).last_administered_slot
         return serializers.DateTimeField().to_representation(value) if value else None
 
     @extend_schema_field(serializers.IntegerField())
     def get_administrations_count(self, obj: Prescription) -> int:
+        """Número de dosis administradas de la indicación."""
         return self._state(obj).administrations_count
 
 
 class PrescriptionCreateSerializer(serializers.Serializer):
+    """Entrada para crear una indicación médica."""
+
     patient_id = serializers.IntegerField(min_value=1)
     medication_id = serializers.IntegerField(min_value=1)
     dose = serializers.CharField(max_length=100)
-    units_per_administration = serializers.IntegerField(
-        min_value=1, required=False, default=1
-    )
+    units_per_administration = serializers.IntegerField(min_value=1, required=False, default=1)
     route = serializers.ChoiceField(
         choices=AdministrationRoute.choices,
         default=AdministrationRoute.IV,
@@ -171,9 +183,13 @@ class PrescriptionCreateSerializer(serializers.Serializer):
 
 
 class PrescriptionAdministerSerializer(serializers.Serializer):
+    """Entrada para administrar una dosis (horario programado y notas opcionales)."""
+
     scheduled_for = serializers.DateTimeField(required=False, allow_null=True, default=None)
     notes = serializers.CharField(required=False, allow_blank=True, default="")
 
 
 class PrescriptionCancelSerializer(serializers.Serializer):
+    """Entrada para cancelar una indicación (motivo opcional)."""
+
     reason = serializers.CharField(required=False, allow_blank=True, default="")

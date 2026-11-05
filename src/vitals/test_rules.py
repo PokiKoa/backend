@@ -103,22 +103,14 @@ class TelemetryRulesBoundaryTests(SimpleTestCase):
 
     def test_multiple_errors_are_reported_together(self) -> None:
         with self.assertRaises(DomainError) as ctx:
-            validate_telemetry_payload(
-                _payload(heart_rate=0, spo2=150, temperature="50.0")
-            )
-        self.assertEqual(
-            set(ctx.exception.details), {"heart_rate", "spo2", "temperature"}
-        )
+            validate_telemetry_payload(_payload(heart_rate=0, spo2=150, temperature="50.0"))
+        self.assertEqual(set(ctx.exception.details), {"heart_rate", "spo2", "temperature"})
 
     def test_recorded_at_parsing(self) -> None:
-        aware = validate_telemetry_payload(
-            _payload(recorded_at="2026-11-03T08:00:00-03:00")
-        )
+        aware = validate_telemetry_payload(_payload(recorded_at="2026-11-03T08:00:00-03:00"))
         self.assertTrue(timezone.is_aware(aware.recorded_at))
 
-        naive_str = validate_telemetry_payload(
-            _payload(recorded_at="2026-11-03T08:00:00")
-        )
+        naive_str = validate_telemetry_payload(_payload(recorded_at="2026-11-03T08:00:00"))
         self.assertTrue(timezone.is_aware(naive_str.recorded_at))
 
         # Fecha sin zona horaria a propósito: valida que se convierta a aware

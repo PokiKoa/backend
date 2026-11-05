@@ -1,3 +1,5 @@
+"""Vistas de medicación: catálogo con stock e indicaciones médicas con su administración."""
+
 from typing import ClassVar
 
 import django_filters
@@ -33,6 +35,8 @@ from .services import (
 
 
 class MedicationCatalogFilter(django_filters.FilterSet):
+    """Filtros del catálogo: activo, unidad y bajo stock."""
+
     low_stock = django_filters.BooleanFilter(method="filter_low_stock")
 
     class Meta:
@@ -40,6 +44,7 @@ class MedicationCatalogFilter(django_filters.FilterSet):
         fields: ClassVar[list[str]] = ["is_active", "unit", "low_stock"]
 
     def filter_low_stock(self, queryset, name: str, value: bool):
+        """``low_stock=true`` devuelve ítems con stock en o bajo su umbral mínimo; ``false``, el resto."""
         if value:
             return queryset.filter(stock__lte=models.F("min_stock_alert"))
         return queryset.filter(stock__gt=models.F("min_stock_alert"))
@@ -52,6 +57,8 @@ class MedicationCatalogViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
+    """Catálogo de medicamentos con stock."""
+
     queryset = MedicationCatalogItem.objects.all().order_by("name")
     serializer_class = MedicationCatalogItemSerializer
     permission_classes: ClassVar[list] = [IsAuthenticated]
@@ -65,8 +72,11 @@ class MedicationCatalogViewSet(
     ]
     ordering: ClassVar[list[str]] = ["name"]
 
-    @extend_schema(request=MedicationCatalogCreateSerializer, responses={201: MedicationCatalogItemSerializer})
+    @extend_schema(
+        request=MedicationCatalogCreateSerializer, responses={201: MedicationCatalogItemSerializer}
+    )
     def create(self, request: Request, *args, **kwargs) -> Response:
+        """Registra un medicamento y responde 201."""
         serializer = MedicationCatalogCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         item = create_catalog_item(
@@ -85,8 +95,11 @@ class MedicationCatalogViewSet(
             status=status.HTTP_201_CREATED,
         )
 
-    @extend_schema(request=MedicationCatalogUpdateSerializer, responses={200: MedicationCatalogItemSerializer})
+    @extend_schema(
+        request=MedicationCatalogUpdateSerializer, responses={200: MedicationCatalogItemSerializer}
+    )
     def update(self, request: Request, *args, **kwargs) -> Response:
+        """Actualiza datos o stock y responde 200."""
         item = self.get_object()
         serializer = MedicationCatalogUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -101,12 +114,17 @@ class MedicationCatalogViewSet(
             status=status.HTTP_200_OK,
         )
 
-    @extend_schema(request=MedicationCatalogUpdateSerializer, responses={200: MedicationCatalogItemSerializer})
+    @extend_schema(
+        request=MedicationCatalogUpdateSerializer, responses={200: MedicationCatalogItemSerializer}
+    )
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
+        """Actualiza parcialmente el ítem (mismo flujo que ``update``)."""
         return self.update(request, *args, **kwargs)
 
 
 class PrescriptionFilter(django_filters.FilterSet):
+    """Filtros del listado de indicaciones médicas."""
+
     starts_after = django_filters.IsoDateTimeFilter(field_name="starts_at", lookup_expr="gte")
     starts_before = django_filters.IsoDateTimeFilter(field_name="starts_at", lookup_expr="lte")
     is_recurring = django_filters.BooleanFilter(
@@ -130,6 +148,8 @@ class PrescriptionViewSet(
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
 ):
+    """Indicaciones médicas por paciente, con administración de dosis y cancelación."""
+
     queryset = (
         Prescription.objects.select_related("patient", "medication", "prescribed_by")
         .annotate(
@@ -155,6 +175,7 @@ class PrescriptionViewSet(
 
     @extend_schema(request=PrescriptionCreateSerializer, responses={201: PrescriptionSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
+        """Crea una indicación y responde 201."""
         serializer = PrescriptionCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -187,6 +208,7 @@ class PrescriptionViewSet(
     )
     @action(detail=True, methods=["post"], url_path="administer")
     def administer(self, request: Request, pk=None) -> Response:
+        """Registra la administración de una dosis descontando stock; responde 200 con la administración."""
         prescription = self.get_object()
         serializer = PrescriptionAdministerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -208,6 +230,7 @@ class PrescriptionViewSet(
     )
     @action(detail=True, methods=["get"], url_path="administrations")
     def administrations(self, request: Request, pk=None) -> Response:
+        """Responde 200 con el historial de dosis administradas de la indicación."""
         prescription = self.get_object()
         qs = prescription.administrations.select_related("administered_by").order_by(
             "-scheduled_for", "-id"
@@ -223,6 +246,7 @@ class PrescriptionViewSet(
     )
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request: Request, pk=None) -> Response:
+        """Cancela una indicación vigente y responde 200 con la indicación."""
         prescription = self.get_object()
         serializer = PrescriptionCancelSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

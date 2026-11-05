@@ -1,3 +1,5 @@
+"""Servicios de pacientes: ingreso, edición, egreso, cunas, peso, planes de cuidado y observaciones."""
+
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -92,11 +94,15 @@ def _validate_attending_physician(physician_id: int | None) -> User | None:
     if physician is None:
         raise NotFoundDomainError("El médico responsable indicado no existe o no está activo.")
     if physician.role != UserRole.NEONATOLOGIST:
-        raise DomainError("El profesional asignado como médico a cargo debe tener rol de Neonatólogo.")
+        raise DomainError(
+            "El profesional asignado como médico a cargo debe tener rol de Neonatólogo."
+        )
     return physician
 
 
-def _validate_crib_available(crib_id: int | None, current_patient_id: int | None = None) -> Crib | None:
+def _validate_crib_available(
+    crib_id: int | None, current_patient_id: int | None = None
+) -> Crib | None:
     if crib_id is None:
         return None
     crib = Crib.objects.select_for_update().filter(pk=crib_id).first()
@@ -110,6 +116,41 @@ def _validate_crib_available(crib_id: int | None, current_patient_id: int | None
             "La cuna seleccionada no está disponible por encontrarse en mantenimiento o fuera de línea."
         )
     return crib
+
+
+def _validate_admission_inputs(
+    *,
+    medical_record_number: str,
+    full_name: str,
+    sex: str,
+    birth_date: date,
+    gestational_age_weeks: Decimal | float,
+    birth_weight_g: int,
+    current_weight_g: int | None,
+) -> tuple[str, str, Decimal, int]:
+    """Valida y normaliza los datos de ingreso.
+
+    Returns:
+        Tupla ``(ficha, nombre, semanas_gestacionales, peso_actual_g)`` ya normalizada.
+
+    Raises:
+        DomainError: Si algún dato obligatorio falta o está fuera de rango.
+    """
+    mrn = (medical_record_number or "").strip().upper()
+    cleaned_name = (full_name or "").strip()
+    if not mrn:
+        raise DomainError("El número de ficha clínica (medical_record_number) es obligatorio.")
+    if not cleaned_name:
+        raise DomainError("El nombre completo del paciente es obligatorio.")
+    _normalize_sex(sex)
+    _normalize_birth_date(birth_date)
+    gest_weeks = _normalize_gestational_age(gestational_age_weeks)
+    if not (200 <= birth_weight_g <= 8000):
+        raise DomainError("El peso de nacimiento debe estar entre 200 y 8000 gramos.")
+    effective_current_weight = _normalize_current_weight(
+        birth_weight_g if current_weight_g is None else current_weight_g
+    )
+    return mrn, cleaned_name, gest_weeks, effective_current_weight
 
 
 def admit_patient(
@@ -128,32 +169,46 @@ def admit_patient(
     guardians: dict[str, Any] | None = None,
     ip_address: str | None = None,
 ) -> Patient:
+    """Registra el ingreso de un recién nacido, con cuna y medición de peso inicial opcionales.
+
+    Args:
+        actor: Neonatólogo o Matrona/Enfermera que ingresa al paciente.
+        medical_record_number: Ficha clínica única (se normaliza a mayúsculas).
+        full_name: Nombre completo.
+        sex: ``F`` o ``M``.
+        birth_date: Fecha de nacimiento (no futura).
+        gestational_age_weeks: Edad gestacional, entre 20 y 45 semanas.
+        birth_weight_g: Peso de nacimiento, entre 200 y 8000 g.
+        current_weight_g: Peso actual; por defecto el de nacimiento.
+        diagnosis: Diagnóstico inicial.
+        attending_physician_id: Neonatólogo a cargo.
+        crib_id: Cuna a asignar.
+        guardians: Datos de madre y padre (RUT y teléfono se normalizan).
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El paciente creado.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede ingresar pacientes.
+        ConflictDomainError: Ficha duplicada o cuna no disponible.
+        NotFoundDomainError: Si el médico o la cuna no existen.
+        DomainError: Si algún dato es inválido o está fuera de rango.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo Neonatólogos o Matronas/Enfermeras pueden registrar el ingreso de un paciente."
         )
     guardian_data = _clean_guardian_data(guardians or {})
-
-    mrn = (medical_record_number or "").strip().upper()
-    cleaned_name = (full_name or "").strip()
-    if not mrn:
-        raise DomainError("El número de ficha clínica (medical_record_number) es obligatorio.")
-    if not cleaned_name:
-        raise DomainError("El nombre completo del paciente es obligatorio.")
-    if sex not in set(PatientSex.values):
-        raise DomainError("El sexo del paciente debe ser 'F' o 'M'.")
-    if birth_date > timezone.localdate():
-        raise DomainError("La fecha de nacimiento no puede ser una fecha futura.")
-
-    gest_weeks = Decimal(str(gestational_age_weeks))
-    if not (Decimal("20.0") <= gest_weeks <= Decimal("45.0")):
-        raise DomainError("La edad gestacional debe estar entre 20.0 y 45.0 semanas.")
-    if not (200 <= birth_weight_g <= 8000):
-        raise DomainError("El peso de nacimiento debe estar entre 200 y 8000 gramos.")
-
-    effective_current_weight = birth_weight_g if current_weight_g is None else current_weight_g
-    if not (200 <= effective_current_weight <= 10000):
-        raise DomainError("El peso actual debe estar entre 200 y 10000 gramos.")
+    mrn, cleaned_name, gest_weeks, effective_current_weight = _validate_admission_inputs(
+        medical_record_number=medical_record_number,
+        full_name=full_name,
+        sex=sex,
+        birth_date=birth_date,
+        gestational_age_weeks=gestational_age_weeks,
+        birth_weight_g=birth_weight_g,
+        current_weight_g=current_weight_g,
+    )
 
     with transaction.atomic():
         if Patient.objects.filter(medical_record_number=mrn).exists():
@@ -217,6 +272,124 @@ def admit_patient(
     return patient
 
 
+def _normalize_full_name(value: Any) -> str:
+    new_name = str(value).strip()
+    if not new_name:
+        raise DomainError("El nombre completo del paciente no puede estar vacío.")
+    return new_name
+
+
+def _normalize_sex(value: Any) -> str:
+    if value not in set(PatientSex.values):
+        raise DomainError("El sexo del paciente debe ser 'F' o 'M'.")
+    return value
+
+
+def _normalize_birth_date(value: date) -> date:
+    if value > timezone.localdate():
+        raise DomainError("La fecha de nacimiento no puede ser una fecha futura.")
+    return value
+
+
+def _normalize_gestational_age(value: Any) -> Decimal:
+    weeks = Decimal(str(value))
+    if not (Decimal("20.0") <= weeks <= Decimal("45.0")):
+        raise DomainError("La edad gestacional debe estar entre 20.0 y 45.0 semanas.")
+    return weeks
+
+
+def _normalize_current_weight(value: Any) -> int:
+    weight = int(value)
+    if not (200 <= weight <= 10000):
+        raise DomainError("El peso actual debe estar entre 200 y 10000 gramos.")
+    return weight
+
+
+def _normalize_diagnosis(value: Any) -> str:
+    return str(value or "").strip()
+
+
+# Campos escalares editables: se validan/normalizan y se asignan solo si cambian.
+# El orden define el orden de ``changed_fields`` en la auditoría.
+_SCALAR_UPDATE_NORMALIZERS = {
+    "full_name": _normalize_full_name,
+    "sex": _normalize_sex,
+    "birth_date": _normalize_birth_date,
+    "gestational_age_weeks": _normalize_gestational_age,
+    "current_weight_g": _normalize_current_weight,
+    "diagnosis": _normalize_diagnosis,
+}
+
+
+def _apply_scalar_updates(patient: Patient, data: dict[str, Any], actor: User) -> list[str]:
+    """Aplica en memoria los campos escalares enviados y devuelve los que cambiaron."""
+    changed: list[str] = []
+    for field, normalize in _SCALAR_UPDATE_NORMALIZERS.items():
+        if field not in data:
+            continue
+        new_value = normalize(data[field])
+        if new_value == getattr(patient, field):
+            continue
+        setattr(patient, field, new_value)
+        changed.append(field)
+        if field == "current_weight_g":
+            WeightRecord.objects.create(patient=patient, weight_g=new_value, recorded_by=actor)
+    return changed
+
+
+def _apply_physician_update(patient: Patient, data: dict[str, Any]) -> list[str]:
+    if "attending_physician_id" not in data:
+        return []
+    new_physician = _validate_attending_physician(data["attending_physician_id"])
+    new_id = new_physician.id if new_physician else None
+    if new_id == patient.attending_physician_id:
+        return []
+    patient.attending_physician = new_physician
+    return ["attending_physician_id"]
+
+
+def _apply_guardian_updates(patient: Patient, data: dict[str, Any]) -> list[str]:
+    changed: list[str] = []
+    for field, value in _clean_guardian_data(data).items():
+        if value != getattr(patient, field):
+            setattr(patient, field, value)
+            changed.append(field)
+    return changed
+
+
+def _crib_movement_kind(old_crib: Crib | None, new_crib: Crib | None) -> str:
+    if old_crib is None:
+        return CribMovementKind.ASSIGN
+    if new_crib is None:
+        return CribMovementKind.RELEASE
+    return CribMovementKind.MOVE
+
+
+def _apply_crib_change(patient: Patient, data: dict[str, Any], actor: User) -> list[str]:
+    """Reasigna la cuna del paciente, actualiza el estado de ambas cunas y registra el movimiento."""
+    if "crib_id" not in data or data["crib_id"] == patient.crib_id:
+        return []
+    old_crib = patient.crib
+    new_crib = _validate_crib_available(data["crib_id"], current_patient_id=patient.id)
+    patient.crib = new_crib
+    # Liberar primero en el paciente antes de actualizar las cunas
+    patient.save()
+    if old_crib is not None:
+        old_crib.status = CribStatus.AVAILABLE
+        old_crib.save(update_fields=["status", "updated_at"])
+    if new_crib is not None:
+        new_crib.status = CribStatus.OCCUPIED
+        new_crib.save(update_fields=["status", "updated_at"])
+    _record_crib_movement(
+        patient=patient,
+        kind=_crib_movement_kind(old_crib, new_crib),
+        actor=actor,
+        from_crib=old_crib,
+        to_crib=new_crib,
+    )
+    return ["crib_id"]
+
+
 def update_patient(
     *,
     actor: User,
@@ -224,6 +397,25 @@ def update_patient(
     data: dict[str, Any],
     ip_address: str | None = None,
 ) -> Patient:
+    """Actualiza parcialmente los datos de un paciente activo y audita los campos modificados.
+
+    Args:
+        actor: Usuario que realiza el cambio (Neonatólogo o Matrona/Enfermera).
+        patient: Paciente a modificar; se vuelve a leer con bloqueo de fila.
+        data: Solo los campos a cambiar. ``diagnosis`` y ``attending_physician_id``
+            son exclusivos de Neonatólogo.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El paciente actualizado.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede editar pacientes o la enfermera
+            intenta cambiar campos médicos restringidos.
+        ConflictDomainError: Si el paciente ya fue egresado o la cuna no está disponible.
+        NotFoundDomainError: Si el médico o la cuna indicados no existen.
+        DomainError: Si algún valor está fuera de rango o es inválido.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo el personal clínico puede modificar datos de un paciente."
@@ -243,103 +435,12 @@ def update_patient(
                 "No se pueden modificar los datos clínicos de un paciente ya egresado."
             )
 
-        changed_fields: list[str] = []
-
-        if "full_name" in data:
-            new_name = str(data["full_name"]).strip()
-            if not new_name:
-                raise DomainError("El nombre completo del paciente no puede estar vacío.")
-            if new_name != locked_patient.full_name:
-                locked_patient.full_name = new_name
-                changed_fields.append("full_name")
-
-        if "sex" in data:
-            new_sex = data["sex"]
-            if new_sex not in set(PatientSex.values):
-                raise DomainError("El sexo del paciente debe ser 'F' o 'M'.")
-            if new_sex != locked_patient.sex:
-                locked_patient.sex = new_sex
-                changed_fields.append("sex")
-
-        if "birth_date" in data:
-            new_birth_date = data["birth_date"]
-            if new_birth_date > timezone.localdate():
-                raise DomainError("La fecha de nacimiento no puede ser una fecha futura.")
-            if new_birth_date != locked_patient.birth_date:
-                locked_patient.birth_date = new_birth_date
-                changed_fields.append("birth_date")
-
-        if "gestational_age_weeks" in data:
-            new_gest = Decimal(str(data["gestational_age_weeks"]))
-            if not (Decimal("20.0") <= new_gest <= Decimal("45.0")):
-                raise DomainError(
-                    "La edad gestacional debe estar entre 20.0 y 45.0 semanas."
-                )
-            if new_gest != locked_patient.gestational_age_weeks:
-                locked_patient.gestational_age_weeks = new_gest
-                changed_fields.append("gestational_age_weeks")
-
-        if "current_weight_g" in data:
-            new_weight = int(data["current_weight_g"])
-            if not (200 <= new_weight <= 10000):
-                raise DomainError("El peso actual debe estar entre 200 y 10000 gramos.")
-            if new_weight != locked_patient.current_weight_g:
-                locked_patient.current_weight_g = new_weight
-                changed_fields.append("current_weight_g")
-                WeightRecord.objects.create(
-                    patient=locked_patient,
-                    weight_g=new_weight,
-                    recorded_by=actor,
-                )
-
-        if "diagnosis" in data:
-            new_diag = str(data["diagnosis"] or "").strip()
-            if new_diag != locked_patient.diagnosis:
-                locked_patient.diagnosis = new_diag
-                changed_fields.append("diagnosis")
-
-        if "attending_physician_id" in data:
-            new_physician = _validate_attending_physician(data["attending_physician_id"])
-            new_phys_id = new_physician.id if new_physician else None
-            if new_phys_id != locked_patient.attending_physician_id:
-                locked_patient.attending_physician = new_physician
-                changed_fields.append("attending_physician_id")
-
-        for field, value in _clean_guardian_data(data).items():
-            if value != getattr(locked_patient, field):
-                setattr(locked_patient, field, value)
-                changed_fields.append(field)
-
-        if "crib_id" in data:
-            new_crib_id = data["crib_id"]
-            if new_crib_id != locked_patient.crib_id:
-                old_crib = locked_patient.crib
-                new_crib = _validate_crib_available(
-                    new_crib_id, current_patient_id=locked_patient.id
-                )
-                locked_patient.crib = new_crib
-                changed_fields.append("crib_id")
-                # Liberar primero en el paciente antes de actualizar las cunas
-                locked_patient.save()
-                if old_crib is not None:
-                    old_crib.status = CribStatus.AVAILABLE
-                    old_crib.save(update_fields=["status", "updated_at"])
-                if new_crib is not None:
-                    new_crib.status = CribStatus.OCCUPIED
-                    new_crib.save(update_fields=["status", "updated_at"])
-                if old_crib is None:
-                    kind = CribMovementKind.ASSIGN
-                elif new_crib is None:
-                    kind = CribMovementKind.RELEASE
-                else:
-                    kind = CribMovementKind.MOVE
-                _record_crib_movement(
-                    patient=locked_patient,
-                    kind=kind,
-                    actor=actor,
-                    from_crib=old_crib,
-                    to_crib=new_crib,
-                )
+        changed_fields = [
+            *_apply_scalar_updates(locked_patient, data, actor),
+            *_apply_physician_update(locked_patient, data),
+            *_apply_guardian_updates(locked_patient, data),
+            *_apply_crib_change(locked_patient, data, actor),
+        ]
 
         if changed_fields:
             locked_patient.save()
@@ -365,6 +466,24 @@ def discharge_patient(
     notes: str = "",
     ip_address: str | None = None,
 ) -> Patient:
+    """Egresa a un paciente (alta, traslado o fallecimiento) y libera su cuna.
+
+    Args:
+        actor: Neonatólogo que firma el egreso.
+        patient: Paciente activo.
+        outcome: Desenlace (``DischargeOutcome``).
+        cause: Causa clínica; obligatoria si el desenlace es fallecimiento.
+        notes: Observaciones de egreso.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El paciente egresado.
+
+    Raises:
+        PermissionDomainError: Si el actor no es Neonatólogo.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si el desenlace o la causa son inválidos.
+    """
     if actor.role != UserRole.NEONATOLOGIST:
         raise PermissionDomainError(
             "Solo un Neonatólogo está autorizado para firmar el egreso clínico de un paciente."
@@ -455,17 +574,29 @@ def assign_patient_to_crib(
     patient_id: int,
     ip_address: str | None = None,
 ) -> Crib:
+    """Asigna un paciente activo a una cuna disponible.
+
+    Args:
+        actor: Neonatólogo o Matrona/Enfermera.
+        crib: Cuna destino; se relee con bloqueo de fila.
+        patient_id: Paciente a asignar.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La cuna ocupada.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede asignar cunas.
+        NotFoundDomainError: Si el paciente no existe.
+        ConflictDomainError: Cuna no disponible u ocupada, o paciente ya asignado a ella.
+    """
     if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo el personal clínico o administrativo puede asignar pacientes a una cuna."
         )
     with transaction.atomic():
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)
-        locked_patient = (
-            Patient.objects.select_for_update()
-            .filter(pk=patient_id)
-            .first()
-        )
+        locked_patient = Patient.objects.select_for_update().filter(pk=patient_id).first()
         if locked_patient is None:
             raise NotFoundDomainError("El paciente indicado no existe.")
         if locked_patient.status != PatientStatus.ACTIVE:
@@ -473,15 +604,11 @@ def assign_patient_to_crib(
                 "No se puede asignar una cuna a un paciente que ya fue egresado."
             )
         if locked_crib.status in {CribStatus.MAINTENANCE, CribStatus.OFFLINE}:
-            raise ConflictDomainError(
-                "La cuna no se encuentra disponible para asignación."
-            )
+            raise ConflictDomainError("La cuna no se encuentra disponible para asignación.")
 
         current_occupant = getattr(locked_crib, "current_patient", None)
         if current_occupant is not None and current_occupant.id != locked_patient.id:
-            raise ConflictDomainError(
-                "La cuna ya se encuentra ocupada por otro paciente."
-            )
+            raise ConflictDomainError("La cuna ya se encuentra ocupada por otro paciente.")
 
         previous_crib = locked_patient.crib
         if previous_crib is not None and previous_crib.id == locked_crib.id:
@@ -525,6 +652,20 @@ def release_patient_from_crib(
     crib: Crib,
     ip_address: str | None = None,
 ) -> Crib:
+    """Libera una cuna ocupada, desasignando a su paciente.
+
+    Args:
+        actor: Neonatólogo o Matrona/Enfermera.
+        crib: Cuna a liberar.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La cuna disponible.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede liberar cunas.
+        ConflictDomainError: Si la cuna ya estaba libre.
+    """
     if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo el personal clínico o administrativo puede liberar una cuna."
@@ -599,12 +740,8 @@ def swap_patients_between_cribs(
                     f"La cuna {target.code} está en mantenimiento o fuera de línea."
                 )
 
-        first_patient = (
-            Patient.objects.select_for_update().filter(crib=first_crib).first()
-        )
-        second_patient = (
-            Patient.objects.select_for_update().filter(crib=second_crib).first()
-        )
+        first_patient = Patient.objects.select_for_update().filter(crib=first_crib).first()
+        second_patient = Patient.objects.select_for_update().filter(crib=second_crib).first()
         if first_patient is None or second_patient is None:
             raise ConflictDomainError(
                 "Ambas cunas deben estar ocupadas para intercambiar pacientes; "
@@ -683,9 +820,7 @@ def delete_patient_permanently(
             crib.save(update_fields=["status", "updated_at"])
 
         # Orden inverso a las dependencias: primero lo que apunta a otros registros del paciente
-        MedicationAdministration.objects.filter(
-            prescription__patient_id=patient_id
-        ).delete()
+        MedicationAdministration.objects.filter(prescription__patient_id=patient_id).delete()
         Prescription.objects.filter(patient_id=patient_id).delete()
         Alert.objects.filter(patient_id=patient_id).delete()
         VitalSignReading.objects.filter(patient_id=patient_id).delete()
@@ -713,10 +848,24 @@ def record_patient_weight(
     weight_g: int,
     ip_address: str | None = None,
 ) -> WeightRecord:
+    """Registra una medición de peso y actualiza el peso actual del paciente.
+
+    Args:
+        actor: Personal clínico que mide.
+        patient: Paciente activo.
+        weight_g: Peso en gramos (200 a 10000).
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El registro de peso; si el último registro tiene el mismo peso, lo devuelve sin duplicar.
+
+    Raises:
+        PermissionDomainError: Si el rol no es clínico.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si el peso está fuera de rango.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo el personal clínico puede registrar mediciones de peso."
-        )
+        raise PermissionDomainError("Solo el personal clínico puede registrar mediciones de peso.")
     if not (200 <= weight_g <= 10000):
         raise DomainError("El peso registrado debe estar entre 200 y 10000 gramos.")
 
@@ -763,10 +912,28 @@ def create_care_plan(
     status: str = CarePlanStatus.ACTIVE,
     ip_address: str | None = None,
 ) -> CarePlan:
+    """Crea un plan de cuidado para un paciente activo.
+
+    Args:
+        actor: Personal clínico.
+        patient_id: Paciente destinatario.
+        care_area: Área de cuidado (obligatoria).
+        intervention: Intervención (obligatoria).
+        frequency: Frecuencia (obligatoria).
+        status: Estado inicial del plan.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El plan creado.
+
+    Raises:
+        PermissionDomainError: Si el rol no es clínico.
+        NotFoundDomainError: Si el paciente no existe.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si faltan campos o el estado es inválido.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo el personal clínico puede crear planes de cuidado."
-        )
+        raise PermissionDomainError("Solo el personal clínico puede crear planes de cuidado.")
     if status not in set(CarePlanStatus.values):
         raise DomainError("El estado del plan de cuidado no es válido.")
 
@@ -774,9 +941,7 @@ def create_care_plan(
     cleaned_intervention = (intervention or "").strip()
     cleaned_freq = (frequency or "").strip()
     if not cleaned_area or not cleaned_intervention or not cleaned_freq:
-        raise DomainError(
-            "El área de cuidado, la intervención y la frecuencia son obligatorias."
-        )
+        raise DomainError("El área de cuidado, la intervención y la frecuencia son obligatorias.")
 
     with transaction.atomic():
         patient = Patient.objects.select_for_update().filter(pk=patient_id).first()
@@ -814,10 +979,24 @@ def update_care_plan(
     data: dict[str, Any],
     ip_address: str | None = None,
 ) -> CarePlan:
+    """Actualiza parcialmente un plan de cuidado de un paciente activo.
+
+    Args:
+        actor: Personal clínico.
+        care_plan: Plan a modificar; se relee con bloqueo de fila.
+        data: Solo los campos a cambiar.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El plan actualizado.
+
+    Raises:
+        PermissionDomainError: Si el rol no es clínico.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si algún campo queda vacío o el estado es inválido.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo el personal clínico puede actualizar planes de cuidado."
-        )
+        raise PermissionDomainError("Solo el personal clínico puede actualizar planes de cuidado.")
 
     with transaction.atomic():
         locked_plan = CarePlan.objects.select_for_update().get(pk=care_plan.pk)
@@ -862,6 +1041,24 @@ def create_clinical_observation(
     category: str = ObservationCategory.GENERAL,
     ip_address: str | None = None,
 ) -> ClinicalObservation:
+    """Registra una observación clínica sobre un paciente activo.
+
+    Args:
+        actor: Personal clínico autor.
+        patient_id: Paciente observado.
+        content: Texto de la observación (obligatorio).
+        category: Categoría (``ObservationCategory``).
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La observación creada.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede registrar observaciones.
+        NotFoundDomainError: Si el paciente no existe.
+        ConflictDomainError: Si el paciente ya fue egresado.
+        DomainError: Si la categoría es inválida o el contenido está vacío.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo el personal clínico puede registrar observaciones clínicas."

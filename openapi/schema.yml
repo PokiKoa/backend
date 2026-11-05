@@ -7,6 +7,7 @@ paths:
   /api/v1/alert-thresholds/default/:
     get:
       operationId: alert_thresholds_default_retrieve
+      description: Responde 200 con los umbrales globales vigentes.
       summary: Consulta los umbrales globales neonatales por defecto
       tags:
       - alert-thresholds
@@ -22,6 +23,7 @@ paths:
           description: ''
     put:
       operationId: alert_thresholds_default_update
+      description: Reemplaza los umbrales globales y responde 200.
       summary: Actualiza los umbrales globales neonatales por defecto
       tags:
       - alert-thresholds
@@ -48,6 +50,7 @@ paths:
           description: ''
     patch:
       operationId: alert_thresholds_default_partial_update
+      description: Actualiza parcialmente los umbrales globales y responde 200.
       summary: Actualiza parcialmente los umbrales globales neonatales por defecto
       tags:
       - alert-thresholds
@@ -75,6 +78,8 @@ paths:
   /api/v1/alerts/:
     get:
       operationId: alerts_list
+      description: Alertas clínicas de solo lectura con acciones para reconocer y
+        resolver.
       parameters:
       - in: query
         name: alert_type
@@ -179,6 +184,8 @@ paths:
   /api/v1/alerts/{id}/:
     get:
       operationId: alerts_retrieve
+      description: Alertas clínicas de solo lectura con acciones para reconocer y
+        resolver.
       parameters:
       - in: path
         name: id
@@ -201,6 +208,7 @@ paths:
   /api/v1/alerts/{id}/acknowledge/:
     post:
       operationId: alerts_acknowledge_create
+      description: Reconoce una alerta activa y responde 200 con la alerta.
       summary: Reconoce (acknowledge) una alerta clínica activa
       parameters:
       - in: path
@@ -224,6 +232,7 @@ paths:
   /api/v1/alerts/{id}/resolve/:
     post:
       operationId: alerts_resolve_create
+      description: Resuelve manualmente una alerta y responde 200 con la alerta.
       summary: Resuelve manualmente una alerta clínica
       parameters:
       - in: path
@@ -247,6 +256,8 @@ paths:
   /api/v1/audit-logs/:
     get:
       operationId: audit_logs_list
+      description: Registro de auditoría de solo lectura (sin valores clínicos, solo
+        nombres de campos).
       parameters:
       - in: query
         name: action
@@ -353,6 +364,8 @@ paths:
   /api/v1/audit-logs/{id}/:
     get:
       operationId: audit_logs_retrieve
+      description: Registro de auditoría de solo lectura (sin valores clínicos, solo
+        nombres de campos).
       parameters:
       - in: path
         name: id
@@ -375,6 +388,8 @@ paths:
   /api/v1/audit-logs/summary/:
     get:
       operationId: audit_logs_summary_list
+      description: Responde 200 con el conteo de eventos por acción, con los mismos
+        filtros del listado.
       summary: Conteo de eventos de auditoría por acción, con los mismos filtros del
         listado
       parameters:
@@ -473,6 +488,8 @@ paths:
   /api/v1/auth/2fa/disable/:
     post:
       operationId: auth_2fa_disable_create
+      description: Verifica el código TOTP y responde 200 con el usuario; 409 si 2FA
+        no estaba activo.
       summary: Verifica un código TOTP y desactiva 2FA en la cuenta actual
       tags:
       - auth
@@ -501,6 +518,8 @@ paths:
   /api/v1/auth/2fa/enable/:
     post:
       operationId: auth_2fa_enable_create
+      description: Verifica el código TOTP y responde 200 con el usuario; 400 si el
+        código es inválido.
       summary: Verifica un código TOTP y activa 2FA en la cuenta actual
       tags:
       - auth
@@ -529,6 +548,8 @@ paths:
   /api/v1/auth/2fa/setup/:
     post:
       operationId: auth_2fa_setup_create
+      description: Responde 200 con el secreto y la URI de aprovisionamiento; 409
+        si 2FA ya está activo.
       summary: Genera un nuevo secreto TOTP para configurar 2FA
       tags:
       - auth
@@ -545,6 +566,8 @@ paths:
   /api/v1/auth/change-password/:
     post:
       operationId: auth_change_password_create
+      description: Cambia la contraseña, cierra las demás sesiones y responde 200
+        con tokens renovados; 400 si la actual es incorrecta.
       summary: Cambia la contraseña propia, cierra las demás sesiones y renueva los
         tokens
       tags:
@@ -574,6 +597,8 @@ paths:
   /api/v1/auth/login/:
     post:
       operationId: auth_login_create
+      description: Autentica con usuario/correo y contraseña (y código 2FA si aplica);
+        responde 200 con el access token.
       summary: Inicia sesión; entrega el access token y deja el refresh en una cookie
         httpOnly
       tags:
@@ -602,6 +627,8 @@ paths:
   /api/v1/auth/logout/:
     post:
       operationId: auth_logout_create
+      description: Revoca el refresh de la cookie y responde 204 aunque la cookie
+        esté ausente.
       summary: Cierra sesión revocando el refresh token de la cookie y eliminándola
       tags:
       - auth
@@ -614,6 +641,7 @@ paths:
   /api/v1/auth/me/:
     get:
       operationId: auth_me_retrieve
+      description: Responde 200 con los datos del usuario de la petición.
       summary: Retorna el perfil del usuario autenticado
       tags:
       - auth
@@ -630,6 +658,8 @@ paths:
   /api/v1/auth/refresh/:
     post:
       operationId: auth_refresh_create
+      description: Rota el refresh de la cookie y responde 200 con un nuevo access
+        token; 400 si falta y 401 si es inválido.
       summary: Rota el refresh token de la cookie httpOnly y entrega un nuevo access
         token
       tags:
@@ -646,6 +676,7 @@ paths:
   /api/v1/care-plans/:
     get:
       operationId: care_plans_list
+      description: Planes de cuidado de pacientes (listar, ver, crear y editar).
       parameters:
       - in: query
         name: care_area
@@ -705,6 +736,7 @@ paths:
           description: ''
     post:
       operationId: care_plans_create
+      description: Crea un plan de cuidado y responde 201.
       tags:
       - care-plans
       requestBody:
@@ -732,6 +764,7 @@ paths:
   /api/v1/care-plans/{id}/:
     get:
       operationId: care_plans_retrieve
+      description: Planes de cuidado de pacientes (listar, ver, crear y editar).
       parameters:
       - in: path
         name: id
@@ -753,6 +786,7 @@ paths:
           description: ''
     put:
       operationId: care_plans_update
+      description: Actualiza un plan de cuidado y responde 200.
       parameters:
       - in: path
         name: id
@@ -785,6 +819,7 @@ paths:
           description: ''
     patch:
       operationId: care_plans_partial_update
+      description: Actualiza parcialmente un plan (mismo flujo que ``update``).
       parameters:
       - in: path
         name: id
@@ -818,7 +853,13 @@ paths:
   /api/v1/cribs/:
     get:
       operationId: cribs_list
+      description: 'Cunas y su dispositivo de monitoreo: listado, detalle, configuración
+        y acciones.'
       parameters:
+      - in: query
+        name: code
+        schema:
+          type: string
       - in: query
         name: is_device_active
         schema:
@@ -875,6 +916,8 @@ paths:
           description: ''
     post:
       operationId: cribs_create
+      description: Registra una cuna y responde 201 con la API Key en claro (solo
+        esta vez).
       tags:
       - cribs
       requestBody:
@@ -902,6 +945,8 @@ paths:
   /api/v1/cribs/{id}/:
     get:
       operationId: cribs_retrieve
+      description: 'Cunas y su dispositivo de monitoreo: listado, detalle, configuración
+        y acciones.'
       parameters:
       - in: path
         name: id
@@ -923,6 +968,7 @@ paths:
           description: ''
     put:
       operationId: cribs_update
+      description: Actualiza la configuración de la cuna y responde 200.
       parameters:
       - in: path
         name: id
@@ -955,6 +1001,7 @@ paths:
           description: ''
     patch:
       operationId: cribs_partial_update
+      description: Actualiza parcialmente la cuna (mismo flujo que ``update``).
       parameters:
       - in: path
         name: id
@@ -988,6 +1035,7 @@ paths:
   /api/v1/cribs/{id}/assign-patient/:
     post:
       operationId: cribs_assign_patient_create
+      description: Asigna un paciente activo a la cuna y responde 200 con la cuna.
       summary: Asigna un paciente activo a la cuna
       parameters:
       - in: path
@@ -1023,6 +1071,8 @@ paths:
   /api/v1/cribs/{id}/release/:
     post:
       operationId: cribs_release_create
+      description: Libera la cuna desvinculando a su paciente y responde 200 con la
+        cuna.
       summary: Libera la cuna desvinculando al paciente actual
       parameters:
       - in: path
@@ -1046,6 +1096,8 @@ paths:
   /api/v1/cribs/{id}/rotate-key/:
     post:
       operationId: cribs_rotate_key_create
+      description: Rota la API Key del dispositivo y responde 200 con la nueva clave
+        en claro.
       summary: Rota la API Key del dispositivo asociado a la cuna
       parameters:
       - in: path
@@ -1069,8 +1121,14 @@ paths:
   /api/v1/cribs/{id}/swap/:
     post:
       operationId: cribs_swap_create
+      description: Intercambia los pacientes de dos cunas ocupadas sin egresarlos;
+        responde 200.
       summary: Intercambia a los pacientes de dos cunas ocupadas sin egresarlos
       parameters:
+      - in: query
+        name: code
+        schema:
+          type: string
       - in: path
         name: id
         schema:
@@ -1146,6 +1204,8 @@ paths:
   /api/v1/cribs/{id}/telemetry/:
     get:
       operationId: cribs_telemetry_retrieve
+      description: GET lista el historial de lecturas de la cuna; POST ingiere una
+        lectura (201) con API Key del dispositivo o sesión de personal.
       summary: Ingiere una lectura de telemetría o lista el historial de lecturas
         de la cuna
       parameters:
@@ -1169,6 +1229,8 @@ paths:
           description: ''
     post:
       operationId: cribs_telemetry_create
+      description: GET lista el historial de lecturas de la cuna; POST ingiere una
+        lectura (201) con API Key del dispositivo o sesión de personal.
       summary: Ingiere una lectura de telemetría o lista el historial de lecturas
         de la cuna
       parameters:
@@ -1204,6 +1266,8 @@ paths:
   /api/v1/cribs/check-offline/:
     post:
       operationId: cribs_check_offline_create
+      description: Marca como offline las cunas activas sin telemetría reciente y
+        responde 200 con las detectadas.
       summary: Evalúa y marca como offline las cunas activas que superaron el tiempo
         sin telemetría
       tags:
@@ -1221,6 +1285,8 @@ paths:
   /api/v1/health/:
     get:
       operationId: health_retrieve
+      description: Responde 200 con el estado del servicio en JSON, o en HTML si el
+        cliente lo solicita.
       summary: Verifica el estado operativo del servicio, base de datos, tiempo real
         y métricas
       tags:
@@ -1237,6 +1303,7 @@ paths:
   /api/v1/medication-catalog/:
     get:
       operationId: medication_catalog_list
+      description: Catálogo de medicamentos con stock.
       parameters:
       - in: query
         name: is_active
@@ -1288,6 +1355,7 @@ paths:
           description: ''
     post:
       operationId: medication_catalog_create
+      description: Registra un medicamento y responde 201.
       tags:
       - medication-catalog
       requestBody:
@@ -1315,6 +1383,7 @@ paths:
   /api/v1/medication-catalog/{id}/:
     get:
       operationId: medication_catalog_retrieve
+      description: Catálogo de medicamentos con stock.
       parameters:
       - in: path
         name: id
@@ -1337,6 +1406,7 @@ paths:
           description: ''
     put:
       operationId: medication_catalog_update
+      description: Actualiza datos o stock y responde 200.
       parameters:
       - in: path
         name: id
@@ -1370,6 +1440,7 @@ paths:
           description: ''
     patch:
       operationId: medication_catalog_partial_update
+      description: Actualiza parcialmente el ítem (mismo flujo que ``update``).
       parameters:
       - in: path
         name: id
@@ -1404,6 +1475,7 @@ paths:
   /api/v1/monitoring/overview/:
     get:
       operationId: monitoring_overview_retrieve
+      description: Responde 200 con el resumen de todas las cunas de la unidad.
       summary: 'Resumen de la unidad: cada cuna con su paciente, última lectura y
         alertas abiertas'
       tags:
@@ -1421,6 +1493,7 @@ paths:
   /api/v1/observations/:
     get:
       operationId: observations_list
+      description: Observaciones clínicas de pacientes (listar, ver y crear).
       parameters:
       - in: query
         name: author
@@ -1484,6 +1557,7 @@ paths:
           description: ''
     post:
       operationId: observations_create
+      description: Registra una observación clínica y responde 201.
       tags:
       - observations
       requestBody:
@@ -1511,6 +1585,7 @@ paths:
   /api/v1/observations/{id}/:
     get:
       operationId: observations_retrieve
+      description: Observaciones clínicas de pacientes (listar, ver y crear).
       parameters:
       - in: path
         name: id
@@ -1533,6 +1608,8 @@ paths:
   /api/v1/patients/:
     get:
       operationId: patients_list
+      description: 'Ficha clínica de pacientes: listado, detalle, ingreso, edición
+        y acciones asociadas (egreso, pesos, cunas, vitales, umbrales).'
       parameters:
       - in: query
         name: active
@@ -1628,6 +1705,7 @@ paths:
           description: ''
     post:
       operationId: patients_create
+      description: Ingresa un paciente y responde 201.
       tags:
       - patients
       requestBody:
@@ -1655,6 +1733,8 @@ paths:
   /api/v1/patients/{id}/:
     get:
       operationId: patients_retrieve
+      description: Responde 200 con el paciente y registra el acceso de lectura en
+        la auditoría.
       parameters:
       - in: path
         name: id
@@ -1676,6 +1756,7 @@ paths:
           description: ''
     put:
       operationId: patients_update
+      description: Actualiza datos del paciente y responde 200.
       parameters:
       - in: path
         name: id
@@ -1708,6 +1789,7 @@ paths:
           description: ''
     patch:
       operationId: patients_partial_update
+      description: Actualiza parcialmente al paciente (mismo flujo que ``update``).
       parameters:
       - in: path
         name: id
@@ -1741,6 +1823,8 @@ paths:
   /api/v1/patients/{id}/alert-thresholds/:
     get:
       operationId: patients_alert_thresholds_retrieve
+      description: GET consulta los umbrales efectivos; PUT/PATCH los personalizan
+        para el paciente.
       summary: Consulta o personaliza los umbrales de alerta clínica para el paciente
       parameters:
       - in: path
@@ -1763,6 +1847,8 @@ paths:
           description: ''
     put:
       operationId: patients_alert_thresholds_update
+      description: GET consulta los umbrales efectivos; PUT/PATCH los personalizan
+        para el paciente.
       summary: Consulta o personaliza los umbrales de alerta clínica para el paciente
       parameters:
       - in: path
@@ -1796,6 +1882,8 @@ paths:
           description: ''
     patch:
       operationId: patients_alert_thresholds_partial_update
+      description: GET consulta los umbrales efectivos; PUT/PATCH los personalizan
+        para el paciente.
       summary: Consulta o personaliza los umbrales de alerta clínica para el paciente
       parameters:
       - in: path
@@ -1830,6 +1918,8 @@ paths:
   /api/v1/patients/{id}/crib-movements/:
     get:
       operationId: patients_crib_movements_list
+      description: Responde 200 con el historial de asignaciones, traslados, intercambios
+        y liberaciones de cuna.
       summary: 'Historial de cunas del paciente: asignaciones, traslados, intercambios
         y liberaciones'
       parameters:
@@ -1924,6 +2014,8 @@ paths:
   /api/v1/patients/{id}/delete-permanently/:
     post:
       operationId: patients_delete_permanently_create
+      description: Elimina definitivamente al paciente y su registro clínico (solo
+        Administrador); responde 204.
       summary: Elimina definitivamente al paciente y todo su registro clínico (solo
         Administrador)
       parameters:
@@ -1956,6 +2048,8 @@ paths:
   /api/v1/patients/{id}/discharge/:
     post:
       operationId: patients_discharge_create
+      description: Egresa al paciente (alta, traslado o fallecimiento); responde 200
+        con el paciente.
       summary: Egresa lógicamente a un paciente conservando su historial y liberando
         su cuna
       parameters:
@@ -1992,6 +2086,7 @@ paths:
   /api/v1/patients/{id}/vitals/:
     get:
       operationId: patients_vitals_retrieve
+      description: Responde 200 con el historial paginado de signos vitales del paciente.
       summary: Lista el historial de signos vitales registrados para el paciente
       parameters:
       - in: path
@@ -2015,6 +2110,8 @@ paths:
   /api/v1/patients/{id}/weights/:
     get:
       operationId: patients_weights_list
+      description: GET lista la curva ponderal; POST registra una medición de peso
+        (201).
       summary: Lista la curva ponderal o registra una nueva medición de peso del paciente
       parameters:
       - in: query
@@ -2123,6 +2220,8 @@ paths:
           description: ''
     post:
       operationId: patients_weights_create
+      description: GET lista la curva ponderal; POST registra una medición de peso
+        (201).
       summary: Lista la curva ponderal o registra una nueva medición de peso del paciente
       parameters:
       - in: query
@@ -2244,6 +2343,8 @@ paths:
   /api/v1/prescriptions/:
     get:
       operationId: prescriptions_list
+      description: Indicaciones médicas por paciente, con administración de dosis
+        y cancelación.
       parameters:
       - in: query
         name: is_recurring
@@ -2337,6 +2438,7 @@ paths:
           description: ''
     post:
       operationId: prescriptions_create
+      description: Crea una indicación y responde 201.
       tags:
       - prescriptions
       requestBody:
@@ -2364,6 +2466,8 @@ paths:
   /api/v1/prescriptions/{id}/:
     get:
       operationId: prescriptions_retrieve
+      description: Indicaciones médicas por paciente, con administración de dosis
+        y cancelación.
       parameters:
       - in: path
         name: id
@@ -2423,6 +2527,7 @@ paths:
   /api/v1/prescriptions/{id}/administrations/:
     get:
       operationId: prescriptions_administrations_list
+      description: Responde 200 con el historial de dosis administradas de la indicación.
       summary: Historial de dosis administradas de la indicación
       parameters:
       - in: path
@@ -2524,6 +2629,7 @@ paths:
   /api/v1/prescriptions/{id}/cancel/:
     post:
       operationId: prescriptions_cancel_create
+      description: Cancela una indicación vigente y responde 200 con la indicación.
       summary: Cancela una indicación médica vigente
       parameters:
       - in: path
@@ -2558,6 +2664,8 @@ paths:
   /api/v1/reports/series/:
     get:
       operationId: reports_series_list
+      description: Responde 200 con la serie de ``days`` días (1 a 90, por defecto
+        14); 400 si está fuera de rango.
       summary: Serie diaria de ingresos y alertas (días locales)
       parameters:
       - in: query
@@ -2582,6 +2690,7 @@ paths:
   /api/v1/reports/summary/:
     get:
       operationId: reports_summary_retrieve
+      description: Responde 200 con los contadores del resumen operativo.
       summary: 'Resumen operativo de la unidad: pacientes, cunas, medicación, alertas
         y personal'
       tags:
@@ -2599,6 +2708,7 @@ paths:
   /api/v1/shift-assignments/:
     get:
       operationId: shift_assignments_list
+      description: Asignaciones de profesionales a cunas por día y turno.
       parameters:
       - in: query
         name: crib
@@ -2673,6 +2783,7 @@ paths:
           description: ''
     post:
       operationId: shift_assignments_create
+      description: Asigna un profesional a una cuna y turno; responde 201.
       tags:
       - shift-assignments
       requestBody:
@@ -2700,6 +2811,7 @@ paths:
   /api/v1/shift-assignments/{id}/:
     delete:
       operationId: shift_assignments_destroy
+      description: Elimina una asignación y responde 204.
       parameters:
       - in: path
         name: id
@@ -2718,6 +2830,8 @@ paths:
   /api/v1/shift-assignments/mine/:
     get:
       operationId: shift_assignments_mine_retrieve
+      description: Responde 200 con las cunas asignadas al usuario en el turno vigente
+        y su estado de monitoreo.
       summary: Cunas asignadas al usuario en el turno vigente, con su estado de monitoreo
       tags:
       - shift-assignments
@@ -2734,6 +2848,7 @@ paths:
   /api/v1/shifts/:
     get:
       operationId: shifts_list
+      description: Responde 200 con los turnos y marca cuál está vigente.
       summary: Catálogo fijo de turnos con su horario e indicación del turno vigente
       tags:
       - shifts
@@ -2752,6 +2867,8 @@ paths:
   /api/v1/staff/:
     get:
       operationId: staff_list
+      description: Directorio de personal activo, de solo lectura, para asignar turnos
+        y responsables.
       parameters:
       - name: ordering
         required: false
@@ -2819,6 +2936,8 @@ paths:
   /api/v1/users/:
     get:
       operationId: users_list
+      description: Gestión de cuentas de usuario (listar, ver, crear y editar) para
+        administradores.
       parameters:
       - in: query
         name: is_active
@@ -2889,6 +3008,7 @@ paths:
           description: ''
     post:
       operationId: users_create
+      description: Crea una cuenta y responde 201 con el usuario.
       tags:
       - users
       requestBody:
@@ -2916,6 +3036,8 @@ paths:
   /api/v1/users/{id}/:
     get:
       operationId: users_retrieve
+      description: Gestión de cuentas de usuario (listar, ver, crear y editar) para
+        administradores.
       parameters:
       - in: path
         name: id
@@ -2937,6 +3059,7 @@ paths:
           description: ''
     put:
       operationId: users_update
+      description: Reemplaza campos de la cuenta y responde 200.
       parameters:
       - in: path
         name: id
@@ -2969,6 +3092,7 @@ paths:
           description: ''
     patch:
       operationId: users_partial_update
+      description: Actualiza parcialmente la cuenta (mismo flujo que ``update``).
       parameters:
       - in: path
         name: id
@@ -3002,6 +3126,7 @@ paths:
   /api/v1/vitals/:
     get:
       operationId: vitals_list
+      description: Historial de lecturas de signos vitales (solo lectura).
       parameters:
       - in: query
         name: cannula_connected
@@ -3078,6 +3203,7 @@ paths:
   /api/v1/vitals/{id}/:
     get:
       operationId: vitals_retrieve
+      description: Historial de lecturas de signos vitales (solo lectura).
       parameters:
       - in: path
         name: id
@@ -3140,6 +3266,7 @@ components:
         * `account_locked` - Bloqueo temporal de cuenta
     ActivityPoint:
       type: object
+      description: 'Punto diario de la serie de actividad: ingresos y alertas.'
       properties:
         date:
           type: string
@@ -3154,6 +3281,8 @@ components:
       - date
     Alert:
       type: object
+      description: Representación de una alerta con su cuna, paciente y trazabilidad
+        de reconocimiento y resolución.
       properties:
         id:
           type: integer
@@ -3263,6 +3392,7 @@ components:
       - triggered_at
     AlertReport:
       type: object
+      description: Alertas abiertas, por severidad y por tipo.
       properties:
         open:
           type: integer
@@ -3300,6 +3430,7 @@ components:
         * `resolved` - Resuelta
     AlertThresholdConfig:
       type: object
+      description: Representación de los umbrales de alerta vigentes.
       properties:
         id:
           type: integer
@@ -3371,6 +3502,8 @@ components:
       - updated_by
     AlertThresholdConfigUpdate:
       type: object
+      description: Entrada para actualizar umbrales; los campos omitidos conservan
+        su valor.
       properties:
         heart_rate_critical_low:
           type: integer
@@ -3430,6 +3563,7 @@ components:
         * `other` - Otra Alerta
     AuditActionCount:
       type: object
+      description: Conteo de eventos de auditoría por acción.
       properties:
         action:
           $ref: '#/components/schemas/ActionEnum'
@@ -3440,6 +3574,7 @@ components:
       - total
     AuditLog:
       type: object
+      description: Representación de solo lectura de un evento de auditoría.
       properties:
         id:
           type: integer
@@ -3500,6 +3635,7 @@ components:
       - ''
     CarePlan:
       type: object
+      description: Representación de un plan de cuidado.
       properties:
         id:
           type: integer
@@ -3551,6 +3687,7 @@ components:
       - updated_at
     CarePlanCreate:
       type: object
+      description: Entrada para crear un plan de cuidado.
       properties:
         patient_id:
           type: integer
@@ -3585,6 +3722,7 @@ components:
         * `completed` - Finalizado
     CarePlanUpdate:
       type: object
+      description: Entrada para editar parcialmente un plan de cuidado.
       properties:
         care_area:
           type: string
@@ -3613,6 +3751,7 @@ components:
         * `phototherapy` - Fototerapia
     ChangePassword:
       type: object
+      description: Entrada para cambiar la contraseña propia.
       properties:
         current_password:
           type: string
@@ -3625,6 +3764,7 @@ components:
       - new_password
     ClinicalObservation:
       type: object
+      description: Representación de una observación clínica.
       properties:
         id:
           type: integer
@@ -3663,6 +3803,7 @@ components:
       - patient_name
     ClinicalObservationCreate:
       type: object
+      description: Entrada para registrar una observación clínica.
       properties:
         patient_id:
           type: integer
@@ -3678,6 +3819,7 @@ components:
       - patient_id
     Crib:
       type: object
+      description: Representación de una cuna con su paciente actual y estado.
       properties:
         id:
           type: integer
@@ -3742,6 +3884,7 @@ components:
       - updated_at
     CribAssignPatient:
       type: object
+      description: Entrada para asignar un paciente a una cuna.
       properties:
         patient_id:
           type: integer
@@ -3750,6 +3893,7 @@ components:
       - patient_id
     CribCreate:
       type: object
+      description: Entrada para registrar una cuna.
       properties:
         code:
           type: string
@@ -3773,6 +3917,7 @@ components:
       - code
     CribMovement:
       type: object
+      description: Representación de un movimiento de cuna del historial del paciente.
       properties:
         id:
           type: integer
@@ -3840,6 +3985,8 @@ components:
         * `discharge` - Liberación por egreso
     CribOverview:
       type: object
+      description: Cuna con su paciente, última lectura, alertas abiertas y severidad
+        máxima.
       properties:
         id:
           type: integer
@@ -3928,6 +4075,7 @@ components:
       - updated_at
     CribReport:
       type: object
+      description: Conteo de cunas por estado y porcentaje de ocupación.
       properties:
         total:
           type: integer
@@ -3942,6 +4090,7 @@ components:
       - total
     CribStatusCounts:
       type: object
+      description: Cantidad de cunas por estado operativo.
       properties:
         available:
           type: integer
@@ -3970,6 +4119,7 @@ components:
         * `offline` - Fuera de línea
     CribSwap:
       type: object
+      description: Entrada para intercambiar los pacientes de dos cunas.
       properties:
         other_crib_id:
           type: integer
@@ -3978,6 +4128,7 @@ components:
       - other_crib_id
     CribUpdate:
       type: object
+      description: Entrada para editar parcialmente una cuna.
       properties:
         code:
           type: string
@@ -4051,6 +4202,8 @@ components:
       - version
     Login:
       type: object
+      description: 'Entrada de inicio de sesión: usuario o correo, contraseña y código
+        2FA opcional.'
       properties:
         username:
           type: string
@@ -4067,6 +4220,7 @@ components:
       - password
     LoginResponse:
       type: object
+      description: 'Respuesta de inicio de sesión: access token y usuario.'
       properties:
         access:
           type: string
@@ -4077,6 +4231,7 @@ components:
       - user
     MedicationAdministration:
       type: object
+      description: Representación de una dosis administrada.
       properties:
         id:
           type: integer
@@ -4115,6 +4270,7 @@ components:
       - units_deducted
     MedicationCatalogCreate:
       type: object
+      description: Entrada para registrar un medicamento.
       properties:
         name:
           type: string
@@ -4147,6 +4303,8 @@ components:
       - name
     MedicationCatalogItem:
       type: object
+      description: Representación de un medicamento del catálogo, con indicador de
+        bajo stock.
       properties:
         id:
           type: integer
@@ -4199,6 +4357,7 @@ components:
       - updated_at
     MedicationCatalogUpdate:
       type: object
+      description: Entrada para editar parcialmente un medicamento o su stock.
       properties:
         name:
           type: string
@@ -4223,6 +4382,8 @@ components:
           type: boolean
     MyShift:
       type: object
+      description: 'Respuesta de ``mine``: día, turno vigente y cunas asignadas al
+        usuario.'
       properties:
         date:
           type: string
@@ -4242,6 +4403,7 @@ components:
       - null
     OperationsSummary:
       type: object
+      description: Respuesta del resumen operativo de la unidad.
       properties:
         generated_at:
           type: string
@@ -4271,6 +4433,7 @@ components:
       - staff
     OverviewAlertCounts:
       type: object
+      description: Alertas abiertas de una cuna por severidad.
       properties:
         total:
           type: integer
@@ -4287,6 +4450,8 @@ components:
       - warning
     OverviewPatient:
       type: object
+      description: Datos mínimos del paciente que se muestran en el resumen de la
+        unidad.
       properties:
         id:
           type: integer
@@ -4644,6 +4809,8 @@ components:
             $ref: '#/components/schemas/WeightRecord'
     PatchedAlertThresholdConfigUpdate:
       type: object
+      description: Entrada para actualizar umbrales; los campos omitidos conservan
+        su valor.
       properties:
         heart_rate_critical_low:
           type: integer
@@ -4687,6 +4854,7 @@ components:
           pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
     PatchedCarePlanUpdate:
       type: object
+      description: Entrada para editar parcialmente un plan de cuidado.
       properties:
         care_area:
           type: string
@@ -4701,6 +4869,7 @@ components:
           $ref: '#/components/schemas/CarePlanStatusEnum'
     PatchedCribUpdate:
       type: object
+      description: Entrada para editar parcialmente una cuna.
       properties:
         code:
           type: string
@@ -4717,6 +4886,7 @@ components:
           type: boolean
     PatchedMedicationCatalogUpdate:
       type: object
+      description: Entrada para editar parcialmente un medicamento o su stock.
       properties:
         name:
           type: string
@@ -4741,6 +4911,8 @@ components:
           type: boolean
     PatchedPatient:
       type: object
+      description: Representación de lectura de un paciente con médico, cuna y datos
+        de egreso.
       properties:
         id:
           type: integer
@@ -4856,7 +5028,7 @@ components:
           readOnly: true
     PatchedPatientUpdate:
       type: object
-      description: Datos de madre y padre, opcionales; el servicio valida RUT y teléfono.
+      description: Entrada para editar parcialmente un paciente activo.
       properties:
         mother_rut:
           type: string
@@ -4908,6 +5080,7 @@ components:
           nullable: true
     PatchedUserUpdate:
       type: object
+      description: Entrada para que un administrador edite parcialmente una cuenta.
       properties:
         username:
           type: string
@@ -4940,6 +5113,8 @@ components:
           default: false
     Patient:
       type: object
+      description: Representación de lectura de un paciente con médico, cuna y datos
+        de egreso.
       properties:
         id:
           type: integer
@@ -5087,6 +5262,7 @@ components:
       - updated_at
     PatientCounts:
       type: object
+      description: 'Conteo de pacientes: total, activos y egresados.'
       properties:
         total:
           type: integer
@@ -5100,7 +5276,7 @@ components:
       - total
     PatientCreate:
       type: object
-      description: Datos de madre y padre, opcionales; el servicio valida RUT y teléfono.
+      description: Entrada para ingresar un paciente (datos clínicos y de apoderados).
       properties:
         mother_rut:
           type: string
@@ -5168,6 +5344,7 @@ components:
       - sex
     PatientDischarge:
       type: object
+      description: 'Entrada para egresar a un paciente: desenlace, causa y notas.'
       properties:
         outcome:
           $ref: '#/components/schemas/DischargeOutcomeEnum'
@@ -5183,6 +5360,8 @@ components:
       - outcome
     PatientPermanentDelete:
       type: object
+      description: 'Entrada del borrado definitivo: exige escribir la ficha clínica
+        como confirmación.'
       properties:
         confirmation:
           type: string
@@ -5204,7 +5383,7 @@ components:
         * `deceased` - Fallecido
     PatientUpdate:
       type: object
-      description: Datos de madre y padre, opcionales; el servicio valida RUT y teléfono.
+      description: Entrada para editar parcialmente un paciente activo.
       properties:
         mother_rut:
           type: string
@@ -5256,6 +5435,8 @@ components:
           nullable: true
     Prescription:
       type: object
+      description: 'Representación de una indicación con su estado de pauta: próxima
+        dosis, atraso y administraciones.'
       properties:
         id:
           type: integer
@@ -5366,6 +5547,8 @@ components:
       - updated_at
     PrescriptionAdminister:
       type: object
+      description: Entrada para administrar una dosis (horario programado y notas
+        opcionales).
       properties:
         scheduled_for:
           type: string
@@ -5376,12 +5559,14 @@ components:
           default: ''
     PrescriptionCancel:
       type: object
+      description: Entrada para cancelar una indicación (motivo opcional).
       properties:
         reason:
           type: string
           default: ''
     PrescriptionCreate:
       type: object
+      description: Entrada para crear una indicación médica.
       properties:
         patient_id:
           type: integer
@@ -5419,6 +5604,7 @@ components:
       - starts_at
     PrescriptionReport:
       type: object
+      description: Indicaciones por estado y administraciones del día.
       properties:
         by_status:
           type: object
@@ -5487,6 +5673,7 @@ components:
         * `M` - Masculino
     Shift:
       type: object
+      description: Turno del catálogo con su horario e indicador de turno vigente.
       properties:
         value:
           $ref: '#/components/schemas/WorkShiftEnum'
@@ -5508,6 +5695,8 @@ components:
       - value
     ShiftAssignment:
       type: object
+      description: Representación de una asignación de turno con el nombre y rol del
+        profesional.
       properties:
         id:
           type: integer
@@ -5555,6 +5744,7 @@ components:
       - user_role
     ShiftAssignmentCreate:
       type: object
+      description: Entrada para asignar un profesional a una cuna en un turno.
       properties:
         user_id:
           type: integer
@@ -5582,6 +5772,7 @@ components:
         * `awake` - Despierto
     StaffMember:
       type: object
+      description: Datos públicos mínimos de un miembro del personal para el directorio.
       properties:
         id:
           type: integer
@@ -5606,6 +5797,7 @@ components:
       - shift
     StaffReport:
       type: object
+      description: Personal activo, por turno y asignaciones del turno vigente.
       properties:
         active:
           type: integer
@@ -5621,6 +5813,7 @@ components:
       - by_shift
     TokenRefreshResponse:
       type: object
+      description: 'Respuesta de renovación: nuevo access token.'
       properties:
         access:
           type: string
@@ -5628,6 +5821,7 @@ components:
       - access
     TwoFactorCode:
       type: object
+      description: Entrada con el código TOTP de 6 dígitos.
       properties:
         otp_code:
           type: string
@@ -5637,6 +5831,7 @@ components:
       - otp_code
     TwoFactorSetupResponse:
       type: object
+      description: 'Respuesta de la configuración de 2FA: secreto y URI de aprovisionamiento.'
       properties:
         secret:
           type: string
@@ -5647,6 +5842,8 @@ components:
       - secret
     UnitOverview:
       type: object
+      description: 'Respuesta del resumen de la unidad: fecha de generación, totales
+        y cunas.'
       properties:
         generated_at:
           type: string
@@ -5663,6 +5860,7 @@ components:
       - summary
     UnitSummary:
       type: object
+      description: 'Totales de la unidad: cunas por estado y alertas abiertas.'
       properties:
         cribs_total:
           type: integer
@@ -5679,6 +5877,8 @@ components:
       - patients_monitored
     User:
       type: object
+      description: Representación de un usuario (sin credenciales), con su estado
+        de bloqueo y 2FA.
       properties:
         id:
           type: integer
@@ -5741,6 +5941,7 @@ components:
       - username
     UserCreate:
       type: object
+      description: Entrada para que un administrador cree una cuenta.
       properties:
         username:
           type: string
@@ -5777,6 +5978,7 @@ components:
       - password
     UserUpdate:
       type: object
+      description: Entrada para que un administrador edite parcialmente una cuenta.
       properties:
         username:
           type: string
@@ -5809,6 +6011,7 @@ components:
           default: false
     VitalSignReading:
       type: object
+      description: Representación de solo lectura de una lectura de signos vitales.
       properties:
         id:
           type: integer
@@ -5871,6 +6074,7 @@ components:
       - temperature
     WeightRecord:
       type: object
+      description: Representación de una medición de peso.
       properties:
         id:
           type: integer
@@ -5901,6 +6105,7 @@ components:
       - weight_g
     WeightRecordCreate:
       type: object
+      description: Entrada para registrar una medición de peso.
       properties:
         weight_g:
           type: integer

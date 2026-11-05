@@ -117,9 +117,7 @@ class PatientEdgeCaseTests(TestCase):
         with self.assertRaises(PermissionDomainError):
             update_patient(actor=self.admin, patient=patient, data={"full_name": "X"})
         with self.assertRaises(PermissionDomainError):
-            update_patient(
-                actor=self.nurse, patient=patient, data={"diagnosis": "Sepsis"}
-            )
+            update_patient(actor=self.nurse, patient=patient, data={"diagnosis": "Sepsis"})
 
         for invalid in (
             {"full_name": " "},
@@ -228,18 +226,12 @@ class PatientEdgeCaseTests(TestCase):
         self.assertEqual(updated.status, CarePlanStatus.SUSPENDED)
 
         with self.assertRaises(PermissionDomainError):
-            create_clinical_observation(
-                actor=self.admin, patient_id=patient.id, content="Texto"
-            )
+            create_clinical_observation(actor=self.admin, patient_id=patient.id, content="Texto")
         with self.assertRaises(DomainError):
             create_clinical_observation(
                 actor=self.nurse, patient_id=patient.id, content="x", category="otra"
             )
         with self.assertRaises(DomainError):
-            create_clinical_observation(
-                actor=self.nurse, patient_id=patient.id, content="   "
-            )
+            create_clinical_observation(actor=self.nurse, patient_id=patient.id, content="   ")
         with self.assertRaises(NotFoundDomainError):
-            create_clinical_observation(
-                actor=self.nurse, patient_id=999999, content="Texto"
-            )
+            create_clinical_observation(actor=self.nurse, patient_id=999999, content="Texto")

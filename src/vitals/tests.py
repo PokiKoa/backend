@@ -286,9 +286,7 @@ class VitalsEndpointTests(APITestCase):
 
         # Enfermera consulta historial por paciente y por cuna
         self.client.force_authenticate(user=self.nurse)
-        patient_vitals = self.client.get(
-            f"/api/v1/patients/{self.patient.id}/vitals/"
-        )
+        patient_vitals = self.client.get(f"/api/v1/patients/{self.patient.id}/vitals/")
         self.assertEqual(patient_vitals.status_code, status.HTTP_200_OK)
         self.assertEqual(patient_vitals.data["count"], 1)
 
@@ -333,9 +331,7 @@ class WebsocketCommunicator(ApplicationCommunicator):
         return True, response.get("subprotocol")
 
     async def send_json_to(self, data: dict[str, Any]) -> None:
-        await self.send_input(
-            {"type": "websocket.receive", "text": json.dumps(data)}
-        )
+        await self.send_input({"type": "websocket.receive", "text": json.dumps(data)})
 
     async def receive_json_from(self, timeout: float = 1.0) -> dict[str, Any]:
         response = await self.receive_output(timeout)
@@ -384,9 +380,7 @@ class RealtimeWebSocketTests(TransactionTestCase):
 
         async def _run_scenario() -> None:
             # 1. Conexión sin token es rechazada con 4401
-            unauth_comm = WebsocketCommunicator(
-                application, "/ws/v1/monitoring/stream/"
-            )
+            unauth_comm = WebsocketCommunicator(application, "/ws/v1/monitoring/stream/")
             connected, close_code = await unauth_comm.connect()
             self.assertFalse(connected)
             self.assertEqual(close_code, WS_CLOSE_UNAUTHORIZED)

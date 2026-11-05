@@ -1,3 +1,5 @@
+"""Serializers de alertas y umbrales."""
+
 from typing import ClassVar
 
 from rest_framework import serializers
@@ -15,10 +17,10 @@ from .models import Alert, AlertThresholdConfig
 
 
 class AlertSerializer(serializers.ModelSerializer):
+    """Representación de una alerta con su cuna, paciente y trazabilidad de reconocimiento y resolución."""
+
     crib_code = serializers.CharField(source="crib.code", read_only=True)
-    patient_name = serializers.CharField(
-        source="patient.full_name", read_only=True, default=None
-    )
+    patient_name = serializers.CharField(source="patient.full_name", read_only=True, default=None)
     acknowledged_by_name = serializers.CharField(
         source="acknowledged_by.full_name", read_only=True, default=None
     )
@@ -55,6 +57,8 @@ class AlertSerializer(serializers.ModelSerializer):
 
 
 class AlertThresholdConfigSerializer(serializers.ModelSerializer):
+    """Representación de los umbrales de alerta vigentes."""
+
     class Meta:
         model = AlertThresholdConfig
         fields: ClassVar[list[str]] = [
@@ -77,6 +81,8 @@ class AlertThresholdConfigSerializer(serializers.ModelSerializer):
 
 
 class AlertThresholdConfigUpdateSerializer(serializers.Serializer):
+    """Entrada para actualizar umbrales; los campos omitidos conservan su valor."""
+
     heart_rate_critical_low = serializers.IntegerField(
         min_value=HEART_RATE_MIN, max_value=HEART_RATE_MAX, required=False
     )

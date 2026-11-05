@@ -88,5 +88,50 @@ show_contexts = false
 [tool.coverage.xml]
 output = "coverage.xml"
 
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["staticfiles", "htmlcov"]
+
+[tool.ruff.format]
+# Las migraciones las genera Django; no se reformatean para mantener su diff mínimo.
+exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
+# E/F/W: pycodestyle + pyflakes · I: orden de imports · B: bugbear · C90/PLR: complejidad
+select = ["E", "F", "W", "I", "B", "C90", "PLR0912", "PLR0915", "D"]
+# El largo de línea lo gobierna `ruff format`; las cadenas y comentarios largos en español no se parten.
+ignore = [
+    "E501",
+    "D105",  # métodos mágicos
+    "D106",  # clases Meta anidadas
+    "D107",  # __init__ (se documenta en la clase)
+    "D203",
+    "D213",
+    "D205",
+    "D415",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
 [tool.ruff.lint.per-file-ignores]
-"**/migrations/*" = ["RUF012", "I001"]
+"**/migrations/*" = ["RUF012", "I001", "D"]
+# Script lineal de datos de demostración
+"src/accounts/management/commands/seed_demo.py" = ["C901", "PLR0912", "PLR0915"]
+"**/tests.py" = ["C901", "PLR0912", "PLR0915", "D"]
+"**/test_*.py" = ["C901", "PLR0912", "PLR0915", "D"]
+"**/conftest.py" = ["D"]
+# Configuración declarativa / boilerplate de Django: sin interfaz propia que documentar
+"**/__init__.py" = ["D104"]
+"**/apps.py" = ["D"]
+"**/urls.py" = ["D"]
+"**/admin.py" = ["D"]
+"**/routing.py" = ["D"]
+"src/poki_koa/settings/*" = ["F403", "F405", "D"]
+"src/poki_koa/wsgi.py" = ["D"]
+"src/poki_koa/asgi.py" = ["E402", "D"]
+"src/manage.py" = ["D"]

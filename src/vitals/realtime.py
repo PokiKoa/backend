@@ -1,3 +1,5 @@
+"""Tiempo real: grupos de canal, autenticación JWT del WebSocket y difusión de lecturas y alertas."""
+
 from typing import Any
 
 from asgiref.sync import async_to_sync
@@ -13,10 +15,12 @@ UNIT_STREAM_GROUP = "unit_monitoring_stream"
 
 
 def crib_stream_group(crib_id: int) -> str:
+    """Nombre del grupo de canal de una cuna."""
     return f"crib_stream_{crib_id}"
 
 
 def patient_stream_group(patient_id: int) -> str:
+    """Nombre del grupo de canal de un paciente."""
     return f"patient_stream_{patient_id}"
 
 
@@ -62,6 +66,7 @@ class JwtWebSocketAuthMiddleware:
         self.app = app
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> Any:
+        """Resuelve el usuario desde el JWT (cabecera o subprotocolo) y lo deja en ``scope['user']``; anónimo si falta o es inválido."""
         scope = dict(scope)
         raw_token = _extract_token_from_scope(scope)
         if raw_token:
@@ -91,6 +96,15 @@ def broadcast_telemetry_reading(
     crib_id: int,
     patient_id: int | None,
 ) -> None:
+    """Difunde una lectura y sus alertas a la unidad, la cuna y el paciente.
+
+    Args:
+        reading_data: Lectura serializada.
+        active_alerts_data: Alertas abiertas tras la evaluación.
+        auto_resolved_alerts_data: Alertas resueltas automáticamente.
+        crib_id: Cuna de origen.
+        patient_id: Paciente asignado, si hay.
+    """
     groups = [UNIT_STREAM_GROUP, crib_stream_group(crib_id)]
     if patient_id is not None:
         groups.append(patient_stream_group(patient_id))
@@ -115,6 +129,14 @@ def broadcast_alert_event(
     crib_id: int,
     patient_id: int | None,
 ) -> None:
+    """Difunde un evento de alerta a la unidad, la cuna y el paciente.
+
+    Args:
+        event_name: Nombre del evento (p. ej. creación o resolución).
+        alert_data: Alerta serializada.
+        crib_id: Cuna asociada.
+        patient_id: Paciente asignado, si hay.
+    """
     groups = [UNIT_STREAM_GROUP, crib_stream_group(crib_id)]
     if patient_id is not None:
         groups.append(patient_stream_group(patient_id))

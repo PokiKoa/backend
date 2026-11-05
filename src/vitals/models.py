@@ -1,3 +1,5 @@
+"""Modelo de lecturas de signos vitales."""
+
 from typing import ClassVar
 
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -16,6 +18,8 @@ from .rules import (
 
 
 class VitalSignReading(models.Model):
+    """Lectura de telemetría de una cuna: frecuencia cardíaca, SpO2, temperatura y estado del equipo."""
+
     crib = models.ForeignKey(
         "devices.Crib",
         on_delete=models.PROTECT,
@@ -61,12 +65,8 @@ class VitalSignReading(models.Model):
     class Meta:
         ordering: ClassVar[list[str]] = ["-recorded_at", "-id"]
         indexes: ClassVar[list[models.Index]] = [
-            models.Index(
-                fields=["patient", "-recorded_at"], name="vitals_patient_ts_idx"
-            ),
-            models.Index(
-                fields=["crib", "-recorded_at"], name="vitals_crib_ts_idx"
-            ),
+            models.Index(fields=["patient", "-recorded_at"], name="vitals_patient_ts_idx"),
+            models.Index(fields=["crib", "-recorded_at"], name="vitals_crib_ts_idx"),
         ]
         constraints: ClassVar[list[models.CheckConstraint]] = [
             models.CheckConstraint(

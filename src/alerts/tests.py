@@ -109,9 +109,7 @@ class AlertsEngineServiceTests(TestCase):
         )
         alert_warn.refresh_from_db()
         self.assertEqual(alert_warn.status, AlertStatus.RESOLVED)
-        self.assertEqual(
-            alert_warn.resolution_reason, ResolutionReason.SEVERITY_ESCALATED
-        )
+        self.assertEqual(alert_warn.resolution_reason, ResolutionReason.SEVERITY_ESCALATED)
         self.assertEqual(len(eval3.created_alerts), 1)
         alert_crit = eval3.created_alerts[0]
         self.assertEqual(alert_crit.severity, AlertSeverity.CRITICAL)
@@ -133,9 +131,7 @@ class AlertsEngineServiceTests(TestCase):
         self.assertEqual(len(eval4.auto_resolved_alerts), 1)
         alert_crit.refresh_from_db()
         self.assertEqual(alert_crit.status, AlertStatus.RESOLVED)
-        self.assertEqual(
-            alert_crit.resolution_reason, ResolutionReason.AUTO_NORMALIZED
-        )
+        self.assertEqual(alert_crit.resolution_reason, ResolutionReason.AUTO_NORMALIZED)
 
     def test_custom_threshold_ordering_validation_and_discharge_resolution(self) -> None:
         # Enfermera no puede modificar umbrales

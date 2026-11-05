@@ -1,3 +1,5 @@
+"""Autenticación de dispositivos de cuna mediante API Key por cabecera."""
+
 from typing import Any
 
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
@@ -23,9 +25,22 @@ class DevicePrincipal:
 
 
 class DeviceApiKeyAuthentication(BaseAuthentication):
+    """Autentica un dispositivo con la cabecera ``X-Device-Api-Key`` (formato ``pk_dev_<prefijo>_<secreto>``)."""
+
     header_name = "HTTP_X_DEVICE_API_KEY"
 
     def authenticate(self, request: Request) -> tuple[DevicePrincipal, Crib] | None:
+        """Resuelve la cuna dueña de la API Key.
+
+        Args:
+            request: Petición entrante.
+
+        Returns:
+            ``(DevicePrincipal, cuna)``, o ``None`` si la cabecera no viene (otros autenticadores pueden actuar).
+
+        Raises:
+            AuthenticationFailed: Formato inválido, clave desconocida, o dispositivo deshabilitado o en mantenimiento.
+        """
         raw_key = request.META.get(self.header_name)
         if not raw_key:
             return None
@@ -50,13 +65,17 @@ class DeviceApiKeyAuthentication(BaseAuthentication):
 
 
 class IsAuthenticatedDeviceForCrib(BasePermission):
+    """Permite el acceso solo a un dispositivo autenticado y, a nivel de objeto, solo a su propia cuna."""
+
     message = "Se requiere una API Key válida perteneciente a esta cuna."
 
     def has_permission(self, request: Request, view: Any) -> bool:
+        """Devuelve ``True`` si la petición fue autenticada como dispositivo."""
         user = getattr(request, "user", None)
         return bool(user and getattr(user, "is_device", False))
 
     def has_object_permission(self, request: Request, view: Any, obj: Any) -> bool:
+        """Devuelve ``True`` si el objeto es la cuna del dispositivo o pertenece a ella (``crib_id``)."""
         user = getattr(request, "user", None)
         if not user or not getattr(user, "is_device", False):
             return False
@@ -65,10 +84,13 @@ class IsAuthenticatedDeviceForCrib(BasePermission):
 
 
 class DeviceApiKeyAuthenticationScheme(OpenApiAuthenticationExtension):
+    """Declara el esquema ``apiKey`` en el contrato OpenAPI para la autenticación de dispositivos."""
+
     target_class = "devices.authentication.DeviceApiKeyAuthentication"
     name = "DeviceApiKeyAuth"
 
     def get_security_definition(self, auto_schema: Any) -> dict[str, Any]:
+        """Devuelve la definición OpenAPI del esquema (cabecera ``X-Device-Api-Key``)."""
         return {
             "type": "apiKey",
             "in": "header",

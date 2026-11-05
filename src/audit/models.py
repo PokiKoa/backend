@@ -1,3 +1,5 @@
+"""Modelo del registro de auditoría."""
+
 from typing import ClassVar
 
 from django.conf import settings
@@ -5,6 +7,8 @@ from django.db import models
 
 
 class AuditAction(models.TextChoices):
+    """Acciones auditables: lectura, creación, modificación, egreso, cunas, telemetría, alertas, medicación y sesión."""
+
     READ = "read", "Lectura"
     CREATE = "create", "Creación"
     UPDATE = "update", "Actualización"
@@ -25,6 +29,8 @@ class AuditAction(models.TextChoices):
 
 
 class AuditLog(models.Model):
+    """Registro inmutable de un acceso o modificación; guarda nombres de campos, nunca valores clínicos."""
+
     actor_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

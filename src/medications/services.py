@@ -1,3 +1,5 @@
+"""Servicios de medicación: catálogo con stock, indicaciones médicas y administración de dosis."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -39,6 +41,27 @@ def create_catalog_item(
     is_active: bool = True,
     ip_address: str | None = None,
 ) -> MedicationCatalogItem:
+    """Registra un medicamento en el catálogo.
+
+    Args:
+        actor: Químico Farmacéutico o Administrador.
+        name: Nombre comercial único (sin distinguir mayúsculas).
+        active_ingredient: Principio activo.
+        concentration_mg: Concentración en mg (mayor que cero).
+        unit: Unidad de presentación (p. ej. ``ampolla``).
+        stock: Existencias iniciales.
+        min_stock_alert: Umbral de alerta de stock mínimo.
+        is_active: Si el medicamento queda disponible para prescribir.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El ítem creado.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede gestionar el catálogo.
+        ConflictDomainError: Si el nombre ya existe.
+        DomainError: Si algún valor es inválido.
+    """
     if actor.role not in {UserRole.ADMIN, UserRole.PHARMACIST}:
         raise PermissionDomainError(
             "Solo un Químico Farmacéutico o Administrador puede registrar medicamentos en el catálogo."
@@ -64,9 +87,7 @@ def create_catalog_item(
 
     with transaction.atomic():
         if MedicationCatalogItem.objects.filter(name__iexact=cleaned_name).exists():
-            raise ConflictDomainError(
-                "Ya existe un medicamento en el catálogo con ese nombre."
-            )
+            raise ConflictDomainError("Ya existe un medicamento en el catálogo con ese nombre.")
 
         item = MedicationCatalogItem.objects.create(
             name=cleaned_name,
@@ -96,6 +117,61 @@ def create_catalog_item(
     return item
 
 
+def _normalize_item_name(item: MedicationCatalogItem, value: Any) -> str:
+    name = str(value).strip()
+    if not name:
+        raise DomainError("El nombre del medicamento no puede estar vacío.")
+    if (
+        name != item.name
+        and MedicationCatalogItem.objects.filter(name__iexact=name).exclude(pk=item.pk).exists()
+    ):
+        raise ConflictDomainError("Ya existe otro medicamento en el catálogo con ese nombre.")
+    return name
+
+
+def _non_empty_text(field: str):
+    def normalize(item: MedicationCatalogItem, value: Any) -> str:
+        text = str(value).strip()
+        if not text:
+            raise DomainError(f"El campo '{field}' no puede estar vacío.")
+        return text
+
+    return normalize
+
+
+def _normalize_concentration(item: MedicationCatalogItem, value: Any) -> Decimal:
+    concentration = Decimal(str(value)).quantize(Decimal("0.01"))
+    if concentration <= Decimal("0.00"):
+        raise DomainError("La concentración en miligramos debe ser mayor que cero.")
+    return concentration
+
+
+def _normalize_stock(item: MedicationCatalogItem, value: Any) -> int:
+    stock = int(value)
+    if stock < 0:
+        raise DomainError("El stock disponible no puede ser negativo.")
+    return stock
+
+
+def _normalize_min_stock(item: MedicationCatalogItem, value: Any) -> int:
+    minimum = int(value)
+    if minimum < 0:
+        raise DomainError("El umbral de alerta de stock mínimo no puede ser negativo.")
+    return minimum
+
+
+# Campos editables del catálogo. El orden define ``changed_fields`` en la auditoría.
+_CATALOG_EDITABLE_FIELDS = {
+    "name": _normalize_item_name,
+    "active_ingredient": _non_empty_text("active_ingredient"),
+    "unit": _non_empty_text("unit"),
+    "concentration_mg": _normalize_concentration,
+    "stock": _normalize_stock,
+    "min_stock_alert": _normalize_min_stock,
+    "is_active": lambda item, value: bool(value),
+}
+
+
 def update_catalog_item(
     *,
     actor: User,
@@ -103,6 +179,22 @@ def update_catalog_item(
     data: dict[str, Any],
     ip_address: str | None = None,
 ) -> MedicationCatalogItem:
+    """Actualiza parcialmente un medicamento del catálogo (datos y stock) y audita el cambio.
+
+    Args:
+        actor: Químico Farmacéutico o Administrador.
+        item: Medicamento a modificar; se relee con bloqueo de fila.
+        data: Solo los campos a cambiar.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El medicamento actualizado.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede gestionar el catálogo.
+        ConflictDomainError: Si el nombre ya existe en otro medicamento.
+        DomainError: Si algún valor está vacío o fuera de rango.
+    """
     if actor.role not in {UserRole.ADMIN, UserRole.PHARMACIST}:
         raise PermissionDomainError(
             "Solo un Químico Farmacéutico o Administrador puede actualizar el catálogo o el stock."
@@ -112,64 +204,13 @@ def update_catalog_item(
         locked_item = MedicationCatalogItem.objects.select_for_update().get(pk=item.pk)
         changed_fields: list[str] = []
 
-        if "name" in data:
-            new_name = str(data["name"]).strip()
-            if not new_name:
-                raise DomainError("El nombre del medicamento no puede estar vacío.")
-            if new_name != locked_item.name:
-                if (
-                    MedicationCatalogItem.objects.filter(name__iexact=new_name)
-                    .exclude(pk=locked_item.pk)
-                    .exists()
-                ):
-                    raise ConflictDomainError(
-                        "Ya existe otro medicamento en el catálogo con ese nombre."
-                    )
-                locked_item.name = new_name
-                changed_fields.append("name")
-
-        for text_field in ("active_ingredient", "unit"):
-            if text_field in data:
-                val = str(data[text_field]).strip()
-                if not val:
-                    raise DomainError(f"El campo '{text_field}' no puede estar vacío.")
-                if val != getattr(locked_item, text_field):
-                    setattr(locked_item, text_field, val)
-                    changed_fields.append(text_field)
-
-        if "concentration_mg" in data:
-            new_conc = Decimal(str(data["concentration_mg"])).quantize(Decimal("0.01"))
-            if new_conc <= Decimal("0.00"):
-                raise DomainError(
-                    "La concentración en miligramos debe ser mayor que cero."
-                )
-            if new_conc != locked_item.concentration_mg:
-                locked_item.concentration_mg = new_conc
-                changed_fields.append("concentration_mg")
-
-        if "stock" in data:
-            new_stock = int(data["stock"])
-            if new_stock < 0:
-                raise DomainError("El stock disponible no puede ser negativo.")
-            if new_stock != locked_item.stock:
-                locked_item.stock = new_stock
-                changed_fields.append("stock")
-
-        if "min_stock_alert" in data:
-            new_min = int(data["min_stock_alert"])
-            if new_min < 0:
-                raise DomainError(
-                    "El umbral de alerta de stock mínimo no puede ser negativo."
-                )
-            if new_min != locked_item.min_stock_alert:
-                locked_item.min_stock_alert = new_min
-                changed_fields.append("min_stock_alert")
-
-        if "is_active" in data:
-            new_active = bool(data["is_active"])
-            if new_active != locked_item.is_active:
-                locked_item.is_active = new_active
-                changed_fields.append("is_active")
+        for field, normalize in _CATALOG_EDITABLE_FIELDS.items():
+            if field not in data:
+                continue
+            new_value = normalize(locked_item, data[field])
+            if new_value != getattr(locked_item, field):
+                setattr(locked_item, field, new_value)
+                changed_fields.append(field)
 
         if changed_fields:
             locked_item.save()
@@ -185,6 +226,41 @@ def update_catalog_item(
     return locked_item
 
 
+def _validate_prescription_inputs(
+    *,
+    dose: str,
+    route: str,
+    units_per_administration: int,
+    starts_at: datetime,
+    ends_at: datetime | None,
+    frequency_hours: int | None,
+) -> tuple[str, datetime]:
+    """Valida los datos de una indicación y devuelve ``(dosis_limpia, inicio_truncado_al_minuto)``.
+
+    Raises:
+        DomainError: Si la dosis, vía, unidades, fechas o frecuencia son inválidas.
+    """
+    cleaned_dose = (dose or "").strip()
+    if not cleaned_dose:
+        raise DomainError("La dosis prescrita es obligatoria.")
+    if route not in set(AdministrationRoute.values):
+        raise DomainError("La vía de administración indicada no es válida.")
+    if units_per_administration < 1:
+        raise DomainError("Las unidades a descontar por administración deben ser al menos 1.")
+    if timezone.is_naive(starts_at) or (ends_at is not None and timezone.is_naive(ends_at)):
+        raise DomainError("Las fechas de la indicación deben incluir zona horaria.")
+    if frequency_hours is not None and not 1 <= frequency_hours <= MAX_FREQUENCY_HOURS:
+        raise DomainError(f"La frecuencia debe estar entre 1 y {MAX_FREQUENCY_HOURS} horas.")
+    if ends_at is not None and frequency_hours is None:
+        raise DomainError("Una dosis única no admite fecha de término.")
+
+    # Se trunca al minuto para que los horarios de dosis sean comparables de forma exacta
+    starts_at = starts_at.replace(second=0, microsecond=0)
+    if ends_at is not None and ends_at <= starts_at:
+        raise DomainError("La fecha de término debe ser posterior a la primera dosis.")
+    return cleaned_dose, starts_at
+
+
 def create_prescription(
     *,
     actor: User,
@@ -198,33 +274,42 @@ def create_prescription(
     units_per_administration: int = 1,
     ip_address: str | None = None,
 ) -> Prescription:
+    """Crea una indicación médica activa para un paciente ingresado.
+
+    Args:
+        actor: Neonatólogo que prescribe.
+        patient_id: Paciente activo destinatario.
+        medication_id: Medicamento activo del catálogo.
+        dose: Dosis prescrita (texto libre, obligatorio).
+        starts_at: Primera dosis, con zona horaria; se trunca al minuto.
+        frequency_hours: Horas entre dosis; ``None`` indica dosis única.
+        ends_at: Término de la pauta (solo con frecuencia).
+        route: Vía de administración.
+        units_per_administration: Unidades de stock que descuenta cada dosis.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La indicación creada.
+
+    Raises:
+        PermissionDomainError: Si el actor no es Neonatólogo.
+        NotFoundDomainError: Si el paciente o el medicamento no existen.
+        ConflictDomainError: Si el paciente está egresado o el medicamento inactivo.
+        DomainError: Si algún dato de la indicación es inválido.
+    """
     if actor.role != UserRole.NEONATOLOGIST:
         raise PermissionDomainError(
             "Solo un Neonatólogo está autorizado para prescribir indicaciones médicas."
         )
 
-    cleaned_dose = (dose or "").strip()
-    if not cleaned_dose:
-        raise DomainError("La dosis prescrita es obligatoria.")
-    if route not in set(AdministrationRoute.values):
-        raise DomainError("La vía de administración indicada no es válida.")
-    if units_per_administration < 1:
-        raise DomainError(
-            "Las unidades a descontar por administración deben ser al menos 1."
-        )
-    if timezone.is_naive(starts_at) or (ends_at is not None and timezone.is_naive(ends_at)):
-        raise DomainError("Las fechas de la indicación deben incluir zona horaria.")
-    if frequency_hours is not None and not 1 <= frequency_hours <= MAX_FREQUENCY_HOURS:
-        raise DomainError(
-            f"La frecuencia debe estar entre 1 y {MAX_FREQUENCY_HOURS} horas."
-        )
-    if ends_at is not None and frequency_hours is None:
-        raise DomainError("Una dosis única no admite fecha de término.")
-
-    # Se trunca al minuto para que los horarios de dosis sean comparables de forma exacta
-    starts_at = starts_at.replace(second=0, microsecond=0)
-    if ends_at is not None and ends_at <= starts_at:
-        raise DomainError("La fecha de término debe ser posterior a la primera dosis.")
+    cleaned_dose, starts_at = _validate_prescription_inputs(
+        dose=dose,
+        route=route,
+        units_per_administration=units_per_administration,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        frequency_hours=frequency_hours,
+    )
 
     with transaction.atomic():
         patient = Patient.objects.select_for_update().filter(pk=patient_id).first()
@@ -236,14 +321,10 @@ def create_prescription(
             )
 
         medication = (
-            MedicationCatalogItem.objects.select_for_update()
-            .filter(pk=medication_id)
-            .first()
+            MedicationCatalogItem.objects.select_for_update().filter(pk=medication_id).first()
         )
         if medication is None:
-            raise NotFoundDomainError(
-                "El medicamento seleccionado no existe en el catálogo."
-            )
+            raise NotFoundDomainError("El medicamento seleccionado no existe en el catálogo.")
         if not medication.is_active:
             raise ConflictDomainError(
                 "El medicamento seleccionado se encuentra inactivo en el catálogo."
@@ -288,6 +369,37 @@ def _format_local(when: datetime) -> str:
     return timezone.localtime(when).strftime("%d-%m-%Y %H:%M")
 
 
+def _resolve_dose_slot(
+    prescription: Prescription, scheduled_for: datetime | None, now: datetime
+) -> datetime:
+    """Determina la dosis a administrar: la indicada o la última vencida.
+
+    Raises:
+        ConflictDomainError: Si aún no corresponde administrar o la dosis es demasiado anticipada.
+        DomainError: Si el horario indicado no pertenece a la pauta.
+    """
+    if scheduled_for is None:
+        slot = schedule.latest_due_slot(prescription, now)
+        if slot is None:
+            raise ConflictDomainError(
+                "Aún no corresponde administrar esta indicación; la primera dosis es el "
+                f"{_format_local(prescription.starts_at)}."
+            )
+        return slot
+    if not schedule.is_valid_slot(prescription, scheduled_for):
+        raise DomainError(
+            "El horario indicado no corresponde a una dosis programada de esta indicación.",
+            details={"scheduled_for": ["Horario de dosis inválido."]},
+        )
+    if scheduled_for > now + schedule.EARLY_ADMINISTRATION_WINDOW:
+        early_minutes = int(schedule.EARLY_ADMINISTRATION_WINDOW.total_seconds() // 60)
+        raise ConflictDomainError(
+            f"La dosis del {_format_local(scheduled_for)} aún no puede administrarse; "
+            f"se permite con hasta {early_minutes} minutos de anticipación."
+        )
+    return scheduled_for
+
+
 def administer_prescription(
     *,
     actor: User,
@@ -296,6 +408,24 @@ def administer_prescription(
     notes: str = "",
     ip_address: str | None = None,
 ) -> MedicationAdministration:
+    """Registra la administración de una dosis y descuenta el stock de forma atómica.
+
+    Args:
+        actor: Neonatólogo o Matrona/Enfermera que administra.
+        prescription: Indicación activa; se relee con bloqueo junto al medicamento.
+        scheduled_for: Dosis programada a registrar; si es ``None`` se usa la última vencida.
+        notes: Observaciones libres.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El registro de administración creado.
+
+    Raises:
+        PermissionDomainError: Si el rol no puede administrar medicación.
+        ConflictDomainError: Paciente egresado, indicación cerrada, dosis ya administrada o
+            anticipada, medicamento inactivo o stock insuficiente.
+        DomainError: Si el horario indicado no pertenece a la pauta.
+    """
     if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
         raise PermissionDomainError(
             "Solo un Neonatólogo o Matrona/Enfermera puede administrar medicamentos a un paciente."
@@ -303,9 +433,7 @@ def administer_prescription(
 
     now = timezone.now()
     with transaction.atomic():
-        locked_prescription = Prescription.objects.select_for_update().get(
-            pk=prescription.pk
-        )
+        locked_prescription = Prescription.objects.select_for_update().get(pk=prescription.pk)
         locked_medication = MedicationCatalogItem.objects.select_for_update().get(
             pk=locked_prescription.medication_id
         )
@@ -322,26 +450,7 @@ def administer_prescription(
                 "La indicación médica ya fue completada o cancelada previamente."
             )
 
-        if scheduled_for is None:
-            slot = schedule.latest_due_slot(locked_prescription, now)
-            if slot is None:
-                raise ConflictDomainError(
-                    "Aún no corresponde administrar esta indicación; la primera dosis es el "
-                    f"{_format_local(locked_prescription.starts_at)}."
-                )
-        else:
-            slot = scheduled_for
-            if not schedule.is_valid_slot(locked_prescription, slot):
-                raise DomainError(
-                    "El horario indicado no corresponde a una dosis programada de esta indicación.",
-                    details={"scheduled_for": ["Horario de dosis inválido."]},
-                )
-            if slot > now + schedule.EARLY_ADMINISTRATION_WINDOW:
-                early_minutes = int(schedule.EARLY_ADMINISTRATION_WINDOW.total_seconds() // 60)
-                raise ConflictDomainError(
-                    f"La dosis del {_format_local(slot)} aún no puede administrarse; "
-                    f"se permite con hasta {early_minutes} minutos de anticipación."
-                )
+        slot = _resolve_dose_slot(locked_prescription, scheduled_for, now)
 
         if locked_prescription.administrations.filter(scheduled_for=slot).exists():
             raise ConflictDomainError(
@@ -395,15 +504,26 @@ def cancel_prescription(
     reason: str = "",
     ip_address: str | None = None,
 ) -> Prescription:
+    """Cancela una indicación médica vigente.
+
+    Args:
+        actor: Neonatólogo que cancela.
+        prescription: Indicación a cancelar; se relee con bloqueo de fila.
+        reason: Motivo de la cancelación.
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La indicación cancelada.
+
+    Raises:
+        PermissionDomainError: Si el actor no es Neonatólogo.
+        ConflictDomainError: Si la indicación ya no está vigente.
+    """
     if actor.role != UserRole.NEONATOLOGIST:
-        raise PermissionDomainError(
-            "Solo un Neonatólogo puede cancelar una indicación médica."
-        )
+        raise PermissionDomainError("Solo un Neonatólogo puede cancelar una indicación médica.")
 
     with transaction.atomic():
-        locked_prescription = Prescription.objects.select_for_update().get(
-            pk=prescription.pk
-        )
+        locked_prescription = Prescription.objects.select_for_update().get(pk=prescription.pk)
         if locked_prescription.status != PrescriptionStatus.ACTIVE:
             raise ConflictDomainError(
                 "Solo se pueden cancelar indicaciones que aún se encuentren vigentes."
@@ -430,6 +550,14 @@ def cancel_prescription(
 
 
 def cancel_pending_prescriptions_on_discharge(*, patient: Patient) -> int:
+    """Cancela las indicaciones vigentes de un paciente que es egresado.
+
+    Args:
+        patient: Paciente egresado.
+
+    Returns:
+        Número de indicaciones canceladas.
+    """
     now = timezone.now()
     return Prescription.objects.filter(
         patient=patient,

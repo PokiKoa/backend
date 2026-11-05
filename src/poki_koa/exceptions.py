@@ -1,3 +1,5 @@
+"""Excepciones de dominio y manejador global que unifica el formato de error de la API."""
+
 from typing import Any
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -18,6 +20,12 @@ from rest_framework.views import exception_handler
 
 
 class DomainError(Exception):
+    """Error de negocio con código HTTP, código de error y detalles por campo.
+
+    Los servicios lanzan subclases; ``custom_exception_handler`` las traduce a
+    ``{"error": {"code", "message", "details"}}``. Por defecto responde 400.
+    """
+
     status_code: int = status.HTTP_400_BAD_REQUEST
     default_code: str = "domain_error"
     default_message: str = "Error en la operación solicitada."
@@ -39,12 +47,16 @@ class DomainError(Exception):
 
 
 class AuthenticationDomainError(DomainError):
+    """Credenciales o token inválidos (HTTP 401)."""
+
     status_code = status.HTTP_401_UNAUTHORIZED
     default_code = "authentication_failed"
     default_message = "Credenciales de autenticación inválidas."
 
 
 class AccountLockedError(DomainError):
+    """Cuenta bloqueada temporalmente por intentos fallidos (HTTP 423)."""
+
     status_code = status.HTTP_423_LOCKED
     default_code = "account_locked"
     default_message = (
@@ -53,24 +65,73 @@ class AccountLockedError(DomainError):
 
 
 class PermissionDomainError(DomainError):
+    """El rol del usuario no permite la operación (HTTP 403)."""
+
     status_code = status.HTTP_403_FORBIDDEN
     default_code = "permission_denied"
     default_message = "No tiene permisos para realizar esta acción."
 
 
 class NotFoundDomainError(DomainError):
+    """El recurso referenciado no existe (HTTP 404)."""
+
     status_code = status.HTTP_404_NOT_FOUND
     default_code = "not_found"
     default_message = "El recurso solicitado no existe."
 
 
 class ConflictDomainError(DomainError):
+    """La operación choca con el estado actual del recurso (HTTP 409)."""
+
     status_code = status.HTTP_409_CONFLICT
     default_code = "conflict"
     default_message = "La operación entra en conflicto con el estado actual del recurso."
 
 
+# (excepción DRF, código, mensaje) evaluados en orden: la primera coincidencia gana.
+_API_EXCEPTION_DESCRIPTIONS: tuple[tuple[type[Exception], str, str], ...] = (
+    (ValidationError, "validation_error", "Los datos enviados no son válidos."),
+    (NotAuthenticated, "not_authenticated", "Se requieren credenciales de autenticación."),
+    (
+        AuthenticationFailed,
+        "authentication_failed",
+        "Credenciales de autenticación inválidas o expiradas.",
+    ),
+    (PermissionDenied, "permission_denied", "No tiene permisos para realizar esta acción."),
+    (NotFound, "not_found", "El recurso solicitado no existe."),
+    (MethodNotAllowed, "method_not_allowed", "Método HTTP no permitido en este recurso."),
+    (
+        Throttled,
+        "rate_limit_exceeded",
+        "Demasiadas solicitudes. Intente nuevamente más tarde.",
+    ),
+)
+
+
+def _describe_api_exception(exc: Exception, response_data: Any) -> tuple[str, str]:
+    """Devuelve el ``(code, message)`` de la envoltura de error para una excepción DRF."""
+    for exc_type, code, message in _API_EXCEPTION_DESCRIPTIONS:
+        if isinstance(exc, exc_type):
+            return code, message
+    if isinstance(exc, APIException):
+        code = str(getattr(exc, "default_code", "api_error"))
+        if isinstance(response_data, dict) and "detail" in response_data:
+            return code, str(response_data["detail"])
+        return code, "Error en la solicitud."
+    return "api_error", "Error en la solicitud."
+
+
 def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:
+    """Traduce cualquier excepción a la envoltura de error estándar de la API.
+
+    Args:
+        exc: Excepción levantada por la vista.
+        context: Contexto de DRF (vista, petición).
+
+    Returns:
+        Respuesta con ``{"error": {"code", "message", "details"}}``, o ``None`` si la excepción no
+        es de API y debe propagarse (error 500).
+    """
     if isinstance(exc, DomainError):
         return Response(
             {
@@ -84,7 +145,9 @@ def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Respons
         )
 
     if isinstance(exc, DjangoValidationError):
-        details = exc.message_dict if hasattr(exc, "message_dict") else {"non_field_errors": exc.messages}
+        details = (
+            exc.message_dict if hasattr(exc, "message_dict") else {"non_field_errors": exc.messages}
+        )
         return Response(
             {
                 "error": {
@@ -112,36 +175,8 @@ def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Respons
     if response is None:
         return None
 
-    code = "api_error"
-    message = "Error en la solicitud."
-    details: Any = {}
-
-    if isinstance(exc, ValidationError):
-        code = "validation_error"
-        message = "Los datos enviados no son válidos."
-        details = response.data
-    elif isinstance(exc, NotAuthenticated):
-        code = "not_authenticated"
-        message = "Se requieren credenciales de autenticación."
-    elif isinstance(exc, AuthenticationFailed):
-        code = "authentication_failed"
-        message = "Credenciales de autenticación inválidas o expiradas."
-    elif isinstance(exc, PermissionDenied):
-        code = "permission_denied"
-        message = "No tiene permisos para realizar esta acción."
-    elif isinstance(exc, NotFound):
-        code = "not_found"
-        message = "El recurso solicitado no existe."
-    elif isinstance(exc, MethodNotAllowed):
-        code = "method_not_allowed"
-        message = "Método HTTP no permitido en este recurso."
-    elif isinstance(exc, Throttled):
-        code = "rate_limit_exceeded"
-        message = "Demasiadas solicitudes. Intente nuevamente más tarde."
-    elif isinstance(exc, APIException):
-        code = str(getattr(exc, "default_code", "api_error"))
-        if isinstance(response.data, dict) and "detail" in response.data:
-            message = str(response.data["detail"])
+    code, message = _describe_api_exception(exc, response.data)
+    details: Any = response.data if isinstance(exc, ValidationError) else {}
 
     response.data = {
         "error": {

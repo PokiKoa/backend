@@ -1,9 +1,12 @@
+"""Punto de entrada de la CLI ``poki_koa`` (equivalente a ``manage.py``)."""
+
 import os
 import sys
 from pathlib import Path
 
 
 def main() -> None:
+    """Ejecuta un comando de Django (``runserver`` por defecto) con ``settings.dev`` si no se indica otra configuración."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "poki_koa.settings.dev")
 
     src_dir = str(Path(__file__).resolve().parent.parent)

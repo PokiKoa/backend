@@ -64,6 +64,9 @@ jobs:
       - name: Verificar linter y estilo con Ruff
         run: uv run ruff check src
 
+      - name: Verificar formato con Ruff
+        run: uv run ruff format --check src
+
       - name: Verificar que no falten migraciones
         run: uv run poki_koa makemigrations --check --dry-run
 

@@ -1,3 +1,5 @@
+"""Consumer WebSocket que transmite telemetría y alertas en tiempo real."""
+
 from typing import Any
 
 from channels.db import database_sync_to_async
@@ -48,11 +50,14 @@ def _verify_and_audit_patient_stream(user: User, patient_id: int) -> bool:
 
 
 class TelemetryAlertConsumer(AsyncJsonWebsocketConsumer):
+    """Suscribe al cliente al flujo de la unidad, de una cuna o de un paciente según la ruta."""
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.subscribed_groups: set[str] = set()
 
     async def connect(self) -> None:
+        """Acepta la conexión de usuarios autorizados y los suscribe; cierra con 4401 (sin sesión), 4403 (rol no permitido) o 4404 (recurso inexistente)."""
         user = self.scope.get("user")
         if user is None or not getattr(user, "is_authenticated", False):
             await self.close(code=WS_CLOSE_UNAUTHORIZED)
@@ -87,7 +92,9 @@ class TelemetryAlertConsumer(AsyncJsonWebsocketConsumer):
 
         # Si el cliente ofreció el subprotocolo de autenticación, el navegador exige que se confirme
         offered = self.scope.get("subprotocols") or []
-        await self.accept(subprotocol=WS_AUTH_SUBPROTOCOL if WS_AUTH_SUBPROTOCOL in offered else None)
+        await self.accept(
+            subprotocol=WS_AUTH_SUBPROTOCOL if WS_AUTH_SUBPROTOCOL in offered else None
+        )
         await self.send_json(
             {
                 "event": "stream.connected",
@@ -97,14 +104,17 @@ class TelemetryAlertConsumer(AsyncJsonWebsocketConsumer):
         )
 
     async def disconnect(self, close_code: int) -> None:
+        """Cancela las suscripciones a los grupos de canal."""
         if self.channel_layer is not None:
             for group_name in list(self.subscribed_groups):
                 await self.channel_layer.group_discard(group_name, self.channel_name)
         self.subscribed_groups.clear()
 
     async def receive_json(self, content: Any, **kwargs: Any) -> None:
+        """Responde ``stream.pong`` al mensaje ``{"action": "ping"}``."""
         if isinstance(content, dict) and content.get("action") == "ping":
             await self.send_json({"event": "stream.pong"})
 
     async def stream_event(self, event: dict[str, Any]) -> None:
+        """Reenvía al cliente el evento recibido del grupo de canal."""
         await self.send_json(event["payload"])

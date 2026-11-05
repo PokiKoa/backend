@@ -1,3 +1,5 @@
+"""Serializers de lecturas de signos vitales y del resumen de la unidad."""
+
 from typing import ClassVar
 
 from rest_framework import serializers
@@ -19,10 +21,10 @@ from .rules import (
 
 
 class VitalSignReadingSerializer(serializers.ModelSerializer):
+    """Representación de solo lectura de una lectura de signos vitales."""
+
     crib_code = serializers.CharField(source="crib.code", read_only=True)
-    patient_name = serializers.CharField(
-        source="patient.full_name", read_only=True, default=None
-    )
+    patient_name = serializers.CharField(source="patient.full_name", read_only=True, default=None)
 
     class Meta:
         model = VitalSignReading
@@ -45,9 +47,9 @@ class VitalSignReadingSerializer(serializers.ModelSerializer):
 
 
 class TelemetryIngestSerializer(serializers.Serializer):
-    heart_rate = serializers.IntegerField(
-        min_value=HEART_RATE_MIN, max_value=HEART_RATE_MAX
-    )
+    """Entrada de telemetría con los rangos fisiológicos aceptados por cada signo vital."""
+
+    heart_rate = serializers.IntegerField(min_value=HEART_RATE_MIN, max_value=HEART_RATE_MAX)
     spo2 = serializers.IntegerField(min_value=SPO2_MIN, max_value=SPO2_MAX)
     temperature = serializers.DecimalField(
         max_digits=4,
@@ -62,6 +64,8 @@ class TelemetryIngestSerializer(serializers.Serializer):
 
 
 class OverviewAlertCountsSerializer(serializers.Serializer):
+    """Alertas abiertas de una cuna por severidad."""
+
     total = serializers.IntegerField()
     critical = serializers.IntegerField()
     warning = serializers.IntegerField()
@@ -69,6 +73,8 @@ class OverviewAlertCountsSerializer(serializers.Serializer):
 
 
 class OverviewPatientSerializer(serializers.ModelSerializer):
+    """Datos mínimos del paciente que se muestran en el resumen de la unidad."""
+
     age_days = serializers.IntegerField(read_only=True)
 
     class Meta:
@@ -86,6 +92,8 @@ class OverviewPatientSerializer(serializers.ModelSerializer):
 
 
 class CribOverviewSerializer(CribSerializer):
+    """Cuna con su paciente, última lectura, alertas abiertas y severidad máxima."""
+
     patient = OverviewPatientSerializer(source="current_patient", read_only=True, allow_null=True)
     latest_reading = VitalSignReadingSerializer(read_only=True, allow_null=True)
     open_alerts = OverviewAlertCountsSerializer(read_only=True)
@@ -105,6 +113,8 @@ class CribOverviewSerializer(CribSerializer):
 
 
 class CribStatusCountsSerializer(serializers.Serializer):
+    """Cantidad de cunas por estado operativo."""
+
     available = serializers.IntegerField()
     occupied = serializers.IntegerField()
     maintenance = serializers.IntegerField()
@@ -112,6 +122,8 @@ class CribStatusCountsSerializer(serializers.Serializer):
 
 
 class UnitSummarySerializer(serializers.Serializer):
+    """Totales de la unidad: cunas por estado y alertas abiertas."""
+
     cribs_total = serializers.IntegerField()
     cribs_by_status = CribStatusCountsSerializer()
     patients_monitored = serializers.IntegerField()
@@ -119,6 +131,8 @@ class UnitSummarySerializer(serializers.Serializer):
 
 
 class UnitOverviewSerializer(serializers.Serializer):
+    """Respuesta del resumen de la unidad: fecha de generación, totales y cunas."""
+
     generated_at = serializers.DateTimeField()
     summary = UnitSummarySerializer()
     cribs = CribOverviewSerializer(many=True)

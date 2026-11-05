@@ -1,3 +1,5 @@
+"""Servicios de signos vitales: ingesta de telemetría y resumen operativo de la unidad."""
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -26,6 +28,21 @@ def ingest_telemetry(
     actor_user: User | None = None,
     is_device_authenticated: bool = False,
 ) -> tuple[VitalSignReading, AlertEvaluationSummary]:
+    """Valida y persiste una lectura de telemetría, evalúa alertas y la difunde en tiempo real.
+
+    Args:
+        crib: Cuna de origen.
+        payload: Cuerpo JSON de la lectura.
+        actor_user: Usuario que envía la lectura (alternativa al dispositivo).
+        is_device_authenticated: Si la petición se autenticó con la API Key de la cuna.
+
+    Returns:
+        Tupla ``(lectura, resumen_de_alertas)``.
+
+    Raises:
+        PermissionDomainError: Si no es un dispositivo autenticado ni personal autorizado.
+        DomainError: Si el payload no supera la validación fisiológica.
+    """
     if not is_device_authenticated and (
         actor_user is None
         or actor_user.role
@@ -70,9 +87,7 @@ def ingest_telemetry(
         update_fields = ["last_telemetry_at", "updated_at"]
         if locked_crib.status == CribStatus.OFFLINE:
             locked_crib.status = (
-                CribStatus.OCCUPIED
-                if current_patient is not None
-                else CribStatus.AVAILABLE
+                CribStatus.OCCUPIED if current_patient is not None else CribStatus.AVAILABLE
             )
             update_fields.append("status")
         locked_crib.save(update_fields=update_fields)
@@ -81,12 +96,8 @@ def ingest_telemetry(
 
     broadcast_telemetry_reading(
         reading_data=VitalSignReadingSerializer(reading).data,
-        active_alerts_data=AlertSerializer(
-            evaluation.active_or_updated_alerts, many=True
-        ).data,
-        auto_resolved_alerts_data=AlertSerializer(
-            evaluation.auto_resolved_alerts, many=True
-        ).data,
+        active_alerts_data=AlertSerializer(evaluation.active_or_updated_alerts, many=True).data,
+        auto_resolved_alerts_data=AlertSerializer(evaluation.auto_resolved_alerts, many=True).data,
         crib_id=reading.crib_id,
         patient_id=reading.patient_id,
     )
@@ -104,12 +115,22 @@ def _empty_alert_counts() -> dict[str, int]:
 
 @dataclass
 class UnitOverview:
+    """Foto de la unidad: cunas con su última lectura y contadores de alertas."""
+
     generated_at: datetime
     cribs: list[Crib]
     summary: dict[str, Any] = field(default_factory=dict)
 
 
 def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
+    """Arma el panel principal de la unidad con consultas acotadas.
+
+    Args:
+        crib_ids: Limita el resumen a estas cunas; ``None`` incluye todas.
+
+    Returns:
+        Cunas ordenadas por código, con su última lectura y alertas abiertas.
+    """
     # Consultas acotadas e independientes del número de cunas para el panel principal
     latest_reading_id = (
         VitalSignReading.objects.filter(crib=OuterRef("pk"))
@@ -121,9 +142,7 @@ def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
     if crib_ids is not None:
         crib_qs = crib_qs.filter(pk__in=crib_ids)
         open_alerts = open_alerts.filter(crib_id__in=crib_ids)
-    cribs = list(
-        crib_qs.annotate(latest_reading_id=Subquery(latest_reading_id)).order_by("code")
-    )
+    cribs = list(crib_qs.annotate(latest_reading_id=Subquery(latest_reading_id)).order_by("code"))
 
     readings = VitalSignReading.objects.select_related("crib", "patient").in_bulk(
         [c.latest_reading_id for c in cribs if c.latest_reading_id is not None]
@@ -131,10 +150,7 @@ def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
 
     alert_counts: dict[int, dict[str, int]] = {}
     unit_alerts = _empty_alert_counts()
-    grouped = (
-        open_alerts.values("crib_id", "severity")
-        .annotate(n=Count("id"))
-    )
+    grouped = open_alerts.values("crib_id", "severity").annotate(n=Count("id"))
     for row in grouped:
         counts = alert_counts.setdefault(row["crib_id"], _empty_alert_counts())
         counts[row["severity"]] += row["n"]

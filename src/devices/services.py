@@ -63,6 +63,41 @@ def create_crib(
     return crib, raw_key
 
 
+def _normalize_crib_code(crib: Crib, value: Any) -> str:
+    code = str(value).strip().upper()
+    if not code:
+        raise DomainError("El código de la cuna no puede estar vacío.")
+    if code != crib.code and Crib.objects.filter(code=code).exclude(pk=crib.pk).exists():
+        raise ConflictDomainError("Ya existe otra cuna con ese código.")
+    return code
+
+
+def _normalize_crib_status(crib: Crib, value: Any) -> str:
+    if value not in set(CribStatus.values):
+        raise DomainError("El estado operativo de la cuna no es válido.")
+    has_patient = hasattr(crib, "current_patient") and crib.current_patient is not None
+    if has_patient and value != CribStatus.OCCUPIED:
+        raise ConflictDomainError(
+            "No se puede cambiar el estado de una cuna con paciente asignado; "
+            "libere o egrese primero al paciente."
+        )
+    if not has_patient and value == CribStatus.OCCUPIED:
+        raise ConflictDomainError(
+            "No se puede marcar una cuna como ocupada sin asignarle un paciente."
+        )
+    return value
+
+
+# Campos editables de una cuna. El orden define ``changed_fields`` en la auditoría.
+_CRIB_EDITABLE_FIELDS = {
+    "code": _normalize_crib_code,
+    "name": lambda crib, value: str(value).strip(),
+    "location": lambda crib, value: str(value).strip(),
+    "status": _normalize_crib_status,
+    "is_device_active": lambda crib, value: bool(value),
+}
+
+
 def update_crib(
     *,
     actor: User,
@@ -70,6 +105,23 @@ def update_crib(
     data: dict[str, Any],
     ip_address: str | None = None,
 ) -> Crib:
+    """Actualiza parcialmente la configuración de una cuna y audita los campos modificados.
+
+    Args:
+        actor: Administrador que realiza el cambio.
+        crib: Cuna a modificar; se relee con bloqueo de fila.
+        data: Solo los campos a cambiar (``code``, ``name``, ``location``, ``status``,
+            ``is_device_active``).
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        La cuna actualizada.
+
+    Raises:
+        PermissionDomainError: Si el actor no es administrador.
+        ConflictDomainError: Código duplicado o estado incompatible con la ocupación.
+        DomainError: Código vacío o estado operativo inválido.
+    """
     if actor.role != UserRole.ADMIN:
         raise PermissionDomainError(
             "Solo un administrador puede modificar la configuración de una cuna."
@@ -78,51 +130,13 @@ def update_crib(
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)
         changed_fields: list[str] = []
 
-        has_patient = hasattr(locked_crib, "current_patient") and locked_crib.current_patient is not None
-
-        if "code" in data:
-            new_code = str(data["code"]).strip().upper()
-            if not new_code:
-                raise DomainError("El código de la cuna no puede estar vacío.")
-            if new_code != locked_crib.code:
-                if Crib.objects.filter(code=new_code).exclude(pk=locked_crib.pk).exists():
-                    raise ConflictDomainError("Ya existe otra cuna con ese código.")
-                locked_crib.code = new_code
-                changed_fields.append("code")
-
-        if "name" in data:
-            new_name = str(data["name"]).strip()
-            if new_name != locked_crib.name:
-                locked_crib.name = new_name
-                changed_fields.append("name")
-
-        if "location" in data:
-            new_location = str(data["location"]).strip()
-            if new_location != locked_crib.location:
-                locked_crib.location = new_location
-                changed_fields.append("location")
-
-        if "status" in data:
-            new_status = data["status"]
-            if new_status not in set(CribStatus.values):
-                raise DomainError("El estado operativo de la cuna no es válido.")
-            if has_patient and new_status != CribStatus.OCCUPIED:
-                raise ConflictDomainError(
-                    "No se puede cambiar el estado de una cuna con paciente asignado; libere o egrese primero al paciente."
-                )
-            if not has_patient and new_status == CribStatus.OCCUPIED:
-                raise ConflictDomainError(
-                    "No se puede marcar una cuna como ocupada sin asignarle un paciente."
-                )
-            if new_status != locked_crib.status:
-                locked_crib.status = new_status
-                changed_fields.append("status")
-
-        if "is_device_active" in data:
-            new_active = bool(data["is_device_active"])
-            if new_active != locked_crib.is_device_active:
-                locked_crib.is_device_active = new_active
-                changed_fields.append("is_device_active")
+        for field, normalize in _CRIB_EDITABLE_FIELDS.items():
+            if field not in data:
+                continue
+            new_value = normalize(locked_crib, data[field])
+            if new_value != getattr(locked_crib, field):
+                setattr(locked_crib, field, new_value)
+                changed_fields.append(field)
 
         if changed_fields:
             locked_crib.save()
@@ -144,9 +158,7 @@ def rotate_crib_api_key(
     ip_address: str | None = None,
 ) -> str:
     if actor.role != UserRole.ADMIN:
-        raise PermissionDomainError(
-            "Solo un administrador puede rotar la API Key de una cuna."
-        )
+        raise PermissionDomainError("Solo un administrador puede rotar la API Key de una cuna.")
     raw_key, prefix, key_hash = generate_device_api_key()
     with transaction.atomic():
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)

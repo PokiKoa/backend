@@ -72,6 +72,51 @@ def _register_failed_attempt(user: User, ip_address: str | None) -> bool:
     return False
 
 
+def _login_error(
+    user: User | None, password: str, otp_code: str | None, ip_address: str | None
+) -> DomainError | None:
+    """Evalúa las credenciales y devuelve el error de login que corresponde, o ``None`` si son válidas.
+
+    Registra la auditoría y el contador de fallos según el caso; el llamador decide
+    cuándo lanzar la excepción para no revertir esos registros.
+    """
+    if user is None:
+        record_audit_event(
+            action=AuditAction.LOGIN_FAILED, resource_type="auth", ip_address=ip_address
+        )
+        return AuthenticationDomainError("Usuario o contraseña incorrectos.")
+    if user.is_temporarily_locked or not user.is_active:
+        record_audit_event(
+            action=AuditAction.LOGIN_FAILED,
+            resource_type="user",
+            resource_id=user.id,
+            actor_user=user,
+            ip_address=ip_address,
+        )
+        if user.is_temporarily_locked:
+            return AccountLockedError()
+        return AuthenticationDomainError(
+            "La cuenta de usuario se encuentra desactivada.", code="account_inactive"
+        )
+    if not user.check_password(password):
+        if _register_failed_attempt(user, ip_address):
+            return AccountLockedError()
+        return AuthenticationDomainError("Usuario o contraseña incorrectos.")
+    if user.is_two_factor_enabled:
+        if not otp_code:
+            return AuthenticationDomainError(
+                "Se requiere el código de verificación de dos factores (2FA).",
+                code="two_factor_required",
+            )
+        if not verify_totp_code(user.totp_secret, otp_code):
+            if _register_failed_attempt(user, ip_address):
+                return AccountLockedError()
+            return AuthenticationDomainError(
+                "El código de verificación 2FA es inválido.", code="invalid_two_factor_code"
+            )
+    return None
+
+
 def authenticate_user(
     *,
     username: str | None = None,
@@ -95,61 +140,7 @@ def authenticate_user(
             .filter(models.Q(username=identifier) | models.Q(email=identifier))
             .first()
         )
-        if user is None:
-            record_audit_event(
-                action=AuditAction.LOGIN_FAILED,
-                resource_type="auth",
-                ip_address=ip_address,
-            )
-            auth_error = AuthenticationDomainError(
-                "Usuario o contraseña incorrectos."
-            )
-        elif user.is_temporarily_locked:
-            record_audit_event(
-                action=AuditAction.LOGIN_FAILED,
-                resource_type="user",
-                resource_id=user.id,
-                actor_user=user,
-                ip_address=ip_address,
-            )
-            auth_error = AccountLockedError()
-        elif not user.is_active:
-            record_audit_event(
-                action=AuditAction.LOGIN_FAILED,
-                resource_type="user",
-                resource_id=user.id,
-                actor_user=user,
-                ip_address=ip_address,
-            )
-            auth_error = AuthenticationDomainError(
-                "La cuenta de usuario se encuentra desactivada.",
-                code="account_inactive",
-            )
-        elif not user.check_password(password):
-            locked_now = _register_failed_attempt(user, ip_address)
-            auth_error = (
-                AccountLockedError()
-                if locked_now
-                else AuthenticationDomainError(
-                    "Usuario o contraseña incorrectos."
-                )
-            )
-        elif user.is_two_factor_enabled:
-            if not otp_code:
-                auth_error = AuthenticationDomainError(
-                    "Se requiere el código de verificación de dos factores (2FA).",
-                    code="two_factor_required",
-                )
-            elif not verify_totp_code(user.totp_secret, otp_code):
-                locked_now = _register_failed_attempt(user, ip_address)
-                auth_error = (
-                    AccountLockedError()
-                    if locked_now
-                    else AuthenticationDomainError(
-                        "El código de verificación 2FA es inválido.",
-                        code="invalid_two_factor_code",
-                    )
-                )
+        auth_error = _login_error(user, password, otp_code, ip_address)
 
         if auth_error is None and user is not None:
             user.failed_login_attempts = 0
@@ -410,13 +401,9 @@ def create_user_by_admin(
 
     with transaction.atomic():
         if User.objects.filter(username=normalized_username).exists():
-            raise ConflictDomainError(
-                "Ya existe un usuario registrado con ese nombre de usuario."
-            )
+            raise ConflictDomainError("Ya existe un usuario registrado con ese nombre de usuario.")
         if normalized_email and User.objects.filter(email=normalized_email).exists():
-            raise ConflictDomainError(
-                "Ya existe un usuario registrado con ese correo electrónico."
-            )
+            raise ConflictDomainError("Ya existe un usuario registrado con ese correo electrónico.")
 
         candidate = User(
             username=normalized_username,
@@ -442,6 +429,105 @@ def create_user_by_admin(
     return candidate
 
 
+def _check_admin_self_update(actor: User, target: User, data: dict[str, Any]) -> None:
+    """Impide que un administrador se desactive o se quite el rol a sí mismo."""
+    if target.id != actor.id:
+        return
+    if data.get("is_active") is False:
+        raise ConflictDomainError("Un administrador no puede desactivar su propia cuenta.")
+    if "role" in data and data["role"] != UserRole.ADMIN:
+        raise ConflictDomainError("Un administrador no puede revocar su propio rol administrativo.")
+
+
+def _normalize_username(user: User, value: Any) -> str:
+    username = str(value).strip().lower()
+    if not username:
+        raise DomainError("El nombre de usuario no puede estar vacío.")
+    if (
+        username != user.username
+        and User.objects.filter(username=username).exclude(pk=user.pk).exists()
+    ):
+        raise ConflictDomainError("Ya existe otro usuario con ese nombre de usuario.")
+    return username
+
+
+def _normalize_email(user: User, value: Any) -> str:
+    email = str(value or "").strip().lower()
+    if (
+        email
+        and email != user.email
+        and User.objects.filter(email=email).exclude(pk=user.pk).exists()
+    ):
+        raise ConflictDomainError("Ya existe otro usuario con ese correo electrónico.")
+    return email
+
+
+def _normalize_full_name(user: User, value: Any) -> str:
+    name = str(value).strip()
+    if not name:
+        raise DomainError("El nombre completo no puede estar vacío.")
+    return name
+
+
+def _normalize_role(user: User, value: Any) -> str:
+    if value not in set(UserRole.values):
+        raise DomainError("El rol especificado no es válido.")
+    return value
+
+
+def _normalize_shift(user: User, value: Any) -> str | None:
+    shift = value or None
+    if shift and shift not in set(WorkShift.values):
+        raise DomainError("El turno especificado no es válido.")
+    return shift
+
+
+def _normalize_is_active(user: User, value: Any) -> bool:
+    return bool(value)
+
+
+# Campos editables por un administrador. El orden define ``changed_fields`` en la auditoría.
+_ADMIN_EDITABLE_FIELDS = {
+    "username": _normalize_username,
+    "email": _normalize_email,
+    "full_name": _normalize_full_name,
+    "role": _normalize_role,
+    "shift": _normalize_shift,
+    "is_active": _normalize_is_active,
+}
+
+
+def _apply_admin_field_updates(user: User, data: dict[str, Any]) -> list[str]:
+    """Valida y asigna en memoria los campos editables enviados; devuelve los que cambiaron."""
+    changed: list[str] = []
+    for field, normalize in _ADMIN_EDITABLE_FIELDS.items():
+        if field not in data:
+            continue
+        new_value = normalize(user, data[field])
+        if new_value == getattr(user, field):
+            continue
+        setattr(user, field, new_value)
+        changed.append(field)
+        if field == "role":
+            user.is_staff = new_value == UserRole.ADMIN
+    return changed
+
+
+def _apply_unlock_and_password(user: User, data: dict[str, Any]) -> list[str]:
+    changed: list[str] = []
+    if data.get("unlock_account") is True and (
+        user.failed_login_attempts > 0 or user.locked_until is not None
+    ):
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        changed.extend(["failed_login_attempts", "locked_until"])
+    if data.get("password"):
+        validate_password(data["password"], user=user)
+        user.set_password(data["password"])
+        changed.append("password")
+    return changed
+
+
 def update_user_by_admin(
     *,
     actor: User,
@@ -449,93 +535,31 @@ def update_user_by_admin(
     data: dict[str, Any],
     ip_address: str | None = None,
 ) -> User:
+    """Actualiza parcialmente una cuenta de usuario desde el panel de administración.
+
+    Args:
+        actor: Administrador que realiza el cambio.
+        target_user: Usuario a modificar; se relee con bloqueo de fila.
+        data: Solo los campos a cambiar (``username``, ``email``, ``full_name``, ``role``,
+            ``shift``, ``is_active``, ``unlock_account``, ``password``).
+        ip_address: IP de origen para la auditoría.
+
+    Returns:
+        El usuario actualizado.
+
+    Raises:
+        ConflictDomainError: Auto-desactivación/auto-revocación de rol o duplicado de
+            usuario/correo.
+        DomainError: Valores vacíos o inválidos (rol, turno, contraseña débil).
+    """
     with transaction.atomic():
         locked_target = User.objects.select_for_update().get(pk=target_user.pk)
-        changed_fields: list[str] = []
+        _check_admin_self_update(actor, locked_target, data)
 
-        if locked_target.id == actor.id:
-            if "is_active" in data and data["is_active"] is False:
-                raise ConflictDomainError(
-                    "Un administrador no puede desactivar su propia cuenta."
-                )
-            if "role" in data and data["role"] != UserRole.ADMIN:
-                raise ConflictDomainError(
-                    "Un administrador no puede revocar su propio rol administrativo."
-                )
-
-        if "username" in data:
-            new_username = str(data["username"]).strip().lower()
-            if not new_username:
-                raise DomainError("El nombre de usuario no puede estar vacío.")
-            if new_username != locked_target.username:
-                if (
-                    User.objects.filter(username=new_username)
-                    .exclude(pk=locked_target.pk)
-                    .exists()
-                ):
-                    raise ConflictDomainError(
-                        "Ya existe otro usuario con ese nombre de usuario."
-                    )
-                locked_target.username = new_username
-                changed_fields.append("username")
-
-        if "email" in data:
-            new_email = str(data["email"] or "").strip().lower()
-            if new_email != locked_target.email:
-                if (
-                    new_email
-                    and User.objects.filter(email=new_email)
-                    .exclude(pk=locked_target.pk)
-                    .exists()
-                ):
-                    raise ConflictDomainError(
-                        "Ya existe otro usuario con ese correo electrónico."
-                    )
-                locked_target.email = new_email
-                changed_fields.append("email")
-
-        if "full_name" in data:
-            new_name = str(data["full_name"]).strip()
-            if not new_name:
-                raise DomainError("El nombre completo no puede estar vacío.")
-            if new_name != locked_target.full_name:
-                locked_target.full_name = new_name
-                changed_fields.append("full_name")
-
-        if "role" in data:
-            new_role = data["role"]
-            if new_role not in set(UserRole.values):
-                raise DomainError("El rol especificado no es válido.")
-            if new_role != locked_target.role:
-                locked_target.role = new_role
-                locked_target.is_staff = new_role == UserRole.ADMIN
-                changed_fields.append("role")
-
-        if "shift" in data:
-            new_shift = data["shift"] or None
-            if new_shift and new_shift not in set(WorkShift.values):
-                raise DomainError("El turno especificado no es válido.")
-            if new_shift != locked_target.shift:
-                locked_target.shift = new_shift
-                changed_fields.append("shift")
-
-        if "is_active" in data:
-            new_active = bool(data["is_active"])
-            if new_active != locked_target.is_active:
-                locked_target.is_active = new_active
-                changed_fields.append("is_active")
-
-        if data.get("unlock_account") is True and (
-            locked_target.failed_login_attempts > 0 or locked_target.locked_until is not None
-        ):
-            locked_target.failed_login_attempts = 0
-            locked_target.locked_until = None
-            changed_fields.extend(["failed_login_attempts", "locked_until"])
-
-        if data.get("password"):
-            validate_password(data["password"], user=locked_target)
-            locked_target.set_password(data["password"])
-            changed_fields.append("password")
+        changed_fields = [
+            *_apply_admin_field_updates(locked_target, data),
+            *_apply_unlock_and_password(locked_target, data),
+        ]
 
         if changed_fields:
             locked_target.save()

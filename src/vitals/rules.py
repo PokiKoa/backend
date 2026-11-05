@@ -71,107 +71,147 @@ def _parse_strict_bool(value: Any, field_name: str, label: str) -> bool:
         return value
     raise DomainError(
         "Los datos de telemetría enviados no son válidos.",
-        details={field_name: [f"El campo {label} debe ser un valor booleano estricto (true/false)."]},
+        details={
+            field_name: [f"El campo {label} debe ser un valor booleano estricto (true/false)."]
+        },
     )
+
+
+_REQUIRED_TELEMETRY_FIELDS = (
+    "heart_rate",
+    "spo2",
+    "temperature",
+    "sleep_state",
+    "cannula_connected",
+    "iv_line_active",
+)
+
+
+def _read_ranged_int(
+    payload: dict[str, Any],
+    errors: dict[str, list[str]],
+    *,
+    field: str,
+    label: str,
+    minimum: int,
+    maximum: int,
+    range_message: str,
+) -> int:
+    """Lee un entero estricto dentro de rango; acumula el error en ``errors`` y devuelve 0 si falla."""
+    try:
+        value = _parse_strict_int(payload[field], field, label)
+    except DomainError as exc:
+        errors.update(exc.details)
+        return 0
+    if not (minimum <= value <= maximum):
+        errors[field] = [range_message]
+    return value
+
+
+def _read_bool(
+    payload: dict[str, Any], errors: dict[str, list[str]], *, field: str, label: str
+) -> bool:
+    try:
+        return _parse_strict_bool(payload[field], field, label)
+    except DomainError as exc:
+        errors.update(exc.details)
+        return False
+
+
+def _read_temperature(payload: dict[str, Any], errors: dict[str, list[str]]) -> Decimal:
+    invalid = ["La temperatura debe ser un número decimal válido."]
+    raw = payload["temperature"]
+    if isinstance(raw, bool) or raw is None:
+        errors["temperature"] = invalid
+        return Decimal("0.0")
+    try:
+        temperature = Decimal(str(raw)).quantize(Decimal("0.1"))
+    except (InvalidOperation, ValueError):
+        errors["temperature"] = invalid
+        return Decimal("0.0")
+    if not (TEMPERATURE_MIN <= temperature <= TEMPERATURE_MAX):
+        errors["temperature"] = [
+            f"La temperatura corporal debe estar entre {TEMPERATURE_MIN} y {TEMPERATURE_MAX} °C."
+        ]
+    return temperature
+
+
+def _read_recorded_at(payload: dict[str, Any], errors: dict[str, list[str]]) -> datetime:
+    """Interpreta ``recorded_at`` (opcional); si falta usa la hora actual."""
+    raw = payload.get("recorded_at")
+    if raw is None:
+        return timezone.now()
+    parsed = raw if isinstance(raw, datetime) else None
+    if isinstance(raw, str):
+        parsed = parse_datetime(raw)
+    if parsed is None:
+        errors["recorded_at"] = ["El formato de fecha y hora (recorded_at) no es válido."]
+        return timezone.now()
+    return timezone.make_aware(parsed) if timezone.is_naive(parsed) else parsed
 
 
 def validate_telemetry_payload(payload: dict[str, Any]) -> ValidatedTelemetryPayload:
+    """Valida estrictamente una lectura de telemetría contra los rangos fisiológicos.
+
+    Args:
+        payload: Cuerpo JSON enviado por el dispositivo.
+
+    Returns:
+        La lectura tipada y normalizada.
+
+    Raises:
+        DomainError: Si el cuerpo no es un objeto, faltan campos obligatorios o algún
+            valor es inválido o está fuera de rango (``details`` indica cada campo).
+    """
     if not isinstance(payload, dict):
         raise DomainError("El cuerpo de telemetría debe ser un objeto JSON válido.")
 
-    errors: dict[str, list[str]] = {}
-
-    required_fields = (
-        "heart_rate",
-        "spo2",
-        "temperature",
-        "sleep_state",
-        "cannula_connected",
-        "iv_line_active",
-    )
-    for req_field in required_fields:
-        if req_field not in payload:
-            errors[req_field] = ["Este campo es obligatorio en cada lectura de telemetría."]
-
-    if errors:
+    missing = {
+        field: ["Este campo es obligatorio en cada lectura de telemetría."]
+        for field in _REQUIRED_TELEMETRY_FIELDS
+        if field not in payload
+    }
+    if missing:
         raise DomainError(
-            "Faltan campos obligatorios en la lectura de telemetría.",
-            details=errors,
+            "Faltan campos obligatorios en la lectura de telemetría.", details=missing
         )
 
-    heart_rate = 0
-    try:
-        heart_rate = _parse_strict_int(payload["heart_rate"], "heart_rate", "frecuencia cardíaca")
-        if not (HEART_RATE_MIN <= heart_rate <= HEART_RATE_MAX):
-            errors["heart_rate"] = [
-                f"La frecuencia cardíaca debe estar entre {HEART_RATE_MIN} y {HEART_RATE_MAX} lpm."
-            ]
-    except DomainError as exc:
-        errors.update(exc.details)
-
-    spo2 = 0
-    try:
-        spo2 = _parse_strict_int(payload["spo2"], "spo2", "SpO2")
-        if not (SPO2_MIN <= spo2 <= SPO2_MAX):
-            errors["spo2"] = [
-                f"La saturación de oxígeno (SpO2) debe estar entre {SPO2_MIN}% y {SPO2_MAX}%."
-            ]
-    except DomainError as exc:
-        errors.update(exc.details)
-
-    temperature = Decimal("0.0")
-    raw_temp = payload["temperature"]
-    if isinstance(raw_temp, bool) or raw_temp is None:
-        errors["temperature"] = ["La temperatura debe ser un número decimal válido."]
-    else:
-        try:
-            temperature = Decimal(str(raw_temp)).quantize(Decimal("0.1"))
-            if not (TEMPERATURE_MIN <= temperature <= TEMPERATURE_MAX):
-                errors["temperature"] = [
-                    f"La temperatura corporal debe estar entre {TEMPERATURE_MIN} y {TEMPERATURE_MAX} °C."
-                ]
-        except (InvalidOperation, ValueError):
-            errors["temperature"] = ["La temperatura debe ser un número decimal válido."]
+    errors: dict[str, list[str]] = {}
+    heart_rate = _read_ranged_int(
+        payload,
+        errors,
+        field="heart_rate",
+        label="frecuencia cardíaca",
+        minimum=HEART_RATE_MIN,
+        maximum=HEART_RATE_MAX,
+        range_message=(
+            f"La frecuencia cardíaca debe estar entre {HEART_RATE_MIN} y {HEART_RATE_MAX} lpm."
+        ),
+    )
+    spo2 = _read_ranged_int(
+        payload,
+        errors,
+        field="spo2",
+        label="SpO2",
+        minimum=SPO2_MIN,
+        maximum=SPO2_MAX,
+        range_message=(
+            f"La saturación de oxígeno (SpO2) debe estar entre {SPO2_MIN}% y {SPO2_MAX}%."
+        ),
+    )
+    temperature = _read_temperature(payload, errors)
 
     sleep_state = payload["sleep_state"]
     if not isinstance(sleep_state, str) or sleep_state not in set(SleepState.values):
-        errors["sleep_state"] = [
-            "El estado de sueño debe ser 'asleep' o 'awake'."
-        ]
+        errors["sleep_state"] = ["El estado de sueño debe ser 'asleep' o 'awake'."]
 
-    cannula_connected = False
-    try:
-        cannula_connected = _parse_strict_bool(
-            payload["cannula_connected"], "cannula_connected", "conexión de cánula"
-        )
-    except DomainError as exc:
-        errors.update(exc.details)
-
-    iv_line_active = False
-    try:
-        iv_line_active = _parse_strict_bool(
-            payload["iv_line_active"], "iv_line_active", "vía intravenosa activa"
-        )
-    except DomainError as exc:
-        errors.update(exc.details)
-
-    recorded_at = timezone.now()
-    if payload.get("recorded_at") is not None:
-        raw_ts = payload["recorded_at"]
-        if isinstance(raw_ts, datetime):
-            recorded_at = (
-                timezone.make_aware(raw_ts) if timezone.is_naive(raw_ts) else raw_ts
-            )
-        elif isinstance(raw_ts, str):
-            parsed = parse_datetime(raw_ts)
-            if parsed is None:
-                errors["recorded_at"] = ["El formato de fecha y hora (recorded_at) no es válido."]
-            else:
-                recorded_at = (
-                    timezone.make_aware(parsed) if timezone.is_naive(parsed) else parsed
-                )
-        else:
-            errors["recorded_at"] = ["El formato de fecha y hora (recorded_at) no es válido."]
+    cannula_connected = _read_bool(
+        payload, errors, field="cannula_connected", label="conexión de cánula"
+    )
+    iv_line_active = _read_bool(
+        payload, errors, field="iv_line_active", label="vía intravenosa activa"
+    )
+    recorded_at = _read_recorded_at(payload, errors)
 
     if errors:
         raise DomainError(

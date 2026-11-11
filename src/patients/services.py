@@ -25,6 +25,7 @@ from poki_koa.exceptions import (
     PermissionDomainError,
 )
 
+from .locks import lock_active_patient
 from .models import (
     CarePlan,
     CarePlanStatus,
@@ -436,11 +437,10 @@ def update_patient(
         )
 
     with transaction.atomic():
-        locked_patient = Patient.objects.select_for_update().get(pk=patient.pk)
-        if locked_patient.status != PatientStatus.ACTIVE:
-            raise ConflictDomainError(
-                "No se pueden modificar los datos clínicos de un paciente ya egresado."
-            )
+        locked_patient = lock_active_patient(
+            patient.pk,
+            discharged_message="No se pueden modificar los datos clínicos de un paciente ya egresado.",
+        )
 
         changed_fields = [
             *_apply_scalar_updates(locked_patient, data, actor),
@@ -508,9 +508,9 @@ def discharge_patient(
         )
 
     with transaction.atomic():
-        locked_patient = Patient.objects.select_for_update().get(pk=patient.pk)
-        if locked_patient.status != PatientStatus.ACTIVE:
-            raise ConflictDomainError("El paciente ya fue egresado previamente.")
+        locked_patient = lock_active_patient(
+            patient.pk, discharged_message="El paciente ya fue egresado previamente."
+        )
 
         old_crib = (
             Crib.objects.select_for_update().get(pk=locked_patient.crib_id)
@@ -605,13 +605,10 @@ def assign_patient_to_crib(
     )
     with transaction.atomic():
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)
-        locked_patient = Patient.objects.select_for_update().filter(pk=patient_id).first()
-        if locked_patient is None:
-            raise NotFoundDomainError("El paciente indicado no existe.")
-        if locked_patient.status != PatientStatus.ACTIVE:
-            raise ConflictDomainError(
-                "No se puede asignar una cuna a un paciente que ya fue egresado."
-            )
+        locked_patient = lock_active_patient(
+            patient_id,
+            discharged_message="No se puede asignar una cuna a un paciente que ya fue egresado.",
+        )
         if locked_crib.status in {CribStatus.MAINTENANCE, CribStatus.OFFLINE}:
             raise ConflictDomainError("La cuna no se encuentra disponible para asignación.")
 
@@ -881,11 +878,10 @@ def record_patient_weight(
         raise DomainError("El peso registrado debe estar entre 200 y 10000 gramos.")
 
     with transaction.atomic():
-        locked_patient = Patient.objects.select_for_update().get(pk=patient.pk)
-        if locked_patient.status != PatientStatus.ACTIVE:
-            raise ConflictDomainError(
-                "No se pueden añadir registros de peso a un paciente egresado."
-            )
+        locked_patient = lock_active_patient(
+            patient.pk,
+            discharged_message="No se pueden añadir registros de peso a un paciente egresado.",
+        )
 
         # Deduplicación: si el último punto registrado tiene el mismo peso, no duplica fila
         last_record = locked_patient.weight_records.order_by("-recorded_at", "-id").first()
@@ -954,13 +950,10 @@ def create_care_plan(
         raise DomainError("El área de cuidado, la intervención y la frecuencia son obligatorias.")
 
     with transaction.atomic():
-        patient = Patient.objects.select_for_update().filter(pk=patient_id).first()
-        if patient is None:
-            raise NotFoundDomainError("El paciente indicado no existe.")
-        if patient.status != PatientStatus.ACTIVE:
-            raise ConflictDomainError(
-                "No se pueden crear planes de cuidado para un paciente egresado."
-            )
+        patient = lock_active_patient(
+            patient_id,
+            discharged_message="No se pueden crear planes de cuidado para un paciente egresado.",
+        )
 
         plan = CarePlan.objects.create(
             patient=patient,
@@ -1080,13 +1073,10 @@ def create_clinical_observation(
         raise DomainError("El contenido de la observación clínica no puede estar vacío.")
 
     with transaction.atomic():
-        patient = Patient.objects.select_for_update().filter(pk=patient_id).first()
-        if patient is None:
-            raise NotFoundDomainError("El paciente indicado no existe.")
-        if patient.status != PatientStatus.ACTIVE:
-            raise ConflictDomainError(
-                "No se pueden agregar observaciones a un paciente ya egresado."
-            )
+        patient = lock_active_patient(
+            patient_id,
+            discharged_message="No se pueden agregar observaciones a un paciente ya egresado.",
+        )
 
         observation = ClinicalObservation.objects.create(
             patient=patient,

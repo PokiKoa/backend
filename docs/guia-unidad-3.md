@@ -5,7 +5,7 @@ Ficha de evidencias para la Sumativa 3 (ISF224). Cubre los dos repositorios de l
 - Backend: [poki-koa-backend](https://github.com/Asulx/poki-koa-backend), rama `refactor/unidad-3`.
 - Frontend: repositorio `frontend`, rama `refactor/unidad-3`, con su ficha en `docs/guia-unidad-3.md`.
 
-> Estado: **en progreso**. Esta ficha se actualiza al cerrar cada paso.
+> Estado: **intervenciones implementadas (2026-11-11)**. Faltan el registro del revisor, los responsables, los enlaces a los PR y la ejecución de CI.
 
 ## 0. Preparación y línea base
 
@@ -28,7 +28,7 @@ Revisión del comportamiento actual por un integrante distinto del autor:
 |---|---|---|---|---|---|---|
 | 1 | Regla de permisos por rol duplicada (24 copias de `if actor.role not in {...}: raise PermissionDomainError`) | `src/{patients,alerts,medications,devices,accounts}/services.py` y `accounts/permissions.py` | Alta | Módulo `accounts/roles.py` con conjuntos de roles y `require_role` | _(integrante)_ | `2381602` (test), `59374af` (feat), `c06c1c5`…`92ade98` (refactor por app), `380191e` |
 | 2 | Validaciones duplicadas en el catálogo y bloqueo de paciente activo repetido | `src/medications/services.py`, `src/patients/services.py`, `src/alerts/services.py` | Media | Funciones `parse_*` del catálogo y módulo `patients/locks.py` con `lock_active_patient` | _(integrante)_ | ver detalle |
-| 3 | _Frontend, ver ficha del frontend_ | | | | | |
+| 3 | El servicio de reportes mezclaba HTTP, generación CSV y descarga, y la bitácora de auditoría no podía exportarse | Frontend: `src/services/reportesService.ts`, `src/pages/registros/RegistrosPage.tsx` | Media | Exportador reutilizable `src/utils/csv.ts` (`toCsv`, `downloadCsv`) con dos consumidores reales | _(integrante)_ | Frontend `00ff6ac`…`5c2e8bd`, ver `frontend/docs/guia-unidad-3.md` |
 
 ### Intervención 1: guarda de rol centralizada
 
@@ -86,21 +86,75 @@ Para comprobarlo, ejecutar `uv run python -m pytest src/accounts/test_roles.py s
 
 ## 3. Organización de los repositorios
 
-_Pendiente: se completa al cerrar la modularización._
+**Backend.** Cada aplicación de dominio separa sus capas: HTTP en `views.py` y `serializers.py`, negocio en `services.py`, datos en `models.py` y reglas puras en `rules.py`, `policies.py`, `schedule.py` y `validators.py`. Las reglas que comparten varias apps quedan en un solo módulo:
 
-## 4. Revisión de dependencia externa
+- `accounts/roles.py`: roles y guarda de rol.
+- `patients/locks.py`: bloqueo de paciente activo.
 
-_Pendiente (drf-spectacular)._
+El detalle y las operaciones públicas de cada módulo están en [ARCHITECTURE.md §2](ARCHITECTURE.md).
+
+**Frontend.** La organización es la siguiente:
+
+| Carpeta | Contenido |
+|---|---|
+| `api/` | Cliente HTTP y tipos generados |
+| `api/mappers/` | Traducción del contrato a modelos de UI, incluidos los CSV de dominio `reporteACsv` y `registrosACsv` |
+| `services/` | Solo llamadas HTTP |
+| `hooks/queries/` | Caché y carga con TanStack Query |
+| `utils/` | Funciones puras reutilizables: `csv.ts`, `estados.ts` |
+| `pages/` | Presentación |
+
+En este trabajo se aplicaron tres cambios:
+
+- Se sacó la lógica CSV del servicio de reportes.
+- Se centralizaron las reglas de estado "plan activo" e "indicación vigente".
+- `ReportesPage` pasó de la carga manual a las consultas `useReporteQuery` y `useSerieQuery`.
+
+El detalle está en `frontend/docs/ARQUITECTURA.md`.
+
+## 4. Revisión de dependencia externa: drf-spectacular
+
+| Criterio | Registro |
+|---|---|
+| Nombre y versión | `drf-spectacular` 0.30.0, fijada en `uv.lock` y publicada el 2026-07-06. `pyproject.toml` exige `>=0.30.0`. |
+| Funcionalidad | Genera el contrato OpenAPI 3 desde las vistas y serializers DRF. Se usa en `/api/v1/schema/`, `/api/v1/docs/` y `openapi/schema.yml`. El frontend genera sus tipos (`src/api/schema.d.ts`) desde ese archivo con `openapi-typescript`. |
+| Mantenimiento | Las versiones salen con regularidad: 0.28.0 (2024-11-30), 0.29.0 (2025-11-01) y 0.30.0 (2026-07-06), según el [changelog oficial](https://drf-spectacular.readthedocs.io/). [Repositorio](https://github.com/tfranzel/drf-spectacular). |
+| Licencia y condiciones | BSD de 3 cláusulas ([documentación](https://drf-spectacular.readthedocs.io/en/latest/readme.html)). Obligación aplicable: al redistribuir el software hay que conservar el aviso de copyright y el texto de la licencia, y no se puede usar el nombre del autor para promocionar el producto. |
+| Riesgo | Un cambio incompatible en el esquema generado al actualizar (nombres de componentes, enums, nulabilidad) rompería los tipos del frontend sin aviso. Probabilidad media (versiones 0.x sin garantía de API estable) e impacto alto (contrato entre los dos repos). |
+| Medida | Versión fijada en `uv.lock` y actualizaciones solo con un PR propio. CI regenera el esquema con `--validate --fail-on-warn` y falla si difiere de `openapi/schema.yml`. Además, `src/poki_koa/test_openapi_contract.py` genera el esquema en memoria y comprueba las rutas y los campos que usa el frontend. |
+| Cómo se comprueba la medida | `uv run python -m pytest src/poki_koa/test_openapi_contract.py`: en una actualización de la librería, la prueba o el paso "schema actualizado" de CI fallan antes de llegar a `rewrite/v2`. También se revisan los avisos de seguridad de la versión instalada en [Snyk](https://security.snyk.io/package/pip/drf-spectacular). |
 
 ## 5. Comandos y CI
 
 ```bash
-uv run python -m pytest          # suite completa
+# Backend
+uv sync && uv run poki_koa migrate && uv run poki_koa seed_demo
+uv run python -m pytest                           # suite completa
 uv run ruff check src && uv run ruff format --check src
+uv run python -m uvicorn poki_koa.asgi:application --app-dir src --reload
+
+# Frontend
+npm ci && npm run test:coverage && npm run lint && npm run build
+npm run dev
 ```
 
-CI: `.github/workflows/ci.yml` (ruff, migraciones, pytest con cobertura y verificación de `openapi/schema.yml`). _Enlace a la ejecución del PR pendiente._
+| Repositorio | Pruebas antes | Pruebas después |
+|---|---|---|
+| Backend | 160 | 175 (pruebas nuevas: `accounts/test_roles.py`, `accounts/test_role_guards.py`, `medications/test_catalog_validation.py`, `patients/test_active_patient_lock.py`, `poki_koa/test_openapi_contract.py`) |
+| Frontend | 102 | 119 (pruebas nuevas: `utils/csv.test.ts`, `utils/estados.test.ts`, `hooks/queries/reportes.test.ts`, casos en `api/mappers/reportes.test.ts` y `registros.test.ts`) |
+
+CI:
+
+- Backend: `.github/workflows/ci.yml` ejecuta ruff, migraciones, pytest con cobertura y la verificación de `openapi/schema.yml`.
+- Frontend: `.github/workflows/ci.yml` ejecuta prettier, oxlint, build y vitest con cobertura.
+
+_Enlaces a las ejecuciones de los PR `refactor/unidad-3`: pendientes._
 
 ## 6. Deuda pendiente
 
-_Pendiente._
+| Deuda | Motivo | Responsable | Condición de revisión |
+|---|---|---|---|
+| Carga manual de datos (`useState` + `Promise.allSettled`) en `DashboardPage`, `TurnosPage`, `RegistrosPage`, `MapaCunasPage`, `PlanesPage`, `AlertasPage`, `MedicamentosPage` y `MisCunasPage` | Se migró solo `ReportesPage` para validar el patrón sin arriesgar la entrega | _(integrante)_ | Al modificar cada página, migrarla a `hooks/queries/` |
+| Funciones extensas en `patients/services.py` (`admit_patient`, `discharge_patient`) | Necesitan pruebas de caracterización de auditoría antes de dividirlas | _(integrante)_ | Antes de la siguiente funcionalidad en pacientes |
+| Exportación de auditoría limitada a 100 registros | Límite `max_page_size` del backend | _(integrante)_ | Si se pide un export completo, crear un endpoint CSV en el backend |
+| `jsqr ^1.4.0` en el frontend sin versiones recientes | Funciona para el lector QR actual | _(integrante)_ | Revisión trimestral de avisos o fallo del escáner |

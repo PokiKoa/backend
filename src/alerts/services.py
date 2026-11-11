@@ -11,7 +11,8 @@ from accounts.models import User
 from accounts.roles import CLINICAL_OR_ADMIN, THRESHOLD_MANAGERS, require_role
 from audit.models import AuditAction
 from audit.services import record_audit_event
-from patients.models import Patient, PatientStatus
+from patients.locks import lock_active_patient
+from patients.models import Patient
 from poki_koa.exceptions import (
     ConflictDomainError,
     DomainError,
@@ -136,11 +137,10 @@ def upsert_threshold_config(
 
     with transaction.atomic():
         if patient is not None:
-            locked_patient = Patient.objects.select_for_update().get(pk=patient.pk)
-            if locked_patient.status != PatientStatus.ACTIVE:
-                raise ConflictDomainError(
-                    "No se pueden modificar los umbrales de un paciente egresado."
-                )
+            locked_patient = lock_active_patient(
+                patient.pk,
+                discharged_message="No se pueden modificar los umbrales de un paciente egresado.",
+            )
             config = (
                 AlertThresholdConfig.objects.select_for_update()
                 .filter(patient=locked_patient)

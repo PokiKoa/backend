@@ -11,6 +11,7 @@ from accounts.models import User
 from accounts.roles import CATALOG_MANAGERS, CLINICAL_STAFF, NEONATOLOGIST_ONLY, require_role
 from audit.models import AuditAction
 from audit.services import record_audit_event
+from patients.locks import lock_active_patient
 from patients.models import Patient, PatientStatus
 from poki_koa.exceptions import (
     ConflictDomainError,
@@ -326,13 +327,10 @@ def create_prescription(
     )
 
     with transaction.atomic():
-        patient = Patient.objects.select_for_update().filter(pk=patient_id).first()
-        if patient is None:
-            raise NotFoundDomainError("El paciente indicado no existe.")
-        if patient.status != PatientStatus.ACTIVE:
-            raise ConflictDomainError(
-                "No se pueden crear indicaciones médicas para un paciente ya egresado."
-            )
+        patient = lock_active_patient(
+            patient_id,
+            discharged_message="No se pueden crear indicaciones médicas para un paciente ya egresado.",
+        )
 
         medication = (
             MedicationCatalogItem.objects.select_for_update().filter(pk=medication_id).first()

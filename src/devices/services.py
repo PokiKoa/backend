@@ -6,11 +6,12 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
-from accounts.models import User, UserRole
+from accounts.models import User
+from accounts.roles import ADMIN_ONLY, require_role
 from alerts.services import trigger_or_deduplicate_offline_alert
 from audit.models import AuditAction
 from audit.services import record_audit_event
-from poki_koa.exceptions import ConflictDomainError, DomainError, PermissionDomainError
+from poki_koa.exceptions import ConflictDomainError, DomainError
 
 from .models import Crib, CribStatus, generate_device_api_key
 
@@ -44,10 +45,9 @@ def create_crib(
         ConflictDomainError: Si el código ya existe.
         DomainError: Si el código está vacío o el estado es inválido.
     """
-    if actor.role != UserRole.ADMIN:
-        raise PermissionDomainError(
-            "Solo un administrador puede registrar nuevas cunas en el sistema."
-        )
+    require_role(
+        actor, ADMIN_ONLY, "Solo un administrador puede registrar nuevas cunas en el sistema."
+    )
     normalized_code = (code or "").strip().upper()
     if not normalized_code:
         raise DomainError("El código identificador de la cuna es obligatorio.")
@@ -143,10 +143,9 @@ def update_crib(
         ConflictDomainError: Código duplicado o estado incompatible con la ocupación.
         DomainError: Código vacío o estado operativo inválido.
     """
-    if actor.role != UserRole.ADMIN:
-        raise PermissionDomainError(
-            "Solo un administrador puede modificar la configuración de una cuna."
-        )
+    require_role(
+        actor, ADMIN_ONLY, "Solo un administrador puede modificar la configuración de una cuna."
+    )
     with transaction.atomic():
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)
         changed_fields: list[str] = []
@@ -191,8 +190,7 @@ def rotate_crib_api_key(
     Raises:
         PermissionDomainError: Si el actor no es administrador.
     """
-    if actor.role != UserRole.ADMIN:
-        raise PermissionDomainError("Solo un administrador puede rotar la API Key de una cuna.")
+    require_role(actor, ADMIN_ONLY, "Solo un administrador puede rotar la API Key de una cuna.")
     raw_key, prefix, key_hash = generate_device_api_key()
     with transaction.atomic():
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)

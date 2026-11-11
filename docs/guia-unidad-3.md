@@ -27,7 +27,7 @@ Revisión del comportamiento actual por un integrante distinto del autor:
 | # | Problema o necesidad | Ubicación | Prioridad | Solución | Responsable | Commits |
 |---|---|---|---|---|---|---|
 | 1 | Regla de permisos por rol duplicada (24 copias de `if actor.role not in {...}: raise PermissionDomainError`) | `src/{patients,alerts,medications,devices,accounts}/services.py` y `accounts/permissions.py` | Alta | Módulo `accounts/roles.py` con conjuntos de roles y `require_role` | _(integrante)_ | `2381602` (test), `59374af` (feat), `c06c1c5`…`92ade98` (refactor por app), `380191e` |
-| 2 | _En curso_ | | | | | |
+| 2 | Validaciones duplicadas en el catálogo y bloqueo de paciente activo repetido | `src/medications/services.py`, `src/patients/services.py`, `src/alerts/services.py` | Media | Funciones `parse_*` del catálogo y módulo `patients/locks.py` con `lock_active_patient` | _(integrante)_ | ver detalle |
 | 3 | _Frontend, ver ficha del frontend_ | | | | | |
 
 ### Intervención 1: guarda de rol centralizada
@@ -40,6 +40,26 @@ Revisión del comportamiento actual por un integrante distinto del autor:
 |---|---|---|
 | Definiciones inline de la regla "rol permitido" | 24 en servicios + 5 en `permissions.py` | 1 (`accounts.roles.require_role` / `has_role`) |
 | Lugares a editar para cambiar el conjunto "personal clínico" | 10 (9 guardas + `IsClinicalStaff`) | 1 (`CLINICAL_STAFF`) |
+
+### Intervención 2: reglas de validación y bloqueo compartidas
+
+**2a. Valores del catálogo de medicamentos.** `create_catalog_item` repetía en línea las reglas de concentración, stock y stock mínimo que `update_catalog_item` ya aplicaba con sus normalizadores privados.
+
+- Protección previa: `src/medications/test_catalog_validation.py` (commit `8325e36`) comprueba que crear y actualizar rechazan los mismos valores con el mismo mensaje. Incluye valores límite: concentración `0.005`, que se redondea a `0.00` y se rechaza, y `0.006`, que se acepta como `0.01`; stock `0` se acepta y `-1` se rechaza.
+- Refactor: `parse_concentration_mg`, `parse_stock` y `parse_min_stock_alert` (commit `b0f814c`). Ambos flujos usan ahora estas funciones.
+
+**2b. Bloqueo de paciente activo.** Ocho operaciones repetían el mismo bloque: `select_for_update`, error 404 si el paciente no existe y error 409 si ya egresó. Cada una cambiaba solo el mensaje.
+
+- Protección previa: `src/patients/test_active_patient_lock.py` (`ea15135`) fija el mensaje 409 de cada operación y el 404 para un id inexistente.
+- Refactor: `patients/locks.py::lock_active_patient(patient_id, *, discharged_message)` (`57798e1`, `5a5b3d2`). Lo usan `patients`, `alerts` y `medications`.
+
+| Indicador | Antes | Después |
+|---|---|---|
+| Copias de la regla "concentración > 0 / stock ≥ 0" | 2 (crear y actualizar) | 1 |
+| Copias del bloqueo de paciente activo | 8 (3 apps) | 1 (`lock_active_patient`) |
+| Lugares a editar para cambiar el mensaje 404 de paciente | 4 | 1 |
+
+Nota: en las operaciones que antes usaban `.get(pk=...)`, un paciente borrado de forma concurrente ahora responde 404 en lugar de un error 500. Es el único cambio observable y es una mejora.
 
 ## 2. Interfaz del componente reutilizable: `accounts.roles.require_role`
 

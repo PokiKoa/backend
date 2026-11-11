@@ -8,6 +8,13 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import User, UserRole
+from accounts.roles import (
+    ADMIN_ONLY,
+    CLINICAL_OR_ADMIN,
+    CLINICAL_STAFF,
+    NEONATOLOGIST_ONLY,
+    require_role,
+)
 from audit.models import AuditAction
 from audit.services import record_audit_event
 from devices.models import Crib, CribStatus
@@ -195,10 +202,11 @@ def admit_patient(
         NotFoundDomainError: Si el médico o la cuna no existen.
         DomainError: Si algún dato es inválido o está fuera de rango.
     """
-    if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo Neonatólogos o Matronas/Enfermeras pueden registrar el ingreso de un paciente."
-        )
+    require_role(
+        actor,
+        CLINICAL_STAFF,
+        "Solo Neonatólogos o Matronas/Enfermeras pueden registrar el ingreso de un paciente.",
+    )
     guardian_data = _clean_guardian_data(guardians or {})
     mrn, cleaned_name, gest_weeks, effective_current_weight = _validate_admission_inputs(
         medical_record_number=medical_record_number,
@@ -416,10 +424,9 @@ def update_patient(
         NotFoundDomainError: Si el médico o la cuna indicados no existen.
         DomainError: Si algún valor está fuera de rango o es inválido.
     """
-    if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo el personal clínico puede modificar datos de un paciente."
-        )
+    require_role(
+        actor, CLINICAL_STAFF, "Solo el personal clínico puede modificar datos de un paciente."
+    )
 
     # Permiso por objeto/campo: diagnóstico y médico tratante son exclusivos de Neonatólogo
     restricted_medical_fields = {"diagnosis", "attending_physician_id"}
@@ -484,10 +491,11 @@ def discharge_patient(
         ConflictDomainError: Si el paciente ya fue egresado.
         DomainError: Si el desenlace o la causa son inválidos.
     """
-    if actor.role != UserRole.NEONATOLOGIST:
-        raise PermissionDomainError(
-            "Solo un Neonatólogo está autorizado para firmar el egreso clínico de un paciente."
-        )
+    require_role(
+        actor,
+        NEONATOLOGIST_ONLY,
+        "Solo un Neonatólogo está autorizado para firmar el egreso clínico de un paciente.",
+    )
     if outcome not in set(DischargeOutcome.values):
         raise DomainError("El desenlace clínico de egreso no es válido.")
 
@@ -590,10 +598,11 @@ def assign_patient_to_crib(
         NotFoundDomainError: Si el paciente no existe.
         ConflictDomainError: Cuna no disponible u ocupada, o paciente ya asignado a ella.
     """
-    if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo el personal clínico o administrativo puede asignar pacientes a una cuna."
-        )
+    require_role(
+        actor,
+        CLINICAL_OR_ADMIN,
+        "Solo el personal clínico o administrativo puede asignar pacientes a una cuna.",
+    )
     with transaction.atomic():
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)
         locked_patient = Patient.objects.select_for_update().filter(pk=patient_id).first()
@@ -666,10 +675,11 @@ def release_patient_from_crib(
         PermissionDomainError: Si el rol no puede liberar cunas.
         ConflictDomainError: Si la cuna ya estaba libre.
     """
-    if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo el personal clínico o administrativo puede liberar una cuna."
-        )
+    require_role(
+        actor,
+        CLINICAL_OR_ADMIN,
+        "Solo el personal clínico o administrativo puede liberar una cuna.",
+    )
     with transaction.atomic():
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)
         occupant = getattr(locked_crib, "current_patient", None)
@@ -715,10 +725,11 @@ def swap_patients_between_cribs(
     Ningún paciente egresa ni queda sin cuna en el proceso; cada uno recibe un
     movimiento de tipo intercambio en su historial.
     """
-    if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo el personal clínico o administrativo puede intercambiar pacientes de cuna."
-        )
+    require_role(
+        actor,
+        CLINICAL_OR_ADMIN,
+        "Solo el personal clínico o administrativo puede intercambiar pacientes de cuna.",
+    )
     if crib.pk == other_crib_id:
         raise DomainError("Selecciona dos cunas distintas para el intercambio.")
 
@@ -795,10 +806,9 @@ def delete_patient_permanently(
     como confirmación; la auditoría conserva solo el identificador numérico.
     Las administraciones ya descontadas del stock no se reponen.
     """
-    if actor.role != UserRole.ADMIN:
-        raise PermissionDomainError(
-            "Solo un Administrador puede eliminar definitivamente a un paciente."
-        )
+    require_role(
+        actor, ADMIN_ONLY, "Solo un Administrador puede eliminar definitivamente a un paciente."
+    )
     if (confirmation or "").strip().upper() != patient.medical_record_number:
         raise DomainError(
             "Para confirmar, escribe exactamente el número de ficha clínica del paciente."
@@ -864,8 +874,9 @@ def record_patient_weight(
         ConflictDomainError: Si el paciente ya fue egresado.
         DomainError: Si el peso está fuera de rango.
     """
-    if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError("Solo el personal clínico puede registrar mediciones de peso.")
+    require_role(
+        actor, CLINICAL_STAFF, "Solo el personal clínico puede registrar mediciones de peso."
+    )
     if not (200 <= weight_g <= 10000):
         raise DomainError("El peso registrado debe estar entre 200 y 10000 gramos.")
 
@@ -932,8 +943,7 @@ def create_care_plan(
         ConflictDomainError: Si el paciente ya fue egresado.
         DomainError: Si faltan campos o el estado es inválido.
     """
-    if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError("Solo el personal clínico puede crear planes de cuidado.")
+    require_role(actor, CLINICAL_STAFF, "Solo el personal clínico puede crear planes de cuidado.")
     if status not in set(CarePlanStatus.values):
         raise DomainError("El estado del plan de cuidado no es válido.")
 
@@ -995,8 +1005,9 @@ def update_care_plan(
         ConflictDomainError: Si el paciente ya fue egresado.
         DomainError: Si algún campo queda vacío o el estado es inválido.
     """
-    if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError("Solo el personal clínico puede actualizar planes de cuidado.")
+    require_role(
+        actor, CLINICAL_STAFF, "Solo el personal clínico puede actualizar planes de cuidado."
+    )
 
     with transaction.atomic():
         locked_plan = CarePlan.objects.select_for_update().get(pk=care_plan.pk)
@@ -1059,10 +1070,9 @@ def create_clinical_observation(
         ConflictDomainError: Si el paciente ya fue egresado.
         DomainError: Si la categoría es inválida o el contenido está vacío.
     """
-    if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo el personal clínico puede registrar observaciones clínicas."
-        )
+    require_role(
+        actor, CLINICAL_STAFF, "Solo el personal clínico puede registrar observaciones clínicas."
+    )
     if category not in set(ObservationCategory.values):
         raise DomainError("La categoría de observación clínica no es válida.")
     cleaned_content = (content or "").strip()

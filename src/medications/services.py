@@ -78,13 +78,9 @@ def create_catalog_item(
     if not cleaned_unit:
         raise DomainError("La unidad de dispensación es obligatoria.")
 
-    conc = Decimal(str(concentration_mg)).quantize(Decimal("0.01"))
-    if conc <= Decimal("0.00"):
-        raise DomainError("La concentración en miligramos debe ser mayor que cero.")
-    if stock < 0:
-        raise DomainError("El stock disponible no puede ser negativo.")
-    if min_stock_alert < 0:
-        raise DomainError("El umbral de alerta de stock mínimo no puede ser negativo.")
+    conc = parse_concentration_mg(concentration_mg)
+    stock = parse_stock(stock)
+    min_stock_alert = parse_min_stock_alert(min_stock_alert)
 
     with transaction.atomic():
         if MedicationCatalogItem.objects.filter(name__iexact=cleaned_name).exists():
@@ -140,21 +136,36 @@ def _non_empty_text(field: str):
     return normalize
 
 
-def _normalize_concentration(item: MedicationCatalogItem, value: Any) -> Decimal:
+def parse_concentration_mg(value: Any) -> Decimal:
+    """Normaliza una concentración a dos decimales y exige que sea mayor que cero.
+
+    Raises:
+        DomainError: Si la concentración redondeada es menor o igual a cero.
+    """
     concentration = Decimal(str(value)).quantize(Decimal("0.01"))
     if concentration <= Decimal("0.00"):
         raise DomainError("La concentración en miligramos debe ser mayor que cero.")
     return concentration
 
 
-def _normalize_stock(item: MedicationCatalogItem, value: Any) -> int:
+def parse_stock(value: Any) -> int:
+    """Convierte el stock a entero no negativo.
+
+    Raises:
+        DomainError: Si el stock es negativo.
+    """
     stock = int(value)
     if stock < 0:
         raise DomainError("El stock disponible no puede ser negativo.")
     return stock
 
 
-def _normalize_min_stock(item: MedicationCatalogItem, value: Any) -> int:
+def parse_min_stock_alert(value: Any) -> int:
+    """Convierte el umbral de stock mínimo a entero no negativo.
+
+    Raises:
+        DomainError: Si el umbral es negativo.
+    """
     minimum = int(value)
     if minimum < 0:
         raise DomainError("El umbral de alerta de stock mínimo no puede ser negativo.")
@@ -166,9 +177,9 @@ _CATALOG_EDITABLE_FIELDS = {
     "name": _normalize_item_name,
     "active_ingredient": _non_empty_text("active_ingredient"),
     "unit": _non_empty_text("unit"),
-    "concentration_mg": _normalize_concentration,
-    "stock": _normalize_stock,
-    "min_stock_alert": _normalize_min_stock,
+    "concentration_mg": lambda item, value: parse_concentration_mg(value),
+    "stock": lambda item, value: parse_stock(value),
+    "min_stock_alert": lambda item, value: parse_min_stock_alert(value),
     "is_active": lambda item, value: bool(value),
 }
 

@@ -5,16 +5,23 @@ from typing import Any
 from rest_framework.permissions import BasePermission
 from rest_framework.request import Request
 
-from .models import UserRole
+from .roles import (
+    ADMIN_ONLY,
+    CLINICAL_STAFF,
+    NEONATOLOGIST_ONLY,
+    NURSE_ONLY,
+    PHARMACIST_ONLY,
+    has_role,
+)
 
 
-def _has_active_role(request: Request, allowed_roles: set[str]) -> bool:
+def _has_active_role(request: Request, allowed_roles: frozenset[str]) -> bool:
     user = getattr(request, "user", None)
     return bool(
         user
         and getattr(user, "is_authenticated", False)
         and getattr(user, "is_active", False)
-        and getattr(user, "role", None) in allowed_roles
+        and has_role(user, allowed_roles)
     )
 
 
@@ -25,7 +32,7 @@ class IsAdminRole(BasePermission):
 
     def has_permission(self, request: Request, view: Any) -> bool:
         """Devuelve ``True`` si el usuario autenticado y activo es Administrador."""
-        return _has_active_role(request, {UserRole.ADMIN})
+        return _has_active_role(request, ADMIN_ONLY)
 
 
 class IsNeonatologistRole(BasePermission):
@@ -35,7 +42,7 @@ class IsNeonatologistRole(BasePermission):
 
     def has_permission(self, request: Request, view: Any) -> bool:
         """Devuelve ``True`` si el usuario autenticado y activo es Neonatólogo."""
-        return _has_active_role(request, {UserRole.NEONATOLOGIST})
+        return _has_active_role(request, NEONATOLOGIST_ONLY)
 
 
 class IsNurseRole(BasePermission):
@@ -45,7 +52,7 @@ class IsNurseRole(BasePermission):
 
     def has_permission(self, request: Request, view: Any) -> bool:
         """Devuelve ``True`` si el usuario autenticado y activo es Matrona/Enfermera."""
-        return _has_active_role(request, {UserRole.NURSE})
+        return _has_active_role(request, NURSE_ONLY)
 
 
 class IsPharmacistRole(BasePermission):
@@ -55,7 +62,7 @@ class IsPharmacistRole(BasePermission):
 
     def has_permission(self, request: Request, view: Any) -> bool:
         """Devuelve ``True`` si el usuario autenticado y activo es Químico Farmacéutico."""
-        return _has_active_role(request, {UserRole.PHARMACIST})
+        return _has_active_role(request, PHARMACIST_ONLY)
 
 
 class IsClinicalStaff(BasePermission):
@@ -65,4 +72,4 @@ class IsClinicalStaff(BasePermission):
 
     def has_permission(self, request: Request, view: Any) -> bool:
         """Devuelve ``True`` si el usuario autenticado y activo es Neonatólogo o Matrona/Enfermera."""
-        return _has_active_role(request, {UserRole.NEONATOLOGIST, UserRole.NURSE})
+        return _has_active_role(request, CLINICAL_STAFF)

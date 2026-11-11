@@ -20,7 +20,7 @@ Revisión del comportamiento actual por un integrante distinto del autor:
 
 | Operación revisada | Revisor | Comportamiento observado | Fecha |
 |---|---|---|---|
-| _Pendiente: p. ej. enfermera intenta crear una cuna → HTTP 403 con mensaje_ | _(integrante)_ | | |
+| Egreso de paciente por una matrona (`POST /patients/<id>/discharge/`) | _(integrante distinto del autor)_ | _Registrar: 403 con el mensaje de la guarda_ | |
 
 ## 1. Intervenciones
 
@@ -82,7 +82,7 @@ def registrar_algo(*, actor, ...):
     ...
 ```
 
-Para comprobarlo, ejecutar `uv run python -m pytest src/accounts/test_roles.py src/accounts/test_role_guards.py`. Para verlo en funcionamiento, iniciar sesión como `nurse` y hacer `POST /api/v1/cribs/`: la respuesta es 403 con el mensaje "Solo un administrador puede registrar nuevas cunas en el sistema."
+Para comprobarlo, ejecutar `uv run python -m pytest src/accounts/test_roles.py src/accounts/test_role_guards.py`. Para verlo en funcionamiento: con `seed_demo` cargado, iniciar sesión como `matrona.diaz@pokikoa.cl` y hacer `POST /api/v1/patients/<id>/discharge/` con `{"outcome": "survived"}`. La respuesta es 403 `permission_denied` con el mensaje "Solo un Neonatólogo está autorizado para firmar el egreso clínico de un paciente.", verificado el 2026-11-11. En `POST /api/v1/cribs/` la petición la rechaza antes el permiso DRF `IsAdminRole`, que usa el mismo `ADMIN_ONLY`.
 
 ## 3. Organización de los repositorios
 

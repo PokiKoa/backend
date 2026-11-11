@@ -26,6 +26,7 @@ flowchart TD
 
     Views --> Services["Capa de Dominio Transaccional (services.py)"]
     Services --> Rules["Reglas Puras (vitals/rules.py, alerts/policies.py)"]
+    Services --> Shared["Reglas compartidas (accounts/roles.py, patients/locks.py)"]
     Services --> Audit["Auditoría sin PHI (audit/services.py)"]
     Services --> Realtime["Difusión de Eventos (vitals/realtime.py)"]
     Realtime --> WS
@@ -43,6 +44,24 @@ flowchart TD
 | `vitals` | Reglas fisiológicas (`vitals/rules.py`), serie histórica de lecturas (`VitalSignReading`) y canales WebSocket en tiempo real (`vitals/consumers.py`). |
 | `alerts` | Configuración de umbrales (`AlertThresholdConfig`), evaluación determinista (`alerts/policies.py`) y ciclo de vida de alertas (`Alert`). |
 | `medications` | Catálogo de farmacia con control de inventario (`MedicationCatalogItem`), prescripciones médicas (`Prescription`) y administración atómica con descuento de stock. |
+
+### Organización por capa dentro de cada aplicación
+
+| Archivo | Responsabilidad | Regla |
+|---|---|---|
+| `views.py` + `serializers.py` | HTTP: autenticación, permisos DRF, validación de formato y serialización | Sin lógica de negocio |
+| `services.py` | Operaciones de dominio transaccionales (la API pública de la app) | Única capa que escribe y audita |
+| `models.py` | Esquema e invariantes de base de datos | — |
+| `rules.py`, `policies.py`, `schedule.py`, `validators.py` | Reglas puras sin E/S | Una sola fuente por regla |
+
+### Módulos compartidos (Guía Unidad 3)
+
+| Módulo | Operaciones públicas | Consumidores |
+|---|---|---|
+| `accounts/roles.py` | Conjuntos de roles (`ADMIN_ONLY`, `CLINICAL_STAFF`, `CLINICAL_OR_ADMIN`, …), `has_role`, `require_role` | Servicios de `patients`, `alerts`, `medications`, `devices` y `accounts`; `accounts/permissions.py` |
+| `patients/locks.py` | `lock_active_patient(patient_id, *, discharged_message)` | `patients`, `alerts` y `medications` |
+| `medications/services.py` | `parse_concentration_mg`, `parse_stock`, `parse_min_stock_alert` | Alta y edición del catálogo |
+
 
 ---
 

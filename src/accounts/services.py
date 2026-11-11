@@ -21,10 +21,10 @@ from poki_koa.exceptions import (
     ConflictDomainError,
     DomainError,
     NotFoundDomainError,
-    PermissionDomainError,
 )
 
 from .models import SHIFT_HOURS, ShiftAssignment, User, UserRole, WorkShift
+from .roles import ADMIN_ONLY, require_role
 from .totp import build_provisioning_uri, generate_totp_secret, verify_totp_code
 
 MAX_FAILED_LOGIN_ATTEMPTS = 5
@@ -761,8 +761,7 @@ def create_shift_assignment(
     """
     from devices.models import Crib
 
-    if actor.role != UserRole.ADMIN:
-        raise PermissionDomainError("Solo un administrador puede asignar turnos.")
+    require_role(actor, ADMIN_ONLY, "Solo un administrador puede asignar turnos.")
     if shift not in set(WorkShift.values):
         raise DomainError("El turno especificado no es válido.")
 
@@ -806,8 +805,7 @@ def delete_shift_assignment(
     Raises:
         PermissionDomainError: Si el actor no es administrador.
     """
-    if actor.role != UserRole.ADMIN:
-        raise PermissionDomainError("Solo un administrador puede eliminar asignaciones de turno.")
+    require_role(actor, ADMIN_ONLY, "Solo un administrador puede eliminar asignaciones de turno.")
     with transaction.atomic():
         assignment_id = assignment.id
         assignment.delete()

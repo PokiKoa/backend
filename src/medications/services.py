@@ -7,7 +7,8 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
-from accounts.models import User, UserRole
+from accounts.models import User
+from accounts.roles import CATALOG_MANAGERS, CLINICAL_STAFF, NEONATOLOGIST_ONLY, require_role
 from audit.models import AuditAction
 from audit.services import record_audit_event
 from patients.models import Patient, PatientStatus
@@ -15,7 +16,6 @@ from poki_koa.exceptions import (
     ConflictDomainError,
     DomainError,
     NotFoundDomainError,
-    PermissionDomainError,
 )
 
 from . import schedule
@@ -62,10 +62,11 @@ def create_catalog_item(
         ConflictDomainError: Si el nombre ya existe.
         DomainError: Si algún valor es inválido.
     """
-    if actor.role not in {UserRole.ADMIN, UserRole.PHARMACIST}:
-        raise PermissionDomainError(
-            "Solo un Químico Farmacéutico o Administrador puede registrar medicamentos en el catálogo."
-        )
+    require_role(
+        actor,
+        CATALOG_MANAGERS,
+        "Solo un Químico Farmacéutico o Administrador puede registrar medicamentos en el catálogo.",
+    )
 
     cleaned_name = (name or "").strip()
     cleaned_ingredient = (active_ingredient or "").strip()
@@ -195,10 +196,11 @@ def update_catalog_item(
         ConflictDomainError: Si el nombre ya existe en otro medicamento.
         DomainError: Si algún valor está vacío o fuera de rango.
     """
-    if actor.role not in {UserRole.ADMIN, UserRole.PHARMACIST}:
-        raise PermissionDomainError(
-            "Solo un Químico Farmacéutico o Administrador puede actualizar el catálogo o el stock."
-        )
+    require_role(
+        actor,
+        CATALOG_MANAGERS,
+        "Solo un Químico Farmacéutico o Administrador puede actualizar el catálogo o el stock.",
+    )
 
     with transaction.atomic():
         locked_item = MedicationCatalogItem.objects.select_for_update().get(pk=item.pk)
@@ -297,10 +299,11 @@ def create_prescription(
         ConflictDomainError: Si el paciente está egresado o el medicamento inactivo.
         DomainError: Si algún dato de la indicación es inválido.
     """
-    if actor.role != UserRole.NEONATOLOGIST:
-        raise PermissionDomainError(
-            "Solo un Neonatólogo está autorizado para prescribir indicaciones médicas."
-        )
+    require_role(
+        actor,
+        NEONATOLOGIST_ONLY,
+        "Solo un Neonatólogo está autorizado para prescribir indicaciones médicas.",
+    )
 
     cleaned_dose, starts_at = _validate_prescription_inputs(
         dose=dose,
@@ -426,10 +429,11 @@ def administer_prescription(
             anticipada, medicamento inactivo o stock insuficiente.
         DomainError: Si el horario indicado no pertenece a la pauta.
     """
-    if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo un Neonatólogo o Matrona/Enfermera puede administrar medicamentos a un paciente."
-        )
+    require_role(
+        actor,
+        CLINICAL_STAFF,
+        "Solo un Neonatólogo o Matrona/Enfermera puede administrar medicamentos a un paciente.",
+    )
 
     now = timezone.now()
     with transaction.atomic():
@@ -519,8 +523,9 @@ def cancel_prescription(
         PermissionDomainError: Si el actor no es Neonatólogo.
         ConflictDomainError: Si la indicación ya no está vigente.
     """
-    if actor.role != UserRole.NEONATOLOGIST:
-        raise PermissionDomainError("Solo un Neonatólogo puede cancelar una indicación médica.")
+    require_role(
+        actor, NEONATOLOGIST_ONLY, "Solo un Neonatólogo puede cancelar una indicación médica."
+    )
 
     with transaction.atomic():
         locked_prescription = Prescription.objects.select_for_update().get(pk=prescription.pk)

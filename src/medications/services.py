@@ -7,15 +7,16 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
-from accounts.models import User, UserRole
+from accounts.models import User
+from accounts.roles import CATALOG_MANAGERS, CLINICAL_STAFF, NEONATOLOGIST_ONLY, require_role
 from audit.models import AuditAction
 from audit.services import record_audit_event
+from patients.locks import lock_active_patient
 from patients.models import Patient, PatientStatus
 from poki_koa.exceptions import (
     ConflictDomainError,
     DomainError,
     NotFoundDomainError,
-    PermissionDomainError,
 )
 
 from . import schedule
@@ -62,10 +63,11 @@ def create_catalog_item(
         ConflictDomainError: Si el nombre ya existe.
         DomainError: Si algún valor es inválido.
     """
-    if actor.role not in {UserRole.ADMIN, UserRole.PHARMACIST}:
-        raise PermissionDomainError(
-            "Solo un Químico Farmacéutico o Administrador puede registrar medicamentos en el catálogo."
-        )
+    require_role(
+        actor,
+        CATALOG_MANAGERS,
+        "Solo un Químico Farmacéutico o Administrador puede registrar medicamentos en el catálogo.",
+    )
 
     cleaned_name = (name or "").strip()
     cleaned_ingredient = (active_ingredient or "").strip()
@@ -77,13 +79,9 @@ def create_catalog_item(
     if not cleaned_unit:
         raise DomainError("La unidad de dispensación es obligatoria.")
 
-    conc = Decimal(str(concentration_mg)).quantize(Decimal("0.01"))
-    if conc <= Decimal("0.00"):
-        raise DomainError("La concentración en miligramos debe ser mayor que cero.")
-    if stock < 0:
-        raise DomainError("El stock disponible no puede ser negativo.")
-    if min_stock_alert < 0:
-        raise DomainError("El umbral de alerta de stock mínimo no puede ser negativo.")
+    conc = parse_concentration_mg(concentration_mg)
+    stock = parse_stock(stock)
+    min_stock_alert = parse_min_stock_alert(min_stock_alert)
 
     with transaction.atomic():
         if MedicationCatalogItem.objects.filter(name__iexact=cleaned_name).exists():
@@ -139,21 +137,36 @@ def _non_empty_text(field: str):
     return normalize
 
 
-def _normalize_concentration(item: MedicationCatalogItem, value: Any) -> Decimal:
+def parse_concentration_mg(value: Any) -> Decimal:
+    """Normaliza una concentración a dos decimales y exige que sea mayor que cero.
+
+    Raises:
+        DomainError: Si la concentración redondeada es menor o igual a cero.
+    """
     concentration = Decimal(str(value)).quantize(Decimal("0.01"))
     if concentration <= Decimal("0.00"):
         raise DomainError("La concentración en miligramos debe ser mayor que cero.")
     return concentration
 
 
-def _normalize_stock(item: MedicationCatalogItem, value: Any) -> int:
+def parse_stock(value: Any) -> int:
+    """Convierte el stock a entero no negativo.
+
+    Raises:
+        DomainError: Si el stock es negativo.
+    """
     stock = int(value)
     if stock < 0:
         raise DomainError("El stock disponible no puede ser negativo.")
     return stock
 
 
-def _normalize_min_stock(item: MedicationCatalogItem, value: Any) -> int:
+def parse_min_stock_alert(value: Any) -> int:
+    """Convierte el umbral de stock mínimo a entero no negativo.
+
+    Raises:
+        DomainError: Si el umbral es negativo.
+    """
     minimum = int(value)
     if minimum < 0:
         raise DomainError("El umbral de alerta de stock mínimo no puede ser negativo.")
@@ -165,9 +178,9 @@ _CATALOG_EDITABLE_FIELDS = {
     "name": _normalize_item_name,
     "active_ingredient": _non_empty_text("active_ingredient"),
     "unit": _non_empty_text("unit"),
-    "concentration_mg": _normalize_concentration,
-    "stock": _normalize_stock,
-    "min_stock_alert": _normalize_min_stock,
+    "concentration_mg": lambda item, value: parse_concentration_mg(value),
+    "stock": lambda item, value: parse_stock(value),
+    "min_stock_alert": lambda item, value: parse_min_stock_alert(value),
     "is_active": lambda item, value: bool(value),
 }
 
@@ -195,10 +208,11 @@ def update_catalog_item(
         ConflictDomainError: Si el nombre ya existe en otro medicamento.
         DomainError: Si algún valor está vacío o fuera de rango.
     """
-    if actor.role not in {UserRole.ADMIN, UserRole.PHARMACIST}:
-        raise PermissionDomainError(
-            "Solo un Químico Farmacéutico o Administrador puede actualizar el catálogo o el stock."
-        )
+    require_role(
+        actor,
+        CATALOG_MANAGERS,
+        "Solo un Químico Farmacéutico o Administrador puede actualizar el catálogo o el stock.",
+    )
 
     with transaction.atomic():
         locked_item = MedicationCatalogItem.objects.select_for_update().get(pk=item.pk)
@@ -297,10 +311,11 @@ def create_prescription(
         ConflictDomainError: Si el paciente está egresado o el medicamento inactivo.
         DomainError: Si algún dato de la indicación es inválido.
     """
-    if actor.role != UserRole.NEONATOLOGIST:
-        raise PermissionDomainError(
-            "Solo un Neonatólogo está autorizado para prescribir indicaciones médicas."
-        )
+    require_role(
+        actor,
+        NEONATOLOGIST_ONLY,
+        "Solo un Neonatólogo está autorizado para prescribir indicaciones médicas.",
+    )
 
     cleaned_dose, starts_at = _validate_prescription_inputs(
         dose=dose,
@@ -312,13 +327,10 @@ def create_prescription(
     )
 
     with transaction.atomic():
-        patient = Patient.objects.select_for_update().filter(pk=patient_id).first()
-        if patient is None:
-            raise NotFoundDomainError("El paciente indicado no existe.")
-        if patient.status != PatientStatus.ACTIVE:
-            raise ConflictDomainError(
-                "No se pueden crear indicaciones médicas para un paciente ya egresado."
-            )
+        patient = lock_active_patient(
+            patient_id,
+            discharged_message="No se pueden crear indicaciones médicas para un paciente ya egresado.",
+        )
 
         medication = (
             MedicationCatalogItem.objects.select_for_update().filter(pk=medication_id).first()
@@ -426,10 +438,11 @@ def administer_prescription(
             anticipada, medicamento inactivo o stock insuficiente.
         DomainError: Si el horario indicado no pertenece a la pauta.
     """
-    if actor.role not in {UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo un Neonatólogo o Matrona/Enfermera puede administrar medicamentos a un paciente."
-        )
+    require_role(
+        actor,
+        CLINICAL_STAFF,
+        "Solo un Neonatólogo o Matrona/Enfermera puede administrar medicamentos a un paciente.",
+    )
 
     now = timezone.now()
     with transaction.atomic():
@@ -519,8 +532,9 @@ def cancel_prescription(
         PermissionDomainError: Si el actor no es Neonatólogo.
         ConflictDomainError: Si la indicación ya no está vigente.
     """
-    if actor.role != UserRole.NEONATOLOGIST:
-        raise PermissionDomainError("Solo un Neonatólogo puede cancelar una indicación médica.")
+    require_role(
+        actor, NEONATOLOGIST_ONLY, "Solo un Neonatólogo puede cancelar una indicación médica."
+    )
 
     with transaction.atomic():
         locked_prescription = Prescription.objects.select_for_update().get(pk=prescription.pk)

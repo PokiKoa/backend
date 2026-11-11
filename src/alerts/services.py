@@ -7,14 +7,15 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
-from accounts.models import User, UserRole
+from accounts.models import User
+from accounts.roles import CLINICAL_OR_ADMIN, THRESHOLD_MANAGERS, require_role
 from audit.models import AuditAction
 from audit.services import record_audit_event
-from patients.models import Patient, PatientStatus
+from patients.locks import lock_active_patient
+from patients.models import Patient
 from poki_koa.exceptions import (
     ConflictDomainError,
     DomainError,
-    PermissionDomainError,
 )
 from vitals.models import VitalSignReading
 from vitals.rules import (
@@ -128,18 +129,18 @@ def upsert_threshold_config(
         ConflictDomainError: Si el paciente ya fue egresado.
         DomainError: Si los umbrales no respetan el orden estricto y el rango fisiológico.
     """
-    if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST}:
-        raise PermissionDomainError(
-            "Solo un Neonatólogo o Administrador puede configurar los umbrales de alerta clínica."
-        )
+    require_role(
+        actor,
+        THRESHOLD_MANAGERS,
+        "Solo un Neonatólogo o Administrador puede configurar los umbrales de alerta clínica.",
+    )
 
     with transaction.atomic():
         if patient is not None:
-            locked_patient = Patient.objects.select_for_update().get(pk=patient.pk)
-            if locked_patient.status != PatientStatus.ACTIVE:
-                raise ConflictDomainError(
-                    "No se pueden modificar los umbrales de un paciente egresado."
-                )
+            locked_patient = lock_active_patient(
+                patient.pk,
+                discharged_message="No se pueden modificar los umbrales de un paciente egresado.",
+            )
             config = (
                 AlertThresholdConfig.objects.select_for_update()
                 .filter(patient=locked_patient)
@@ -331,10 +332,11 @@ def acknowledge_alert(
         PermissionDomainError: Si el rol no puede reconocer alertas.
         ConflictDomainError: Si la alerta ya fue resuelta o reconocida.
     """
-    if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo el personal clínico o administrativo puede reconocer alertas."
-        )
+    require_role(
+        actor,
+        CLINICAL_OR_ADMIN,
+        "Solo el personal clínico o administrativo puede reconocer alertas.",
+    )
 
     with transaction.atomic():
         locked_alert = Alert.objects.select_for_update().get(pk=alert.pk)
@@ -400,10 +402,11 @@ def resolve_alert(
         PermissionDomainError: Si el rol no puede resolver alertas.
         ConflictDomainError: Si la alerta ya estaba resuelta.
     """
-    if actor.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
-        raise PermissionDomainError(
-            "Solo el personal clínico o administrativo puede resolver alertas manualmente."
-        )
+    require_role(
+        actor,
+        CLINICAL_OR_ADMIN,
+        "Solo el personal clínico o administrativo puede resolver alertas manualmente.",
+    )
 
     with transaction.atomic():
         locked_alert = Alert.objects.select_for_update().get(pk=alert.pk)

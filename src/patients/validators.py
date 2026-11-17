@@ -8,7 +8,14 @@ _RUT_PATTERN = re.compile(r"^(\d{1,8})([\dK])$")
 
 
 def rut_check_digit(body: str) -> str:
-    """Calcula el dígito verificador de un RUT con el algoritmo módulo 11."""
+    """Calcula el dígito verificador de un RUT chileno mediante módulo 11.
+
+    Args:
+        body: Parte numérica del RUT sin puntos ni guion (1 a 8 dígitos).
+
+    Returns:
+        Dígito verificador normalizado en mayúscula (``"0"``–``"9"`` o ``"K"``).
+    """
     total = 0
     factor = 2
     for digit in reversed(body):
@@ -23,10 +30,17 @@ def rut_check_digit(body: str) -> str:
 
 
 def normalize_rut(value: str, *, label: str) -> str:
-    """Devuelve el RUT como ``12345678-5`` o cadena vacía si no se informó.
+    """Normaliza y valida un RUT chileno en formato ``12345678-5``.
 
-    Acepta puntos, guion y ``k`` minúscula; rechaza formatos inválidos o un
-    dígito verificador que no corresponda.
+    Args:
+        value: Cadena de entrada con o sin puntos, guion o espacios.
+        label: Etiqueta contextual del apoderado para mensajes de error (ej. ``"de la madre"``).
+
+    Returns:
+        RUT normalizado como ``12345678-5``, o cadena vacía si ``value`` viene en blanco.
+
+    Raises:
+        DomainError: Si el formato es inválido o el dígito verificador no coincide.
     """
     raw = (value or "").strip().upper().replace(".", "").replace("-", "").replace(" ", "")
     if not raw:
@@ -42,10 +56,17 @@ def normalize_rut(value: str, *, label: str) -> str:
 
 
 def normalize_phone(value: str, *, label: str) -> str:
-    """Devuelve el teléfono chileno como ``+56XXXXXXXXX`` o cadena vacía si no se informó.
+    """Normaliza y valida un teléfono chileno al formato internacional ``+56XXXXXXXXX``.
 
-    Acepta espacios, guiones, paréntesis y el prefijo ``+56`` o ``56``; el número
-    nacional debe tener 9 dígitos (celular ``9XXXXXXXX`` o fijo con código de área).
+    Args:
+        value: Número telefónico de entrada con o sin prefijo ``+56`` / ``56`` y separadores.
+        label: Etiqueta contextual del apoderado para mensajes de error (ej. ``"del padre"``).
+
+    Returns:
+        Teléfono normalizado en 12 caracteres (``+56`` + 9 dígitos), o cadena vacía si no se informó.
+
+    Raises:
+        DomainError: Si tiene prefijo extranjero o no contiene exactamente 9 dígitos nacionales.
     """
     raw = (value or "").strip()
     if not raw:

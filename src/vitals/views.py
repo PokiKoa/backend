@@ -68,6 +68,13 @@ class UnitOverviewView(APIView):
         responses={200: UnitOverviewSerializer},
     )
     def get(self, request: Request) -> Response:
-        """Responde 200 con el resumen de todas las cunas de la unidad."""
+        """Responde 200 con el resumen de todas las cunas de la unidad.
+
+        Args:
+            request: Petición HTTP autenticada.
+
+        Returns:
+            Response: Objeto JSON con el resumen operativo general de la unidad neonatal.
+        """
         overview = build_unit_overview()
         return Response(UnitOverviewSerializer(overview).data, status=status.HTTP_200_OK)

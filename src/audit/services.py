@@ -69,30 +69,29 @@ def record_audit_event(
 ) -> AuditLog:
     """Registra un evento de auditoría guardando solo nombres de campos, nunca valores.
 
-    Args:
-        action: Acción (``AuditAction``).
-        resource_type: Tipo de recurso afectado.
-        resource_id: Identificador del recurso.
-        actor_user: Usuario autor, si existe.
-        actor_device_code: Código de la cuna cuando el autor es un dispositivo.
-        patient_id: Paciente asociado, si aplica.
-        changed_fields: Nombres de campos modificados.
-        ip_address: IP de origen.
+    Preconditions:
+        - ``action`` y ``resource_type`` son cadenas no vacías.
+        - ``changed_fields``, si se entrega, contiene exclusivamente identificadores de campo válidos.
 
-    Returns:
-        El registro de auditoría creado.
+    Postconditions:
+        - Retorna una instancia de ``AuditLog`` persistida en BD cuyos ``changed_fields``
+          cumplen el invariante de confidencialidad (solo nombres de campo).
 
     Raises:
         TypeError: Si ``changed_fields`` no es una colección de nombres.
         ValueError: Si algún nombre de campo es inválido.
     """
+    assert action and resource_type, (
+        "Precondición fallida: action y resource_type son obligatorios."
+    )
+
     validated_fields = sanitize_changed_fields(changed_fields)
     user_instance = (
         actor_user
         if actor_user is not None and getattr(actor_user, "is_authenticated", False)
         else None
     )
-    return AuditLog.objects.create(
+    entry = AuditLog.objects.create(
         actor_user=user_instance,
         actor_device_code=actor_device_code,
         patient_id=patient_id,
@@ -102,3 +101,9 @@ def record_audit_event(
         changed_fields=validated_fields,
         ip_address=ip_address,
     )
+
+    assert entry.pk is not None, "Postcondición fallida: el registro de auditoría debe persistirse."
+    assert all(_FIELD_NAME_RE.match(f) for f in entry.changed_fields), (
+        "Invariante fallido: changed_fields solo puede contener identificadores de campo."
+    )
+    return entry

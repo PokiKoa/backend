@@ -8,6 +8,7 @@ from poki_koa.exceptions import PermissionDomainError
 
 
 def _config() -> dict:
+    """Obtiene la configuración base de las cookies desde settings."""
     return settings.REFRESH_COOKIE
 
 
@@ -32,10 +33,10 @@ def set_refresh_cookie(response: Response, refresh_token: str) -> None:
 
 
 def clear_refresh_cookie(response: Response) -> None:
-    """Elimina la cookie del refresh token.
+    """Elimina la cookie del refresh token del navegador.
 
     Args:
-        response: Respuesta que expira la cookie en el navegador.
+        response: Respuesta que expira la cookie.
     """
     config = _config()
     response.delete_cookie(
@@ -44,23 +45,25 @@ def clear_refresh_cookie(response: Response) -> None:
 
 
 def read_refresh_cookie(request: Request) -> str:
-    """Lee el refresh token de la cookie tras validar el ``Origin`` (defensa CSRF).
+    """Lee el refresh token de la cookie tras validar el Origin (defensa CSRF).
+
+    El navegador adjunta la cookie de forma automática: se exige un Origin conocido
+    para que otro sitio no pueda rotar ni revocar la sesión cuando SameSite=None.
 
     Args:
         request: Petición entrante.
 
     Returns:
-        El token, o cadena vacía si no hay cookie.
+        str: El token, o una cadena vacía si no hay cookie presente.
 
     Raises:
-        PermissionDomainError: Si el ``Origin`` no es el propio ni está en ``CORS_ALLOWED_ORIGINS``.
+        PermissionDomainError: Si el Origin no es el propio ni está en CORS_ALLOWED_ORIGINS.
     """
-    # El navegador adjunta la cookie de forma automática: se exige un Origin conocido para que
-    # otro sitio no pueda rotar ni revocar la sesión (CSRF) cuando SameSite=None
     origin = request.headers.get("Origin")
     if origin:
         own_origin = f"{request.scheme}://{request.get_host()}"
         allowed = set(getattr(settings, "CORS_ALLOWED_ORIGINS", [])) | {own_origin}
         if origin.rstrip("/") not in allowed:
             raise PermissionDomainError("Origen no autorizado para usar la sesión.")
+
     return request.COOKIES.get(_config()["NAME"], "")

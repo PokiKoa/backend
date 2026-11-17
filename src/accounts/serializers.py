@@ -8,7 +8,10 @@ from .models import ShiftAssignment, User, UserRole, WorkShift
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """Representación de un usuario (sin credenciales), con su estado de bloqueo y 2FA."""
+    """Representación de lectura de un usuario (excluye credenciales).
+    Expone los datos demográficos, el rol RBAC, turno asignado y estados
+    de seguridad (bloqueo por intentos fallidos y 2FA).
+    """
 
     is_temporarily_locked = serializers.BooleanField(read_only=True)
 
@@ -32,7 +35,10 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class StaffMemberSerializer(serializers.ModelSerializer):
-    """Datos públicos mínimos de un miembro del personal para el directorio."""
+    """Representación mínima de lectura de un miembro del personal.
+    Diseñado para listados públicos o directorios internos donde no
+    se requiere información sensible de seguridad.
+    """
 
     class Meta:
         model = User
@@ -41,7 +47,9 @@ class StaffMemberSerializer(serializers.ModelSerializer):
 
 
 class UserCreateSerializer(serializers.Serializer):
-    """Entrada para que un administrador cree una cuenta."""
+    """Validación de entrada para la creación de una cuenta por parte de un administrador.
+    Exige una contraseña robusta y permite asignar el rol y turno inicial.
+    """
 
     username = serializers.CharField(max_length=150, required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True, default="")
@@ -58,7 +66,10 @@ class UserCreateSerializer(serializers.Serializer):
 
 
 class UserUpdateSerializer(serializers.Serializer):
-    """Entrada para que un administrador edite parcialmente una cuenta."""
+    """Validación de entrada para la edición parcial de una cuenta.
+    Todos los campos son opcionales. Incluye un flag 'unlock_account'
+    para remover bloqueos de seguridad manuales.
+    """
 
     username = serializers.CharField(max_length=150, required=False)
     email = serializers.EmailField(required=False, allow_blank=True)
@@ -76,7 +87,10 @@ class UserUpdateSerializer(serializers.Serializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    """Entrada de inicio de sesión: usuario o correo, contraseña y código 2FA opcional."""
+    """Validación de credenciales para el inicio de sesión.
+    Acepta 'username' o 'email', junto con la contraseña.
+    El 'otp_code' es requerido si el usuario tiene el 2FA habilitado.
+    """
 
     username = serializers.CharField(required=False, allow_blank=True)
     email = serializers.CharField(required=False, allow_blank=True)
@@ -90,40 +104,40 @@ class LoginSerializer(serializers.Serializer):
 
 
 class LoginResponseSerializer(serializers.Serializer):
-    """Respuesta de inicio de sesión: access token y usuario."""
+    """Estructura de respuesta tras un inicio de sesión exitoso (Access Token JWT y perfil)."""
 
     access = serializers.CharField()
     user = UserSerializer()
 
 
 class TokenRefreshResponseSerializer(serializers.Serializer):
-    """Respuesta de renovación: nuevo access token."""
+    """Estructura de respuesta para la renovación de sesión (Nuevo Access Token)."""
 
     access = serializers.CharField()
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    """Entrada para cambiar la contraseña propia."""
+    """Validación para el cambio de contraseña (requiere la contraseña actual para verificar)."""
 
     current_password = serializers.CharField(write_only=True, trim_whitespace=False)
     new_password = serializers.CharField(write_only=True, trim_whitespace=False)
 
 
 class TwoFactorSetupResponseSerializer(serializers.Serializer):
-    """Respuesta de la configuración de 2FA: secreto y URI de aprovisionamiento."""
+    """Respuesta con los datos necesarios para enlazar una app autenticadora (ej. Google Authenticator)."""
 
     secret = serializers.CharField()
     provisioning_uri = serializers.CharField()
 
 
 class TwoFactorCodeSerializer(serializers.Serializer):
-    """Entrada con el código TOTP de 6 dígitos."""
+    """Validación del código TOTP de 6 dígitos ingresado por el usuario."""
 
     otp_code = serializers.CharField(min_length=6, max_length=6)
 
 
 class ShiftSerializer(serializers.Serializer):
-    """Turno del catálogo con su horario e indicador de turno vigente."""
+    """Estructura de lectura para un turno del catálogo, incluyendo su bloque horario y estado actual."""
 
     value = serializers.ChoiceField(choices=WorkShift.choices)
     label = serializers.CharField()
@@ -133,7 +147,10 @@ class ShiftSerializer(serializers.Serializer):
 
 
 class ShiftAssignmentSerializer(serializers.ModelSerializer):
-    """Representación de una asignación de turno con el nombre y rol del profesional."""
+    """Representación de lectura de una asignación de turno.
+    Incluye datos desnormalizados (nombre, rol, código de cuna) para
+    evitar peticiones adicionales desde el frontend.
+    """
 
     user_name = serializers.CharField(source="user.full_name", read_only=True)
     user_role = serializers.CharField(source="user.role", read_only=True)
@@ -157,7 +174,9 @@ class ShiftAssignmentSerializer(serializers.ModelSerializer):
 
 
 class ShiftAssignmentCreateSerializer(serializers.Serializer):
-    """Entrada para asignar un profesional a una cuna en un turno."""
+    """Validación de entrada para asignar un profesional a una cuna.
+    Garantiza la presencia de identificadores válidos y un turno reconocido.
+    """
 
     user_id = serializers.IntegerField(min_value=1)
     crib_id = serializers.IntegerField(min_value=1)

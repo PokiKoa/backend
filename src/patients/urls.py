@@ -1,3 +1,5 @@
+"""Rutas URL del módulo de pacientes: fichas clínicas, planes de cuidado y observaciones."""
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 

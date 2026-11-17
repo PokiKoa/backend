@@ -1,3 +1,5 @@
+"""Rutas de la API de reportes operativos y series temporales de la unidad neonatal."""
+
 from django.urls import path
 
 from .views import ActivitySeriesView, OperationsSummaryView

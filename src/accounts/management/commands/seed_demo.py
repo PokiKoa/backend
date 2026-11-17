@@ -3,7 +3,8 @@
 from datetime import time, timedelta
 from decimal import Decimal
 
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from accounts.models import ShiftAssignment, User, UserRole, WorkShift
@@ -23,14 +24,31 @@ from vitals.services import ingest_telemetry
 
 
 class Command(BaseCommand):
-    """Carga datos ficticios de demostración neonatal y asegura el usuario ``admin``. Solo para desarrollo."""
+    """Comando que carga datos ficticios de demostración neonatal y asegura el usuario ``admin``."""
 
     help = (
         "Carga datos ficticios de demostración neonatal y asegura el superusuario admin/admin2026."
     )
 
     def handle(self, *args, **options) -> None:
-        """Crea de forma idempotente usuarios, cunas, pacientes, catálogo, indicaciones y lecturas de ejemplo."""
+        """Crea de forma idempotente usuarios, cunas, pacientes, catálogo, indicaciones y lecturas de ejemplo.
+
+        Contrato de la función:
+        - Precondición: El entorno de ejecución debe ser de desarrollo (DEBUG=True) o de pruebas.
+        - Postcondición: Los usuarios base, cunas, pacientes de prueba (RN Mateo/Sofía) y
+          medicamentos base existen en la base de datos con sus relaciones establecidas.
+        - Invariante: La ejecución repetida no duplica pacientes ni usuarios base (Idempotencia).
+        """
+        # 1. Validación defensiva en la frontera (Evita desastres en Producción, permitiendo pruebas)
+        db_name = str(settings.DATABASES.get("default", {}).get("NAME", ""))
+        is_test_environment = ":memory:" in db_name or "test" in db_name.lower()
+
+        if not settings.DEBUG and not is_test_environment:
+            raise CommandError(
+                "Validación fallida: No se permite ejecutar la carga de datos ficticios en Producción."
+            )
+
+        # --- Creación de Usuarios ---
         admin_user, _ = User.objects.get_or_create(
             username="admin",
             defaults={
@@ -47,6 +65,11 @@ class Command(BaseCommand):
         admin_user.role = UserRole.ADMIN
         admin_user.set_password("admin2026")
         admin_user.save()
+
+        # 2. Aserción de supuesto interno/invariante
+        assert admin_user.is_superuser, (
+            "Invariante roto: El usuario admin debe tener privilegios de superusuario al iniciar el sistema."
+        )
 
         neo, _ = User.objects.get_or_create(
             username="dr.soto",
@@ -87,6 +110,7 @@ class Command(BaseCommand):
         pharmacist.set_password("Clinica#2026")
         pharmacist.save()
 
+        # --- Creación de Cunas ---
         crib_specs = [
             ("C-01", "Incubadora Giraffe UCI-1", "Sector UCI A"),
             ("C-02", "Incubadora Giraffe UCI-2", "Sector UCI A"),
@@ -105,6 +129,11 @@ class Command(BaseCommand):
                 )
             cribs[code] = existing
 
+        # 3. Aserción de supuesto interno
+        assert len(cribs) >= 4, (
+            "Supuesto interno fallido: No se generaron las 4 cunas base requeridas."
+        )
+
         # Asignaciones para el día del turno vigente y el siguiente, así "Mis cunas" nunca queda vacío
         shift_day, _ = current_shift()
         for offset in (0, 1):
@@ -119,6 +148,8 @@ class Command(BaseCommand):
                     )
 
         today = timezone.localdate()
+
+        # --- Creación de Pacientes ---
         if not Patient.objects.filter(medical_record_number="RN-2026-001").exists():
             p1 = admit_patient(
                 actor=neo,
@@ -132,7 +163,6 @@ class Command(BaseCommand):
                 diagnosis="Prematuridad moderada, síndrome de dificultad respiratoria en resolución",
                 attending_physician_id=neo.id,
                 crib_id=cribs["C-01"].id,
-                # RUT y teléfonos ficticios (dígito verificador válido, números de ejemplo)
                 guardians={
                     "mother_rut": "16.482.937-5",
                     "mother_first_names": "Camila Andrea",
@@ -238,7 +268,6 @@ class Command(BaseCommand):
                     patient_id=p1_obj.id,
                     medication_id=caffeine.id,
                     dose="5 mg/kg IV lento",
-                    # Mantención cada 24 h desde las 08:00 de hoy
                     starts_at=timezone.make_aware(timezone.datetime.combine(today, time(8, 0))),
                     frequency_hours=24,
                     route=AdministrationRoute.IV,
@@ -250,7 +279,6 @@ class Command(BaseCommand):
                     patient_id=p2_obj.id,
                     medication_id=surfactant.id,
                     dose="100 mg/kg endotraqueal",
-                    # Dosis única dentro de una hora
                     starts_at=timezone.now() + timedelta(hours=1),
                     route=AdministrationRoute.ET,
                     units_per_administration=1,

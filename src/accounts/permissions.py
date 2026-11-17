@@ -16,6 +16,16 @@ from .roles import (
 
 
 def _has_active_role(request: Request, allowed_roles: frozenset[str]) -> bool:
+    """Verifica si el usuario que realiza la petición está autenticado, activo
+    y posee al menos uno de los roles permitidos.
+
+    Args:
+        request: La petición HTTP entrante de DRF.
+        allowed_roles: Un conjunto inmutable de roles permitidos para la acción.
+
+    Returns:
+        bool: True si el usuario cumple con los requisitos de acceso, False en caso contrario.
+    """
     user = getattr(request, "user", None)
     return bool(
         user
@@ -31,7 +41,15 @@ class IsAdminRole(BasePermission):
     message = "Esta acción requiere rol de Administrador."
 
     def has_permission(self, request: Request, view: Any) -> bool:
-        """Devuelve ``True`` si el usuario autenticado y activo es Administrador."""
+        """Determina si la petición tiene permiso de Administrador.
+
+        Args:
+            request: La petición HTTP entrante.
+            view: La vista de DRF que se está intentando acceder.
+
+        Returns:
+            bool: True si el usuario autenticado y activo es Administrador.
+        """
         return _has_active_role(request, ADMIN_ONLY)
 
 
@@ -41,7 +59,15 @@ class IsNeonatologistRole(BasePermission):
     message = "Esta acción requiere rol de Neonatólogo."
 
     def has_permission(self, request: Request, view: Any) -> bool:
-        """Devuelve ``True`` si el usuario autenticado y activo es Neonatólogo."""
+        """Determina si la petición tiene permiso de Neonatólogo.
+
+        Args:
+            request: La petición HTTP entrante.
+            view: La vista de DRF que se está intentando acceder.
+
+        Returns:
+            bool: True si el usuario autenticado y activo es Neonatólogo.
+        """
         return _has_active_role(request, NEONATOLOGIST_ONLY)
 
 
@@ -51,7 +77,15 @@ class IsNurseRole(BasePermission):
     message = "Esta acción requiere rol de Matrona o Enfermera."
 
     def has_permission(self, request: Request, view: Any) -> bool:
-        """Devuelve ``True`` si el usuario autenticado y activo es Matrona/Enfermera."""
+        """Determina si la petición tiene permiso de Matrona/Enfermera.
+
+        Args:
+            request: La petición HTTP entrante.
+            view: La vista de DRF que se está intentando acceder.
+
+        Returns:
+            bool: True si el usuario autenticado y activo es Matrona/Enfermera.
+        """
         return _has_active_role(request, NURSE_ONLY)
 
 
@@ -61,7 +95,15 @@ class IsPharmacistRole(BasePermission):
     message = "Esta acción requiere rol de Químico Farmacéutico."
 
     def has_permission(self, request: Request, view: Any) -> bool:
-        """Devuelve ``True`` si el usuario autenticado y activo es Químico Farmacéutico."""
+        """Determina si la petición tiene permiso de Químico Farmacéutico.
+
+        Args:
+            request: La petición HTTP entrante.
+            view: La vista de DRF que se está intentando acceder.
+
+        Returns:
+            bool: True si el usuario autenticado y activo es Químico Farmacéutico.
+        """
         return _has_active_role(request, PHARMACIST_ONLY)
 
 
@@ -71,5 +113,13 @@ class IsClinicalStaff(BasePermission):
     message = "Esta acción está restringida al personal clínico (Neonatólogo o Matrona/Enfermera)."
 
     def has_permission(self, request: Request, view: Any) -> bool:
-        """Devuelve ``True`` si el usuario autenticado y activo es Neonatólogo o Matrona/Enfermera."""
+        """Determina si la petición tiene permiso de personal clínico.
+
+        Args:
+            request: La petición HTTP entrante.
+            view: La vista de DRF que se está intentando acceder.
+
+        Returns:
+            bool: True si el usuario es Neonatólogo o Matrona/Enfermera.
+        """
         return _has_active_role(request, CLINICAL_STAFF)

@@ -1,4 +1,4 @@
-"""Serializer del registro de auditoría."""
+"""Serializers para la aplicación de auditoría clínica."""
 
 from typing import ClassVar
 
@@ -8,7 +8,7 @@ from .models import AuditLog
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
-    """Representación de solo lectura de un evento de auditoría."""
+    """Representación serializada de solo lectura para los eventos del registro de auditoría."""
 
     actor_email = serializers.EmailField(source="actor_user.email", read_only=True, default=None)
     actor_name = serializers.CharField(source="actor_user.full_name", read_only=True, default=None)

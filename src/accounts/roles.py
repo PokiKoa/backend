@@ -1,6 +1,6 @@
 """Fuente única de los conjuntos de roles y de la guarda de rol de los servicios.
 
-Los servicios de dominio y los permisos DRF (``accounts.permissions``) consumen
+Los servicios de dominio y los permisos DRF (accounts.permissions) consumen
 estas constantes para que cambiar quién puede ejecutar una operación requiera
 editar un solo lugar.
 """
@@ -22,25 +22,25 @@ CATALOG_MANAGERS: frozenset[str] = frozenset({UserRole.ADMIN, UserRole.PHARMACIS
 
 
 def has_role(user: User | None, allowed: Iterable[str]) -> bool:
-    """Indica si ``user`` tiene uno de los roles de ``allowed``.
+    """Indica si el usuario tiene uno de los roles permitidos.
 
     Args:
-        user: Usuario a evaluar; ``None`` o sin atributo ``role`` nunca califica.
+        user: Usuario a evaluar; si es None o no tiene atributo 'role', nunca califica.
         allowed: Conjunto de roles permitidos (usar las constantes de este módulo).
 
     Returns:
-        ``True`` si el rol del usuario pertenece a ``allowed``.
+        bool: True si el rol del usuario pertenece a 'allowed', False en caso contrario.
     """
     return getattr(user, "role", None) in allowed
 
 
 def require_role(actor: User, allowed: Iterable[str], message: str) -> None:
-    """Exige que ``actor`` tenga uno de los roles de ``allowed``.
+    """Exige que el actor tenga uno de los roles permitidos para continuar la ejecución.
 
     Args:
         actor: Usuario que ejecuta la operación.
         allowed: Conjunto de roles permitidos (usar las constantes de este módulo).
-        message: Mensaje en español que se devuelve al cliente si se rechaza.
+        message: Mensaje explicativo que se devuelve al cliente si se rechaza el acceso.
 
     Raises:
         PermissionDomainError: Si el rol del actor no está permitido (HTTP 403).

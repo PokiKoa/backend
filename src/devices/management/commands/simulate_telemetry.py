@@ -27,7 +27,11 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser) -> None:
-        """Declara las opciones de modo, servidor, intervalo, rondas, cunas, tasa de anomalías y semilla."""
+        """Declara los argumentos y opciones de línea de comandos soportados por el simulador.
+
+        Args:
+            parser: Analizador de argumentos del comando de Django.
+        """
         parser.add_argument(
             "--mode",
             choices=["http", "direct"],
@@ -57,10 +61,14 @@ class Command(BaseCommand):
         parser.add_argument("--seed", type=int, default=None)
 
     def handle(self, *args, **options) -> None:
-        """Genera lecturas en rondas, por HTTP contra el servidor o ingiriéndolas en este proceso.
+        """Ejecuta la simulación de telemetría por rondas, ya sea vía HTTP o mediante ingestión directa.
+
+        Args:
+            *args: Argumentos posicionales adicionales.
+            **options: Opciones y parámetros de ejecución del comando.
 
         Raises:
-            CommandError: Si ``DEBUG`` está desactivado o las opciones son inválidas.
+            CommandError: Si ``DEBUG`` está desactivado, si la tasa de anomalías es inválida, o si no hay cunas disponibles.
         """
         # Rotar API keys invalida las credenciales de dispositivos reales: nunca en producción
         if not settings.DEBUG:
@@ -107,6 +115,7 @@ class Command(BaseCommand):
             self.stdout.write("Simulación detenida.")
 
     def _select_cribs(self, raw_codes: str) -> list[Crib]:
+        """Selecciona las cunas activas y ocupadas a simular según los códigos opcionales provistos."""
         qs = Crib.objects.filter(is_device_active=True).exclude(status=CribStatus.MAINTENANCE)
         codes = [c.strip().upper() for c in raw_codes.split(",") if c.strip()]
         if codes:
@@ -116,12 +125,14 @@ class Command(BaseCommand):
         return list(qs.order_by("code"))
 
     def _issue_api_keys(self, cribs: list[Crib]) -> dict[int, str]:
+        """Emite y rota las API keys temporales para las cunas seleccionadas usando un administrador activo."""
         admin = User.objects.filter(role=UserRole.ADMIN, is_active=True).order_by("id").first()
         if admin is None:
             raise CommandError("Se necesita un usuario administrador activo para emitir API keys.")
         return {crib.id: rotate_crib_api_key(actor=admin, crib=crib) for crib in cribs}
 
     def _send_http(self, base_url: str, crib: Crib, api_key: str, payload: dict[str, Any]) -> None:
+        """Envía el payload de telemetría mediante una petición HTTP POST al servidor en ejecución."""
         request = urllib.request.Request(
             f"{base_url.rstrip('/')}/api/v1/cribs/{crib.id}/telemetry/",
             data=json.dumps(payload).encode(),
@@ -141,6 +152,7 @@ class Command(BaseCommand):
         self._report(crib, len(body.get("active_alerts", [])))
 
     def _send_direct(self, crib: Crib, payload: dict[str, Any]) -> None:
+        """Ingiere la telemetría directamente en el proceso actual de Django."""
         try:
             _, evaluation = ingest_telemetry(
                 crib=crib, payload=payload, is_device_authenticated=True
@@ -151,6 +163,7 @@ class Command(BaseCommand):
         self._report(crib, len(evaluation.active_or_updated_alerts))
 
     def _report(self, crib: Crib, alert_count: int) -> None:
+        """Informa en consola el resultado de la lectura enviada y el recuento de alertas activas."""
         # Solo se informa el conteo de alertas: los valores clínicos no se vuelcan en la salida
         if alert_count:
             self.stdout.write(

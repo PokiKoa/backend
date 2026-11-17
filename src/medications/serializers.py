@@ -135,6 +135,14 @@ class PrescriptionSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def _state(self, obj: Prescription) -> schedule.ScheduleState:
+        """Obtiene y almacena en caché de contexto el estado de pauta de la indicación.
+
+        Args:
+            obj: Instancia de la indicación médica a proyectar.
+
+        Returns:
+            ScheduleState: Estado calculado para la indicación en el instante de la petición.
+        """
         cache = self.context.setdefault("_schedule_states", {})
         if obj.pk not in cache:
             now = self.context.setdefault("_now", timezone.now())

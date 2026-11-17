@@ -54,8 +54,17 @@ class PatientFilter(django_filters.FilterSet):
         help_text="true: pacientes en la unidad; false: egresados, trasladados o fallecidos.",
     )
 
-    def filter_active(self, queryset, name, value):
-        """``active=true`` devuelve pacientes en la unidad; ``false``, los egresados, trasladados o fallecidos."""
+    def filter_active(self, queryset, name: str, value: bool):
+        """Filtra pacientes según si permanecen activos en la unidad o ya egresaron.
+
+        Args:
+            queryset: Consulta base de ``Patient``.
+            name: Nombre del parámetro de filtro.
+            value: ``True`` para pacientes activos; ``False`` para egresados, trasladados o fallecidos.
+
+        Returns:
+            QuerySet: Consulta filtrada por estado clínico de permanencia.
+        """
         if value:
             return queryset.filter(status=PatientStatus.ACTIVE)
         return queryset.exclude(status=PatientStatus.ACTIVE)
@@ -107,7 +116,14 @@ class PatientViewSet(
     ordering: ClassVar[list[str]] = ["-admitted_at", "-id"]
 
     def retrieve(self, request: Request, *args, **kwargs) -> Response:
-        """Responde 200 con el paciente y registra el acceso de lectura en la auditoría."""
+        """Responde 200 con el paciente y registra el acceso de lectura en la auditoría.
+
+        Args:
+            request: Petición HTTP autenticada.
+
+        Returns:
+            Response: HTTP 200 con la representación clínica del paciente.
+        """
         patient = self.get_object()
         record_audit_event(
             action=AuditAction.READ,
@@ -122,7 +138,14 @@ class PatientViewSet(
 
     @extend_schema(request=PatientCreateSerializer, responses={201: PatientSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
-        """Ingresa un paciente y responde 201."""
+        """Ingresa un paciente y responde 201.
+
+        Args:
+            request: Petición HTTP con los datos neonatales y de apoderados.
+
+        Returns:
+            Response: HTTP 201 con la ficha del paciente creado.
+        """
         serializer = PatientCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         patient = admit_patient(
@@ -148,7 +171,14 @@ class PatientViewSet(
 
     @extend_schema(request=PatientUpdateSerializer, responses={200: PatientSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
-        """Actualiza datos del paciente y responde 200."""
+        """Actualiza datos del paciente y responde 200.
+
+        Args:
+            request: Petición HTTP con los campos a actualizar.
+
+        Returns:
+            Response: HTTP 200 con la ficha actualizada del paciente.
+        """
         patient = self.get_object()
         serializer = PatientUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -172,7 +202,15 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["post"], url_path="delete-permanently")
     def delete_permanently(self, request: Request, pk=None) -> Response:
-        """Elimina definitivamente al paciente y su registro clínico (solo Administrador); responde 204."""
+        """Elimina definitivamente al paciente y su registro clínico (solo Administrador); responde 204.
+
+        Args:
+            request: Petición HTTP con el número de ficha clínica de confirmación.
+            pk: Identificador primario del paciente.
+
+        Returns:
+            Response: HTTP 204 sin contenido tras el borrado definitivo.
+        """
         patient = self.get_object()
         serializer = PatientPermanentDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -190,7 +228,15 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["get"], url_path="crib-movements", pagination_class=None)
     def crib_movements(self, request: Request, pk=None) -> Response:
-        """Responde 200 con el historial de asignaciones, traslados, intercambios y liberaciones de cuna."""
+        """Responde 200 con el historial de asignaciones, traslados, intercambios y liberaciones de cuna.
+
+        Args:
+            request: Petición HTTP autenticada.
+            pk: Identificador primario del paciente.
+
+        Returns:
+            Response: HTTP 200 con la lista cronológica de movimientos de cuna.
+        """
         patient = self.get_object()
         movements = patient.crib_movements.select_related("moved_by").all()
         return Response(CribMovementSerializer(movements, many=True).data)
@@ -202,7 +248,15 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["post"], url_path="discharge")
     def discharge(self, request: Request, pk=None) -> Response:
-        """Egresa al paciente (alta, traslado o fallecimiento); responde 200 con el paciente."""
+        """Egresa al paciente (alta, traslado o fallecimiento); responde 200 con el paciente.
+
+        Args:
+            request: Petición HTTP con desenlace, causa y notas clínicas.
+            pk: Identificador primario del paciente.
+
+        Returns:
+            Response: HTTP 200 con la ficha del paciente egresado.
+        """
         patient = self.get_object()
         serializer = PatientDischargeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -223,7 +277,15 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["get", "post"], url_path="weights")
     def weights(self, request: Request, pk=None) -> Response:
-        """GET lista la curva ponderal; POST registra una medición de peso (201)."""
+        """GET lista la curva ponderal; POST registra una medición de peso (201).
+
+        Args:
+            request: Petición HTTP GET o POST con ``weight_g``.
+            pk: Identificador primario del paciente.
+
+        Returns:
+            Response: HTTP 200 con la curva ponderal o HTTP 201 con el nuevo registro.
+        """
         patient = self.get_object()
         if request.method == "GET":
             qs = patient.weight_records.select_related("recorded_by").all()
@@ -254,7 +316,15 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["get"], url_path="vitals")
     def vitals(self, request: Request, pk=None) -> Response:
-        """Responde 200 con el historial paginado de signos vitales del paciente."""
+        """Responde 200 con el historial paginado de signos vitales del paciente.
+
+        Args:
+            request: Petición HTTP con parámetros opcionales de filtrado temporal/tipo.
+            pk: Identificador primario del paciente.
+
+        Returns:
+            Response: HTTP 200 con las lecturas de signos vitales paginadas.
+        """
         from vitals.serializers import VitalSignReadingSerializer
         from vitals.views import VitalSignReadingFilter
 
@@ -275,7 +345,15 @@ class PatientViewSet(
     )
     @action(detail=True, methods=["get", "put", "patch"], url_path="alert-thresholds")
     def alert_thresholds(self, request: Request, pk=None) -> Response:
-        """GET consulta los umbrales efectivos; PUT/PATCH los personalizan para el paciente."""
+        """GET consulta los umbrales efectivos; PUT/PATCH los personaliza para el paciente.
+
+        Args:
+            request: Petición HTTP GET para lectura o PUT/PATCH para actualización.
+            pk: Identificador primario del paciente.
+
+        Returns:
+            Response: HTTP 200 con la configuración efectiva de umbrales clínicos.
+        """
         from alerts.serializers import (
             AlertThresholdConfigSerializer,
             AlertThresholdConfigUpdateSerializer,
@@ -327,7 +405,14 @@ class CarePlanViewSet(
 
     @extend_schema(request=CarePlanCreateSerializer, responses={201: CarePlanSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
-        """Crea un plan de cuidado y responde 201."""
+        """Crea un plan de cuidado y responde 201.
+
+        Args:
+            request: Petición HTTP con área, intervención, frecuencia y estado.
+
+        Returns:
+            Response: HTTP 201 con el plan de cuidado creado.
+        """
         serializer = CarePlanCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         plan = create_care_plan(
@@ -343,7 +428,14 @@ class CarePlanViewSet(
 
     @extend_schema(request=CarePlanUpdateSerializer, responses={200: CarePlanSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
-        """Actualiza un plan de cuidado y responde 200."""
+        """Actualiza un plan de cuidado y responde 200.
+
+        Args:
+            request: Petición HTTP con los campos a actualizar.
+
+        Returns:
+            Response: HTTP 200 con el plan de cuidado actualizado.
+        """
         plan = self.get_object()
         serializer = CarePlanUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -385,7 +477,14 @@ class ClinicalObservationViewSet(
         request=ClinicalObservationCreateSerializer, responses={201: ClinicalObservationSerializer}
     )
     def create(self, request: Request, *args, **kwargs) -> Response:
-        """Registra una observación clínica y responde 201."""
+        """Registra una observación clínica y responde 201.
+
+        Args:
+            request: Petición HTTP con paciente, categoría y contenido clínico.
+
+        Returns:
+            Response: HTTP 201 con la observación registrada.
+        """
         serializer = ClinicalObservationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         observation = create_clinical_observation(

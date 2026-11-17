@@ -8,7 +8,7 @@ from .models import Crib, CribStatus
 
 
 class CribSerializer(serializers.ModelSerializer):
-    """Representación de una cuna con su paciente actual y estado."""
+    """Representación completa de una cuna con su información de estado y paciente asignado."""
 
     current_patient_id = serializers.IntegerField(
         source="current_patient.id", read_only=True, default=None, allow_null=True
@@ -44,7 +44,7 @@ class CribSerializer(serializers.ModelSerializer):
 
 
 class CribCreateSerializer(serializers.Serializer):
-    """Entrada para registrar una cuna."""
+    """Datos de entrada requeridos para registrar una nueva cuna en el sistema."""
 
     code = serializers.CharField(max_length=20)
     name = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
@@ -54,7 +54,7 @@ class CribCreateSerializer(serializers.Serializer):
 
 
 class CribUpdateSerializer(serializers.Serializer):
-    """Entrada para editar parcialmente una cuna."""
+    """Datos de entrada opcionales para la edición parcial de una cuna existente."""
 
     code = serializers.CharField(max_length=20, required=False)
     name = serializers.CharField(max_length=100, required=False, allow_blank=True)
@@ -64,12 +64,12 @@ class CribUpdateSerializer(serializers.Serializer):
 
 
 class CribAssignPatientSerializer(serializers.Serializer):
-    """Entrada para asignar un paciente a una cuna."""
+    """Datos de entrada para asignar un paciente a una cuna específica."""
 
     patient_id = serializers.IntegerField(min_value=1)
 
 
 class CribSwapSerializer(serializers.Serializer):
-    """Entrada para intercambiar los pacientes de dos cunas."""
+    """Datos de entrada para realizar el intercambio de pacientes entre dos cunas."""
 
     other_crib_id = serializers.IntegerField(min_value=1)

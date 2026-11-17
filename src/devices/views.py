@@ -58,7 +58,14 @@ class CribViewSet(
 
     @extend_schema(request=CribCreateSerializer, responses={201: CribSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
-        """Registra una cuna y responde 201 con la API Key en claro (solo esta vez)."""
+        """Registra una cuna y responde 201 con la API Key en claro (solo esta vez).
+
+        Args:
+            request: Petición HTTP con los datos de la nueva cuna.
+
+        Returns:
+            Response: HTTP 201 con la cuna creada y su API Key en claro.
+        """
         serializer = CribCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         crib, raw_api_key = create_crib(
@@ -76,7 +83,14 @@ class CribViewSet(
 
     @extend_schema(request=CribUpdateSerializer, responses={200: CribSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
-        """Actualiza la configuración de la cuna y responde 200."""
+        """Actualiza la configuración de la cuna y responde 200.
+
+        Args:
+            request: Petición HTTP con los campos a modificar.
+
+        Returns:
+            Response: HTTP 200 con la cuna actualizada.
+        """
         crib = self.get_object()
         serializer = CribUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -100,7 +114,15 @@ class CribViewSet(
     )
     @action(detail=True, methods=["post"], url_path="rotate-key")
     def rotate_key(self, request: Request, pk=None) -> Response:
-        """Rota la API Key del dispositivo y responde 200 con la nueva clave en claro."""
+        """Rota la API Key del dispositivo y responde 200 con la nueva clave en claro.
+
+        Args:
+            request: Petición HTTP del administrador.
+            pk: Identificador primario de la cuna.
+
+        Returns:
+            Response: HTTP 200 con el nuevo prefijo y la API Key en claro.
+        """
         crib = self.get_object()
         raw_api_key = rotate_crib_api_key(
             actor=request.user,
@@ -125,7 +147,18 @@ class CribViewSet(
     )
     @action(detail=True, methods=["post"], url_path="assign-patient")
     def assign_patient(self, request: Request, pk=None) -> Response:
-        """Asigna un paciente activo a la cuna y responde 200 con la cuna."""
+        """Asigna un paciente activo a la cuna y responde 200 con la cuna.
+
+        Args:
+            request: Petición HTTP con el ``patient_id`` a asignar.
+            pk: Identificador primario de la cuna destino.
+
+        Returns:
+            Response: HTTP 200 con la cuna actualizada.
+
+        Raises:
+            PermissionDomainError: Si el usuario no tiene rol clínico o administrativo.
+        """
         if request.user.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
             raise PermissionDomainError(
                 "Solo el personal clínico o administrativo puede asignar pacientes a una cuna."
@@ -151,7 +184,18 @@ class CribViewSet(
     )
     @action(detail=True, methods=["post"], url_path="release")
     def release(self, request: Request, pk=None) -> Response:
-        """Libera la cuna desvinculando a su paciente y responde 200 con la cuna."""
+        """Libera la cuna desvinculando a su paciente y responde 200 con la cuna.
+
+        Args:
+            request: Petición HTTP del personal clínico o administrativo.
+            pk: Identificador primario de la cuna a liberar.
+
+        Returns:
+            Response: HTTP 200 con la cuna disponible.
+
+        Raises:
+            PermissionDomainError: Si el usuario no tiene rol clínico o administrativo.
+        """
         if request.user.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
             raise PermissionDomainError(
                 "Solo el personal clínico o administrativo puede liberar una cuna."
@@ -174,7 +218,15 @@ class CribViewSet(
     )
     @action(detail=True, methods=["post"], url_path="swap")
     def swap(self, request: Request, pk=None) -> Response:
-        """Intercambia los pacientes de dos cunas ocupadas sin egresarlos; responde 200."""
+        """Intercambia los pacientes de dos cunas ocupadas sin egresarlos; responde 200.
+
+        Args:
+            request: Petición HTTP con ``other_crib_id``.
+            pk: Identificador primario de la cuna origen.
+
+        Returns:
+            Response: HTTP 200 con ambas cunas actualizadas.
+        """
         crib = self.get_object()
         serializer = CribSwapSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -200,7 +252,18 @@ class CribViewSet(
         permission_classes=[IsAuthenticated],
     )
     def telemetry(self, request: Request, pk=None) -> Response:
-        """GET lista el historial de lecturas de la cuna; POST ingiere una lectura (201) con API Key del dispositivo o sesión de personal."""
+        """GET lista el historial de lecturas de la cuna; POST ingiere una lectura (201) con API Key del dispositivo o sesión de personal.
+
+        Args:
+            request: Petición HTTP autenticada por API Key o JWT.
+            pk: Identificador primario de la cuna.
+
+        Returns:
+            Response: HTTP 200 con lecturas paginadas (GET) o HTTP 201 con lectura y alertas (POST).
+
+        Raises:
+            PermissionDomainError: Si un dispositivo intenta leer historial o escribir en otra cuna.
+        """
         from alerts.serializers import AlertSerializer
         from vitals.serializers import VitalSignReadingSerializer
         from vitals.services import ingest_telemetry
@@ -251,7 +314,17 @@ class CribViewSet(
     )
     @action(detail=False, methods=["post"], url_path="check-offline")
     def check_offline(self, request: Request) -> Response:
-        """Marca como offline las cunas activas sin telemetría reciente y responde 200 con las detectadas."""
+        """Marca como offline las cunas activas sin telemetría reciente y responde 200 con las detectadas.
+
+        Args:
+            request: Petición HTTP con ``timeout_seconds`` opcional (por defecto 120s).
+
+        Returns:
+            Response: HTTP 200 con el conteo y detalle de cunas desconectadas.
+
+        Raises:
+            PermissionDomainError: Si el usuario no tiene rol clínico o administrativo.
+        """
         if request.user.role not in {
             UserRole.ADMIN,
             UserRole.NEONATOLOGIST,

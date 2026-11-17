@@ -21,7 +21,7 @@ from vitals.rules import (
 
 
 class AlertType(models.TextChoices):
-    """Tipo de alerta: frecuencia cardíaca, SpO2, temperatura, cánula o falla de sensor."""
+    """Enumeración con los tipos posibles de alertas clínicas."""
 
     HEART_RATE = "heart_rate", "Frecuencia Cardíaca"
     SPO2 = "spo2", "Saturación de Oxígeno (SpO2)"
@@ -32,7 +32,7 @@ class AlertType(models.TextChoices):
 
 
 class AlertSeverity(models.TextChoices):
-    """Severidad de una alerta (información, advertencia o crítica)."""
+    """Enumeración con los niveles de severidad para las alertas."""
 
     INFO = "info", "Informativa"
     WARNING = "warning", "Advertencia"
@@ -40,7 +40,7 @@ class AlertSeverity(models.TextChoices):
 
 
 class AlertStatus(models.TextChoices):
-    """Estado del ciclo de vida de una alerta: activa, reconocida o resuelta."""
+    """Enumeración de los estados en el ciclo de vida de una alerta."""
 
     ACTIVE = "active", "Activa"
     ACKNOWLEDGED = "acknowledged", "Reconocida"
@@ -48,7 +48,7 @@ class AlertStatus(models.TextChoices):
 
 
 class ResolutionReason(models.TextChoices):
-    """Motivo por el que una alerta quedó resuelta."""
+    """Enumeración de los motivos de resolución de una alerta."""
 
     AUTO_NORMALIZED = "auto_normalized", "Normalización automática"
     MANUAL = "manual", "Resolución manual"
@@ -57,7 +57,7 @@ class ResolutionReason(models.TextChoices):
 
 
 class AlertThresholdConfig(models.Model):
-    """Umbrales de alerta de signos vitales; global (sin paciente) o personalizada por paciente."""
+    """Configuración de umbrales de signos vitales (global por defecto o personalizada por paciente)."""
 
     patient = models.OneToOneField(
         "patients.Patient",
@@ -132,13 +132,14 @@ class AlertThresholdConfig(models.Model):
         verbose_name_plural = "Configuraciones de Umbrales de Alerta"
 
     def __str__(self) -> str:
+        """Retorna una representación legible de la configuración de umbrales."""
         if self.patient_id:
             return f"Umbrales personalizados (Paciente #{self.patient_id})"
         return "Umbrales neonatales globales por defecto"
 
 
 class Alert(models.Model):
-    """Alerta clínica generada por una lectura o por pérdida de señal, con su ciclo de vida."""
+    """Registro de alertas clínicas generadas por lecturas de signos vitales o eventos de sensores."""
 
     crib = models.ForeignKey(
         "devices.Crib",
@@ -226,6 +227,7 @@ class Alert(models.Model):
         verbose_name_plural = "Alertas Clínicas"
 
     def __str__(self) -> str:
+        """Retorna una descripción resumida de la alerta clínica."""
         return (
             f"[{self.severity.upper()}] {self.alert_type} - Cuna {self.crib.code} ({self.status})"
         )

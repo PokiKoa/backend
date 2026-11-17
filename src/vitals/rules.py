@@ -57,6 +57,19 @@ class ValidatedTelemetryPayload:
 
 
 def _parse_strict_int(value: Any, field_name: str, label: str) -> int:
+    """Convierte un valor de entrada a entero estricto rechazando booleanos y decimales.
+
+    Args:
+        value: Valor crudo recibido en el payload JSON.
+        field_name: Nombre técnico del campo para reportar errores.
+        label: Etiqueta legible del campo en español.
+
+    Returns:
+        Entero validado.
+
+    Raises:
+        DomainError: Si el valor es booleano, nulo o no representa un número entero.
+    """
     if isinstance(value, bool) or value is None:
         raise DomainError(
             "Los datos de telemetría enviados no son válidos.",
@@ -73,6 +86,19 @@ def _parse_strict_int(value: Any, field_name: str, label: str) -> int:
 
 
 def _parse_strict_bool(value: Any, field_name: str, label: str) -> bool:
+    """Valida que un valor sea estrictamente de tipo ``bool`` (sin coerción de cadenas o enteros).
+
+    Args:
+        value: Valor crudo recibido en el payload JSON.
+        field_name: Nombre técnico del campo para reportar errores.
+        label: Etiqueta legible del campo en español.
+
+    Returns:
+        Booleano estricto validado.
+
+    Raises:
+        DomainError: Si ``value`` no es una instancia de ``bool``.
+    """
     if isinstance(value, bool):
         return value
     raise DomainError(
@@ -103,7 +129,20 @@ def _read_ranged_int(
     maximum: int,
     range_message: str,
 ) -> int:
-    """Lee un entero estricto dentro de rango; acumula el error en ``errors`` y devuelve 0 si falla."""
+    """Lee un entero estricto dentro de rango; acumula el error en ``errors`` y devuelve 0 si falla.
+
+    Args:
+        payload: Diccionario de entrada con los campos obligatorios presentes.
+        errors: Acumulador mutable de errores de validación por campo.
+        field: Clave a leer dentro de ``payload``.
+        label: Nombre legible del parámetro fisiológico.
+        minimum: Límite inferior inclusivo permitido.
+        maximum: Límite superior inclusivo permitido.
+        range_message: Mensaje de error si el valor queda fuera de ``[minimum, maximum]``.
+
+    Returns:
+        Entero leído si el tipo es válido (aun si está fuera de rango), o ``0`` si falló el parseo.
+    """
     try:
         value = _parse_strict_int(payload[field], field, label)
     except DomainError as exc:
@@ -117,6 +156,17 @@ def _read_ranged_int(
 def _read_bool(
     payload: dict[str, Any], errors: dict[str, list[str]], *, field: str, label: str
 ) -> bool:
+    """Lee un booleano estricto desde ``payload`` y registra cualquier error en ``errors``.
+
+    Args:
+        payload: Diccionario de entrada con los campos obligatorios presentes.
+        errors: Acumulador mutable de errores de validación por campo.
+        field: Clave booleana a extraer.
+        label: Nombre legible del parámetro.
+
+    Returns:
+        Valor booleano extraído, o ``False`` si la validación falló.
+    """
     try:
         return _parse_strict_bool(payload[field], field, label)
     except DomainError as exc:
@@ -125,6 +175,15 @@ def _read_bool(
 
 
 def _read_temperature(payload: dict[str, Any], errors: dict[str, list[str]]) -> Decimal:
+    """Parsea, cuantiza a 1 decimal y valida el rango físico de la temperatura corporal.
+
+    Args:
+        payload: Diccionario de entrada con la clave ``temperature``.
+        errors: Acumulador mutable de errores de validación por campo.
+
+    Returns:
+        Temperatura cuantizada a ``0.1`` °C, o ``Decimal("0.0")`` si hubo error de tipo o formato.
+    """
     invalid = ["La temperatura debe ser un número decimal válido."]
     raw = payload["temperature"]
     if isinstance(raw, bool) or raw is None:
@@ -143,7 +202,15 @@ def _read_temperature(payload: dict[str, Any], errors: dict[str, list[str]]) -> 
 
 
 def _read_recorded_at(payload: dict[str, Any], errors: dict[str, list[str]]) -> datetime:
-    """Interpreta ``recorded_at`` (opcional); si falta usa la hora actual."""
+    """Interpreta ``recorded_at`` (opcional); si falta usa la hora actual con zona horaria.
+
+    Args:
+        payload: Diccionario de entrada con posible clave ``recorded_at``.
+        errors: Acumulador mutable de errores de validación por campo.
+
+    Returns:
+        Marca temporal consciente de zona horaria (``aware datetime``).
+    """
     raw = payload.get("recorded_at")
     if raw is None:
         return timezone.now()
@@ -163,7 +230,7 @@ def validate_telemetry_payload(payload: dict[str, Any]) -> ValidatedTelemetryPay
         payload: Cuerpo JSON enviado por el dispositivo.
 
     Returns:
-        La lectura tipada y normalizada.
+        La lectura tipada y normalizada en ``ValidatedTelemetryPayload``.
 
     Raises:
         DomainError: Si el cuerpo no es un objeto, faltan campos obligatorios o algún

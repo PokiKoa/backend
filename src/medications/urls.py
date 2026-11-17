@@ -1,3 +1,5 @@
+"""Rutas URL del módulo de medicación: catálogo de medicamentos e indicaciones médicas."""
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 

@@ -45,7 +45,17 @@ class SimulatedCribState:
 
 
 def _step(current: float, target: float, noise: float, rng: random.Random) -> float:
-    # Paseo aleatorio con reversión a la media: evita saltos irreales entre lecturas
+    """Aplica un paseo aleatorio con reversión a la media para evitar saltos irreales entre lecturas.
+
+    Args:
+        current: Valor actual de la variable fisiológica.
+        target: Valor objetivo hacia el cual converge el sistema.
+        noise: Desviación estándar del ruido gaussiano añadido.
+        rng: Generador de números aleatorios para reproducibilidad.
+
+    Returns:
+        Nuevo valor flotante calculado para el paso actual.
+    """
     return current + (target - current) * 0.4 + rng.gauss(0, noise)
 
 
@@ -59,13 +69,13 @@ def next_payload(
     """Genera la siguiente lectura simulada y avanza el estado.
 
     Args:
-        state: Estado de la cuna; se modifica.
+        state: Estado mutable de la cuna simulada.
         rng: Generador aleatorio (permite resultados reproducibles).
         anomaly_rate: Probabilidad de iniciar un episodio anómalo en cada lectura.
-        episode_ticks: Rango de duración de un episodio, en lecturas.
+        episode_ticks: Rango de duración de un episodio, en número de lecturas.
 
     Returns:
-        Payload compatible con ``validate_telemetry_payload``.
+        Payload en formato diccionario compatible con ``validate_telemetry_payload``.
     """
     if state.episode is None and rng.random() < anomaly_rate:
         state.episode = rng.choice(list(EPISODE_TARGETS))

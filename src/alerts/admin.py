@@ -1,3 +1,5 @@
+"""Configuración del panel de administración para alertas clínicas y umbrales."""
+
 from typing import ClassVar
 
 from django.contrib import admin
@@ -15,6 +17,8 @@ from .models import (
 
 @admin.register(AlertThresholdConfig)
 class AlertThresholdConfigAdmin(admin.ModelAdmin):
+    """Administración de los umbrales de alerta personalizados por paciente."""
+
     list_display: ClassVar[list[str]] = [
         "id",
         "patient",
@@ -32,6 +36,8 @@ class AlertThresholdConfigAdmin(admin.ModelAdmin):
 
 @admin.register(Alert)
 class AlertAdmin(admin.ModelAdmin):
+    """Administración y supervisión de registros de alertas clínicas activas e históricas."""
+
     list_display: ClassVar[list[str]] = [
         "id",
         "severity_badge",
@@ -58,6 +64,15 @@ class AlertAdmin(admin.ModelAdmin):
 
     @admin.display(description="Severidad")
     def severity_badge(self, obj: Alert) -> str:
+        """
+        Genera una etiqueta visual con código de colores según el nivel de severidad de la alerta.
+
+        Args:
+            obj: Instancia de la alerta clínica.
+
+        Returns:
+            str: Código HTML formateado con estilos inline para el badge de severidad.
+        """
         colors = {
             AlertSeverity.CRITICAL: ("#fee2e2", "#991b1b"),
             AlertSeverity.WARNING: ("#fef3c7", "#92400e"),
@@ -73,6 +88,15 @@ class AlertAdmin(admin.ModelAdmin):
 
     @admin.display(description="Estado")
     def status_badge(self, obj: Alert) -> str:
+        """
+        Genera una etiqueta visual con código de colores según el estado actual de la alerta.
+
+        Args:
+            obj: Instancia de la alerta clínica.
+
+        Returns:
+            str: Código HTML formateado con estilos inline para el badge de estado.
+        """
         colors = {
             AlertStatus.ACTIVE: ("#fee2e2", "#991b1b"),
             AlertStatus.ACKNOWLEDGED: ("#fef3c7", "#92400e"),
@@ -88,6 +112,13 @@ class AlertAdmin(admin.ModelAdmin):
 
     @admin.action(description="Reconocer (acknowledge) alertas seleccionadas")
     def mark_acknowledged(self, request, queryset) -> None:
+        """
+        Acción administrativa masiva para marcar las alertas activas seleccionadas como reconocidas.
+
+        Args:
+            request: Petición HTTP del administrador.
+            queryset: Conjunto de consultas con las alertas seleccionadas.
+        """
         queryset.filter(status=AlertStatus.ACTIVE).update(
             status=AlertStatus.ACKNOWLEDGED,
             acknowledged_by=request.user,
@@ -96,6 +127,13 @@ class AlertAdmin(admin.ModelAdmin):
 
     @admin.action(description="Resolver manualmente alertas seleccionadas")
     def mark_resolved(self, request, queryset) -> None:
+        """
+        Acción administrativa masiva para resolver manualmente las alertas seleccionadas.
+
+        Args:
+            request: Petición HTTP del administrador.
+            queryset: Conjunto de consultas con las alertas seleccionadas.
+        """
         queryset.exclude(status=AlertStatus.RESOLVED).update(
             status=AlertStatus.RESOLVED,
             resolved_by=request.user,

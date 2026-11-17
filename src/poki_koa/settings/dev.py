@@ -1,7 +1,9 @@
+"""Configuración de Django para el entorno de desarrollo local y ejecución de pruebas."""
+
 import secrets
 import sys
 
-from .base import *
+from .base import *  # noqa: F401, F403
 from .base import BASE_DIR, env
 
 # En desarrollo se genera una clave efímera en memoria si no existe SECRET_KEY en el entorno

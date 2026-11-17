@@ -44,24 +44,17 @@ def create_catalog_item(
 ) -> MedicationCatalogItem:
     """Registra un medicamento en el catálogo.
 
-    Args:
-        actor: Químico Farmacéutico o Administrador.
-        name: Nombre comercial único (sin distinguir mayúsculas).
-        active_ingredient: Principio activo.
-        concentration_mg: Concentración en mg (mayor que cero).
-        unit: Unidad de presentación (p. ej. ``ampolla``).
-        stock: Existencias iniciales.
-        min_stock_alert: Umbral de alerta de stock mínimo.
-        is_active: Si el medicamento queda disponible para prescribir.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``CATALOG_MANAGERS`` (Químico Farmacéutico o Administrador).
+        - ``name``, ``active_ingredient`` y ``unit`` son cadenas no vacías tras normalización.
+        - ``concentration_mg > 0``, ``stock >= 0`` y ``min_stock_alert >= 0``.
 
-    Returns:
-        El ítem creado.
+    Postcondiciones:
+        - Persiste un nuevo ``MedicationCatalogItem`` con identificador primario asignado y concentración positiva.
+        - Registra el evento de creación en la bitácora de auditoría.
 
-    Raises:
-        PermissionDomainError: Si el rol no puede gestionar el catálogo.
-        ConflictDomainError: Si el nombre ya existe.
-        DomainError: Si algún valor es inválido.
+    Invariante:
+        - Ningún medicamento del catálogo puede existir con stock negativo ni concentración menor o igual a cero.
     """
     require_role(
         actor,
@@ -112,10 +105,16 @@ def create_catalog_item(
             ],
             ip_address=ip_address,
         )
+
+    assert item.pk is not None, "Postcondición fallida: el medicamento no fue persistido."
+    assert item.concentration_mg > Decimal("0.00") and item.stock >= 0, (
+        "Invariante fallido: concentración o stock fuera de dominio."
+    )
     return item
 
 
 def _normalize_item_name(item: MedicationCatalogItem, value: Any) -> str:
+    """Normaliza y verifica la unicidad del nombre comercial de un medicamento."""
     name = str(value).strip()
     if not name:
         raise DomainError("El nombre del medicamento no puede estar vacío.")
@@ -128,6 +127,8 @@ def _normalize_item_name(item: MedicationCatalogItem, value: Any) -> str:
 
 
 def _non_empty_text(field: str):
+    """Construye un normalizador que exige cadenas no vacías para el campo indicado."""
+
     def normalize(item: MedicationCatalogItem, value: Any) -> str:
         text = str(value).strip()
         if not text:
@@ -194,19 +195,16 @@ def update_catalog_item(
 ) -> MedicationCatalogItem:
     """Actualiza parcialmente un medicamento del catálogo (datos y stock) y audita el cambio.
 
-    Args:
-        actor: Químico Farmacéutico o Administrador.
-        item: Medicamento a modificar; se relee con bloqueo de fila.
-        data: Solo los campos a cambiar.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``CATALOG_MANAGERS``.
+        - ``item`` corresponde a un registro existente en el catálogo.
 
-    Returns:
-        El medicamento actualizado.
+    Postcondiciones:
+        - Retorna el ``MedicationCatalogItem`` actualizado con bloqueo transaccional.
+        - Si hubo cambios efectivos, persiste los valores y registra el evento de auditoría.
 
-    Raises:
-        PermissionDomainError: Si el rol no puede gestionar el catálogo.
-        ConflictDomainError: Si el nombre ya existe en otro medicamento.
-        DomainError: Si algún valor está vacío o fuera de rango.
+    Invariante:
+        - El stock resultante nunca es negativo y la concentración permanece mayor que cero.
     """
     require_role(
         actor,
@@ -237,6 +235,9 @@ def update_catalog_item(
                 ip_address=ip_address,
             )
 
+    assert locked_item.stock >= 0 and locked_item.concentration_mg > Decimal("0.00"), (
+        "Invariante fallido: inventario o concentración corrupta tras actualización."
+    )
     return locked_item
 
 
@@ -290,26 +291,17 @@ def create_prescription(
 ) -> Prescription:
     """Crea una indicación médica activa para un paciente ingresado.
 
-    Args:
-        actor: Neonatólogo que prescribe.
-        patient_id: Paciente activo destinatario.
-        medication_id: Medicamento activo del catálogo.
-        dose: Dosis prescrita (texto libre, obligatorio).
-        starts_at: Primera dosis, con zona horaria; se trunca al minuto.
-        frequency_hours: Horas entre dosis; ``None`` indica dosis única.
-        ends_at: Término de la pauta (solo con frecuencia).
-        route: Vía de administración.
-        units_per_administration: Unidades de stock que descuenta cada dosis.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``NEONATOLOGIST_ONLY``.
+        - El paciente existe y se encuentra en estado ``ACTIVE``.
+        - El medicamento existe en el catálogo y está activo (``is_active=True``).
 
-    Returns:
-        La indicación creada.
+    Postcondiciones:
+        - Persiste una ``Prescription`` en estado ``ACTIVE`` con ``starts_at`` truncado al minuto.
+        - Registra la prescripción en la bitácora de auditoría vinculada al paciente.
 
-    Raises:
-        PermissionDomainError: Si el actor no es Neonatólogo.
-        NotFoundDomainError: Si el paciente o el medicamento no existen.
-        ConflictDomainError: Si el paciente está egresado o el medicamento inactivo.
-        DomainError: Si algún dato de la indicación es inválido.
+    Invariante:
+        - Toda indicación creada tiene ``units_per_administration >= 1`` y, si tiene ``ends_at``, es recurrente con ``ends_at > starts_at``.
     """
     require_role(
         actor,
@@ -374,10 +366,17 @@ def create_prescription(
             ip_address=ip_address,
         )
 
+    assert prescription.pk is not None and prescription.status == PrescriptionStatus.ACTIVE, (
+        "Postcondición fallida: la indicación médica no quedó persistida como vigente."
+    )
+    assert prescription.ends_at is None or (
+        prescription.frequency_hours is not None and prescription.ends_at > prescription.starts_at
+    ), "Invariante fallido: pauta temporal inconsistente en la indicación médica."
     return prescription
 
 
 def _format_local(when: datetime) -> str:
+    """Formatea una fecha con zona horaria en formato legible local ``DD-MM-YYYY HH:MM``."""
     return timezone.localtime(when).strftime("%d-%m-%Y %H:%M")
 
 
@@ -422,21 +421,18 @@ def administer_prescription(
 ) -> MedicationAdministration:
     """Registra la administración de una dosis y descuenta el stock de forma atómica.
 
-    Args:
-        actor: Neonatólogo o Matrona/Enfermera que administra.
-        prescription: Indicación activa; se relee con bloqueo junto al medicamento.
-        scheduled_for: Dosis programada a registrar; si es ``None`` se usa la última vencida.
-        notes: Observaciones libres.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol clínico autorizado (``CLINICAL_STAFF``).
+        - El paciente está activo, la indicación vigente y el medicamento activo con stock suficiente.
+        - La toma correspondiente a ``scheduled_for`` no ha sido administrada previamente.
 
-    Returns:
-        El registro de administración creado.
+    Postcondiciones:
+        - Descuenta exactamente ``units_per_administration`` del inventario del medicamento.
+        - Crea un ``MedicationAdministration`` vinculado al turno programado y al profesional ejecutor.
+        - Si la dosis corresponde al último turno de la pauta, transiciona la indicación a ``COMPLETED``.
 
-    Raises:
-        PermissionDomainError: Si el rol no puede administrar medicación.
-        ConflictDomainError: Paciente egresado, indicación cerrada, dosis ya administrada o
-            anticipada, medicamento inactivo o stock insuficiente.
-        DomainError: Si el horario indicado no pertenece a la pauta.
+    Invariante:
+        - Conservación de inventario: ``stock_final == stock_inicial - units_deducted`` y ``stock_final >= 0``.
     """
     require_role(
         actor,
@@ -478,6 +474,7 @@ def administer_prescription(
                 "Stock insuficiente en el catálogo para administrar la dosis indicada."
             )
 
+        stock_before = locked_medication.stock
         locked_medication.stock -= locked_prescription.units_per_administration
         locked_medication.save(update_fields=["stock", "updated_at"])
 
@@ -491,7 +488,8 @@ def administer_prescription(
         )
 
         changed_fields = ["administrations", "stock"]
-        if slot == schedule.last_slot(locked_prescription):
+        is_final_slot = slot == schedule.last_slot(locked_prescription)
+        if is_final_slot:
             locked_prescription.status = PrescriptionStatus.COMPLETED
             locked_prescription.save(update_fields=["status", "updated_at"])
             changed_fields.append("status")
@@ -506,6 +504,17 @@ def administer_prescription(
             ip_address=ip_address,
         )
 
+    assert administration.pk is not None, (
+        "Postcondición fallida: el registro de administración no fue persistido."
+    )
+    assert (
+        locked_medication.stock >= 0
+        and locked_medication.stock == stock_before - administration.units_deducted
+    ), "Invariante fallido: inconsistencia en el descuento atómico de inventario."
+    assert not is_final_slot or locked_prescription.status == PrescriptionStatus.COMPLETED, (
+        "Postcondición fallida: la indicación no se marcó como completada tras su última dosis."
+    )
+
     administration.prescription = locked_prescription
     return administration
 
@@ -519,18 +528,15 @@ def cancel_prescription(
 ) -> Prescription:
     """Cancela una indicación médica vigente.
 
-    Args:
-        actor: Neonatólogo que cancela.
-        prescription: Indicación a cancelar; se relee con bloqueo de fila.
-        reason: Motivo de la cancelación.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``NEONATOLOGIST_ONLY``.
+        - La indicación se encuentra actualmente en estado ``ACTIVE``.
 
-    Returns:
-        La indicación cancelada.
+    Postcondiciones:
+        - La indicación pasa a estado ``CANCELLED`` con ``cancelled_at`` poblado y evento auditado.
 
-    Raises:
-        PermissionDomainError: Si el actor no es Neonatólogo.
-        ConflictDomainError: Si la indicación ya no está vigente.
+    Invariante:
+        - Toda indicación cancelada registra una marca temporal ``cancelled_at`` no nula.
     """
     require_role(
         actor, NEONATOLOGIST_ONLY, "Solo un Neonatólogo puede cancelar una indicación médica."
@@ -560,20 +566,30 @@ def cancel_prescription(
             ip_address=ip_address,
         )
 
+    assert (
+        locked_prescription.status == PrescriptionStatus.CANCELLED
+        and locked_prescription.cancelled_at is not None
+    ), "Postcondición fallida: la indicación no quedó cancelada con fecha de cierre."
     return locked_prescription
 
 
 def cancel_pending_prescriptions_on_discharge(*, patient: Patient) -> int:
     """Cancela las indicaciones vigentes de un paciente que es egresado.
 
-    Args:
-        patient: Paciente egresado.
+    Precondiciones:
+        - ``patient`` corresponde a una instancia persistida de ``Patient``.
 
-    Returns:
-        Número de indicaciones canceladas.
+    Postcondiciones:
+        - Todas las indicaciones ``ACTIVE`` del paciente quedan en estado ``CANCELLED`` con motivo de egreso.
+        - Retorna el número entero no negativo de indicaciones actualizadas.
+
+    Invariante:
+        - Tras el egreso, el paciente no conserva ninguna indicación en estado ``ACTIVE``.
     """
+    assert patient.pk is not None, "Precondición fallida: el paciente debe estar persistido."
+
     now = timezone.now()
-    return Prescription.objects.filter(
+    cancelled_count = Prescription.objects.filter(
         patient=patient,
         status=PrescriptionStatus.ACTIVE,
     ).update(
@@ -582,3 +598,12 @@ def cancel_pending_prescriptions_on_discharge(*, patient: Patient) -> int:
         cancellation_reason="Egreso del paciente",
         updated_at=now,
     )
+
+    assert cancelled_count >= 0, (
+        "Postcondición fallida: el conteo de indicaciones canceladas no puede ser negativo."
+    )
+    assert not Prescription.objects.filter(
+        patient=patient, status=PrescriptionStatus.ACTIVE
+    ).exists(), "Invariante fallido: quedaron indicaciones activas tras el egreso del paciente."
+
+    return cancelled_count

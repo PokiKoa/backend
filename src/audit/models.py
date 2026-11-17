@@ -7,7 +7,7 @@ from django.db import models
 
 
 class AuditAction(models.TextChoices):
-    """Acciones auditables: lectura, creación, modificación, egreso, cunas, telemetría, alertas, medicación y sesión."""
+    """Enumeración con las acciones auditables permitidas en el sistema clínico."""
 
     READ = "read", "Lectura"
     CREATE = "create", "Creación"
@@ -29,7 +29,7 @@ class AuditAction(models.TextChoices):
 
 
 class AuditLog(models.Model):
-    """Registro inmutable de un acceso o modificación; guarda nombres de campos, nunca valores clínicos."""
+    """Registro inmutable de accesos y modificaciones; almacena metadatos y nombres de campos modificados."""
 
     actor_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -47,7 +47,7 @@ class AuditLog(models.Model):
     )
     resource_type = models.CharField(max_length=50, db_index=True)
     resource_id = models.CharField(max_length=64, blank=True, default="")
-    # Solo almacena nombres de campos modificados (lista de strings), nunca valores clínicos
+    # Almacena únicamente nombres de campos modificados (lista de strings), protegiendo la confidencialidad clínica
     changed_fields = models.JSONField(default=list, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -66,5 +66,6 @@ class AuditLog(models.Model):
         verbose_name_plural = "Registros de Auditoría"
 
     def __str__(self) -> str:
+        """Retorna una representación legible del evento de auditoría."""
         actor = self.actor_user_id or self.actor_device_code or "anonymous"
         return f"[{self.action}] {self.resource_type}:{self.resource_id} by {actor}"

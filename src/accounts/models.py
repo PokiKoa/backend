@@ -46,18 +46,32 @@ class UserManager(BaseUserManager["User"]):
         email: str = "",
         **extra_fields: Any,
     ) -> "User":
-        """Crea un usuario normalizando el nombre de usuario y el correo; exige nombre de usuario."""
+        """Crea un usuario normalizando el nombre de usuario y el correo.
+
+        Precondiciones:
+            - El `username` (o en su defecto el `email`) no debe estar vacío.
+            - El `full_name` (o en su defecto el nombre derivado) no debe estar vacío.
+        Postcondiciones:
+            - Retorna un objeto User guardado en la base de datos con los datos normalizados.
+        Invariante:
+            - Un usuario creado en el sistema siempre debe tener un `username` válido y no vacío.
+            - Un usuario creado siempre debe tener un `full_name` definido.
+        """
         effective_username = (username or "").strip().lower()
         normalized_email = (
             self.normalize_email(email.strip()).lower() if email and email.strip() else ""
         )
+
         if not effective_username and normalized_email:
             effective_username = normalized_email.split("@")[0]
 
+        # Validación en la frontera
         if not effective_username:
             raise ValueError("El nombre de usuario es obligatorio.")
 
         effective_full_name = (full_name or effective_username).strip()
+
+        # Validación en la frontera
         if not effective_full_name:
             raise ValueError("El nombre completo es obligatorio.")
 
@@ -67,11 +81,18 @@ class UserManager(BaseUserManager["User"]):
             full_name=effective_full_name,
             **extra_fields,
         )
+
         if password:
             user.set_password(password)
         else:
             user.set_unusable_password()
+
         user.save(using=self._db)
+
+        # Aserciones (Invariantes)
+        assert user.username, "Invariante roto: El usuario se guardó sin un username."
+        assert user.full_name, "Invariante roto: El usuario se guardó sin un full_name."
+
         return user
 
     def create_superuser(
@@ -82,12 +103,21 @@ class UserManager(BaseUserManager["User"]):
         email: str = "",
         **extra_fields: Any,
     ) -> "User":
-        """Crea un superusuario con rol Administrador y acceso al panel de administración."""
+        """Crea un superusuario con rol Administrador y acceso al panel de administración.
+
+        Precondiciones:
+            - Se aplican las mismas precondiciones que `create_user`.
+        Postcondiciones:
+            - Retorna un objeto User con privilegios de `is_staff`, `is_superuser` y rol `ADMIN`.
+        Invariante:
+            - Todo superusuario creado mediante este método debe tener los privilegios máximos activos.
+        """
         extra_fields.setdefault("role", UserRole.ADMIN)
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_active", True)
-        return self.create_user(
+
+        user = self.create_user(
             username=username,
             full_name=full_name,
             password=password,
@@ -95,9 +125,21 @@ class UserManager(BaseUserManager["User"]):
             **extra_fields,
         )
 
+        # Aserciones (Invariantes)
+        assert user.is_staff and user.is_superuser, (
+            "Invariante roto: El superusuario no tiene los privilegios requeridos."
+        )
+        assert user.role == UserRole.ADMIN, (
+            "Invariante roto: El superusuario no tiene el rol ADMIN."
+        )
+
+        return user
+
 
 class User(AbstractBaseUser, PermissionsMixin):
-    """Usuario del sistema con rol, turno, bloqueo temporal por intentos fallidos y 2FA (TOTP)."""
+    """Representa a un usuario del sistema clínico.
+    Maneja el rol (RBAC), turno, bloqueo temporal por intentos fallidos y 2FA (TOTP).
+    """
 
     username = models.CharField(max_length=150, unique=True)
     email = models.EmailField(max_length=254, blank=True, default="", db_index=True)
@@ -144,12 +186,18 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def is_temporarily_locked(self) -> bool:
-        """``True`` si la cuenta sigue bloqueada (``locked_until`` en el futuro)."""
+        """Determina si la cuenta de usuario se encuentra bloqueada temporalmente.
+
+        Returns:
+            bool: `True` si la cuenta sigue bloqueada (locked_until en el futuro), `False` en caso contrario.
+        """
         return bool(self.locked_until and self.locked_until > timezone.now())
 
 
 class ShiftAssignment(models.Model):
-    """Asignación de un profesional a una cuna para un día y turno (única por combinación)."""
+    """Representa la asignación de un profesional de la salud a una cuna específica.
+    La asignación es única por la combinación de usuario, cuna, fecha y turno.
+    """
 
     user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="shift_assignments")
     crib = models.ForeignKey(

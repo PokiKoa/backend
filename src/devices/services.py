@@ -26,37 +26,32 @@ def create_crib(
     is_device_active: bool = True,
     ip_address: str | None = None,
 ) -> tuple[Crib, str]:
-    """Registra una cuna y genera su API Key de dispositivo.
+    """Registra una nueva cuna aplicando Design by Contract (precondiciones, postcondiciones e invariantes).
 
-    Args:
-        actor: Administrador.
-        code: Código identificador único (se normaliza a mayúsculas).
-        name: Nombre descriptivo.
-        location: Ubicación física.
-        status: Estado operativo inicial (no puede ser ``occupied``).
-        is_device_active: Si el dispositivo puede enviar telemetría.
-        ip_address: IP de origen para la auditoría.
+    Preconditions:
+        - El actor debe estar autenticado y tener rol de administrador.
+        - El código de la cuna no puede estar vacío.
+        - El estado inicial debe ser válido y no puede ser 'occupied'.
 
-    Returns:
-        Tupla ``(cuna, api_key_en_claro)``; la clave solo se muestra en este momento.
-
-    Raises:
-        PermissionDomainError: Si el actor no es administrador.
-        ConflictDomainError: Si el código ya existe.
-        DomainError: Si el código está vacío o el estado es inválido.
+    Postconditions:
+        - Se crea y persiste una instancia de Crib con sus credenciales de API Key.
+        - Se registra el evento forense de auditoría correspondiente.
     """
+    # --- Precondiciones ---
+    assert actor is not None and getattr(actor, "is_authenticated", False), (
+        "Precondición fallida: Actor no autenticado."
+    )
     require_role(
         actor, ADMIN_ONLY, "Solo un administrador puede registrar nuevas cunas en el sistema."
     )
     normalized_code = (code or "").strip().upper()
-    if not normalized_code:
-        raise DomainError("El código identificador de la cuna es obligatorio.")
-    if status not in set(CribStatus.values):
-        raise DomainError("El estado operativo de la cuna no es válido.")
+    if len(normalized_code) == 0:
+        raise DomainError("Precondición fallida: El código de cuna es obligatorio.")
+    assert status in set(CribStatus.values), (
+        "Precondición fallida: El estado operativo no es válido."
+    )
     if status == CribStatus.OCCUPIED:
-        raise DomainError(
-            "Una cuna nueva no puede crearse directamente en estado ocupada sin paciente."
-        )
+        raise DomainError("Precondición fallida: Una cuna nueva no puede crearse ocupada.")
 
     raw_key, prefix, key_hash = generate_device_api_key()
 
@@ -81,21 +76,28 @@ def create_crib(
             changed_fields=["code", "name", "location", "status", "is_device_active"],
             ip_address=ip_address,
         )
+
+    # --- Postcondiciones ---
+    assert crib.pk is not None, "Postcondición fallida: La cuna no se persistió correctamente."
+    assert crib.api_key_hash != "", (
+        "Postcondición fallida: La cuna debe poseer un hash de API Key válido."
+    )
+
     return crib, raw_key
 
 
 def _normalize_crib_code(crib: Crib, value: Any) -> str:
+    """Valida y normaliza el código de una cuna existente."""
     code = str(value).strip().upper()
-    if not code:
-        raise DomainError("El código de la cuna no puede estar vacío.")
+    assert len(code) > 0, "Precondición fallida: El código normalizado no puede estar vacío."
     if code != crib.code and Crib.objects.filter(code=code).exclude(pk=crib.pk).exists():
         raise ConflictDomainError("Ya existe otra cuna con ese código.")
     return code
 
 
 def _normalize_crib_status(crib: Crib, value: Any) -> str:
-    if value not in set(CribStatus.values):
-        raise DomainError("El estado operativo de la cuna no es válido.")
+    """Valida las transiciones de estado de la cuna según su ocupación."""
+    assert value in set(CribStatus.values), "Precondición fallida: Estado operativo inválido."
     has_patient = hasattr(crib, "current_patient") and crib.current_patient is not None
     if has_patient and value != CribStatus.OCCUPIED:
         raise ConflictDomainError(
@@ -109,7 +111,6 @@ def _normalize_crib_status(crib: Crib, value: Any) -> str:
     return value
 
 
-# Campos editables de una cuna. El orden define ``changed_fields`` en la auditoría.
 _CRIB_EDITABLE_FIELDS = {
     "code": _normalize_crib_code,
     "name": lambda crib, value: str(value).strip(),
@@ -126,26 +127,24 @@ def update_crib(
     data: dict[str, Any],
     ip_address: str | None = None,
 ) -> Crib:
-    """Actualiza parcialmente la configuración de una cuna y audita los campos modificados.
+    """Actualiza parcialmente la configuración de una cuna aplicando Design by Contract.
 
-    Args:
-        actor: Administrador que realiza el cambio.
-        crib: Cuna a modificar; se relee con bloqueo de fila.
-        data: Solo los campos a cambiar (``code``, ``name``, ``location``, ``status``,
-            ``is_device_active``).
-        ip_address: IP de origen para la auditoría.
+    Preconditions:
+        - El actor debe ser administrador autenticado.
+        - La cuna y los datos a actualizar deben ser válidos.
 
-    Returns:
-        La cuna actualizada.
-
-    Raises:
-        PermissionDomainError: Si el actor no es administrador.
-        ConflictDomainError: Código duplicado o estado incompatible con la ocupación.
-        DomainError: Código vacío o estado operativo inválido.
+    Postconditions:
+        - Los cambios se persisten transaccionalmente y se auditan si hubo modificaciones.
     """
+    # --- Precondiciones ---
+    assert actor is not None and getattr(actor, "is_authenticated", False), (
+        "Precondición fallida: Actor no autenticado."
+    )
     require_role(
         actor, ADMIN_ONLY, "Solo un administrador puede modificar la configuración de una cuna."
     )
+    assert crib is not None and crib.pk is not None, "Precondición fallida: La cuna debe existir."
+
     with transaction.atomic():
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)
         changed_fields: list[str] = []
@@ -168,6 +167,11 @@ def update_crib(
                 changed_fields=changed_fields,
                 ip_address=ip_address,
             )
+
+    # --- Postcondiciones ---
+    assert locked_crib is not None, (
+        "Postcondición fallida: Objeto cuna corrupto tras la actualización."
+    )
     return locked_crib
 
 
@@ -177,20 +181,22 @@ def rotate_crib_api_key(
     crib: Crib,
     ip_address: str | None = None,
 ) -> str:
-    """Rota la API Key de una cuna, invalidando la anterior.
+    """Rota la API Key de una cuna aplicando Design by Contract.
 
-    Args:
-        actor: Administrador.
-        crib: Cuna cuyo dispositivo recibirá una nueva clave.
-        ip_address: IP de origen para la auditoría.
+    Preconditions:
+        - El actor debe ser administrador.
+        - La cuna debe existir en la base de datos.
 
-    Returns:
-        La nueva API Key en claro (no se vuelve a poder consultar).
-
-    Raises:
-        PermissionDomainError: Si el actor no es administrador.
+    Postconditions:
+        - Se actualiza el hash de la API key de la cuna y se registra la auditoría.
     """
+    # --- Precondiciones ---
+    assert actor is not None and getattr(actor, "is_authenticated", False), (
+        "Precondición fallida: Actor no autenticado."
+    )
     require_role(actor, ADMIN_ONLY, "Solo un administrador puede rotar la API Key de una cuna.")
+    assert crib is not None and crib.pk is not None, "Precondición fallida: La cuna debe existir."
+
     raw_key, prefix, key_hash = generate_device_api_key()
     with transaction.atomic():
         locked_crib = Crib.objects.select_for_update().get(pk=crib.pk)
@@ -205,25 +211,26 @@ def rotate_crib_api_key(
             changed_fields=["api_key_prefix", "api_key_hash"],
             ip_address=ip_address,
         )
+
+    # --- Postcondiciones ---
+    assert locked_crib.api_key_hash == key_hash, (
+        "Postcondición fallida: El hash de la API key no se actualizó."
+    )
     return raw_key
 
 
 def detect_offline_cribs(*, timeout_seconds: int = 120) -> list[Crib]:
-    """Detecta cunas activas sin telemetría reciente y dispara su alerta de pérdida de señal.
+    """Detecta cunas desconectadas aplicando Design by Contract.
 
-    Args:
-        timeout_seconds: Segundos sin lecturas tras los cuales la cuna se considera desconectada (mínimo 10).
+    Preconditions:
+        - El umbral ``timeout_seconds`` debe ser al menos de 10 segundos.
 
-    Returns:
-        Cunas detectadas como desconectadas.
-
-    Raises:
-        DomainError: Si ``timeout_seconds`` es menor que 10.
+    Postconditions:
+        - Las cunas que superan el umbral pasan a estado OFFLINE y generan alertas de pérdida de señal.
     """
+    # --- Precondiciones ---
     if timeout_seconds < 10:
-        raise DomainError(
-            "El umbral de inactividad para detectar cunas desconectadas debe ser de al menos 10 segundos."
-        )
+        raise DomainError("Precondición fallida: El timeout debe ser de al menos 10 segundos.")
 
     cutoff = timezone.now() - timedelta(seconds=timeout_seconds)
     candidates = list(
@@ -257,5 +264,11 @@ def detect_offline_cribs(*, timeout_seconds: int = 120) -> list[Crib]:
                 timeout_seconds=timeout_seconds,
             )
             offline_cribs.append(locked_crib)
+
+    # --- Postcondiciones ---
+    for c in offline_cribs:
+        assert c.status == CribStatus.OFFLINE, (
+            "Postcondición fallida: La cuna detectada debe quedar en estado OFFLINE."
+        )
 
     return offline_cribs

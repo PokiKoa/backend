@@ -1,3 +1,5 @@
+"""Punto de entrada WSGI de Poki Koa para servidores HTTP síncronos en producción."""
+
 import os
 
 from django.core.wsgi import get_wsgi_application

@@ -84,6 +84,7 @@ def _record_crib_movement(
     from_crib: Crib | None = None,
     to_crib: Crib | None = None,
 ) -> CribMovement:
+    """Registra una entrada inmutable en el historial de ubicaciones de cuna del paciente."""
     return CribMovement.objects.create(
         patient=patient,
         kind=kind,
@@ -96,6 +97,7 @@ def _record_crib_movement(
 
 
 def _validate_attending_physician(physician_id: int | None) -> User | None:
+    """Valida que el médico responsable exista, esté activo y tenga rol de Neonatólogo."""
     if physician_id is None:
         return None
     physician = User.objects.filter(pk=physician_id, is_active=True).first()
@@ -111,6 +113,7 @@ def _validate_attending_physician(physician_id: int | None) -> User | None:
 def _validate_crib_available(
     crib_id: int | None, current_patient_id: int | None = None
 ) -> Crib | None:
+    """Bloquea y verifica que la cuna indicada exista, esté libre y operativa."""
     if crib_id is None:
         return None
     crib = Crib.objects.select_for_update().filter(pk=crib_id).first()
@@ -179,29 +182,18 @@ def admit_patient(
 ) -> Patient:
     """Registra el ingreso de un recién nacido, con cuna y medición de peso inicial opcionales.
 
-    Args:
-        actor: Neonatólogo o Matrona/Enfermera que ingresa al paciente.
-        medical_record_number: Ficha clínica única (se normaliza a mayúsculas).
-        full_name: Nombre completo.
-        sex: ``F`` o ``M``.
-        birth_date: Fecha de nacimiento (no futura).
-        gestational_age_weeks: Edad gestacional, entre 20 y 45 semanas.
-        birth_weight_g: Peso de nacimiento, entre 200 y 8000 g.
-        current_weight_g: Peso actual; por defecto el de nacimiento.
-        diagnosis: Diagnóstico inicial.
-        attending_physician_id: Neonatólogo a cargo.
-        crib_id: Cuna a asignar.
-        guardians: Datos de madre y padre (RUT y teléfono se normalizan).
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``CLINICAL_STAFF`` (Neonatólogo o Matrona/Enfermera).
+        - ``medical_record_number`` es único en el sistema y los parámetros neonatales están dentro de rango clínico.
+        - Si se especifica ``crib_id``, la cuna existe, está desocupada y operativa.
 
-    Returns:
-        El paciente creado.
+    Postcondiciones:
+        - Persiste un ``Patient`` en estado ``ACTIVE`` con su medición inicial en ``WeightRecord``.
+        - Si se asignó cuna, esta pasa a estado ``OCCUPIED`` y se registra un ``CribMovement`` de tipo ``ASSIGN``.
+        - Registra el evento de ingreso en la bitácora de auditoría.
 
-    Raises:
-        PermissionDomainError: Si el rol no puede ingresar pacientes.
-        ConflictDomainError: Ficha duplicada o cuna no disponible.
-        NotFoundDomainError: Si el médico o la cuna no existen.
-        DomainError: Si algún dato es inválido o está fuera de rango.
+    Invariante:
+        - Todo paciente activo con cuna asignada mantiene una correspondencia biunívoca con una cuna en estado ``OCCUPIED``.
     """
     require_role(
         actor,
@@ -278,10 +270,17 @@ def admit_patient(
             ip_address=ip_address,
         )
 
+    assert patient.pk is not None and patient.status == PatientStatus.ACTIVE, (
+        "Postcondición fallida: el paciente no quedó persistido como activo."
+    )
+    assert patient.crib is None or patient.crib.status == CribStatus.OCCUPIED, (
+        "Invariante fallido: la cuna asignada al ingreso no quedó marcada como ocupada."
+    )
     return patient
 
 
 def _normalize_full_name(value: Any) -> str:
+    """Normaliza y verifica que el nombre completo del paciente no esté vacío."""
     new_name = str(value).strip()
     if not new_name:
         raise DomainError("El nombre completo del paciente no puede estar vacío.")
@@ -289,18 +288,21 @@ def _normalize_full_name(value: Any) -> str:
 
 
 def _normalize_sex(value: Any) -> str:
+    """Valida que el sexo biológico corresponda a ``F`` o ``M``."""
     if value not in set(PatientSex.values):
         raise DomainError("El sexo del paciente debe ser 'F' o 'M'.")
     return value
 
 
 def _normalize_birth_date(value: date) -> date:
+    """Valida que la fecha de nacimiento no sea posterior a la fecha local actual."""
     if value > timezone.localdate():
         raise DomainError("La fecha de nacimiento no puede ser una fecha futura.")
     return value
 
 
 def _normalize_gestational_age(value: Any) -> Decimal:
+    """Convierte y valida que la edad gestacional esté entre 20.0 y 45.0 semanas."""
     weeks = Decimal(str(value))
     if not (Decimal("20.0") <= weeks <= Decimal("45.0")):
         raise DomainError("La edad gestacional debe estar entre 20.0 y 45.0 semanas.")
@@ -308,6 +310,7 @@ def _normalize_gestational_age(value: Any) -> Decimal:
 
 
 def _normalize_current_weight(value: Any) -> int:
+    """Convierte y valida que el peso actual esté entre 200 y 10000 gramos."""
     weight = int(value)
     if not (200 <= weight <= 10000):
         raise DomainError("El peso actual debe estar entre 200 y 10000 gramos.")
@@ -315,6 +318,7 @@ def _normalize_current_weight(value: Any) -> int:
 
 
 def _normalize_diagnosis(value: Any) -> str:
+    """Limpia espacios laterales del texto de diagnóstico clínico."""
     return str(value or "").strip()
 
 
@@ -347,6 +351,7 @@ def _apply_scalar_updates(patient: Patient, data: dict[str, Any], actor: User) -
 
 
 def _apply_physician_update(patient: Patient, data: dict[str, Any]) -> list[str]:
+    """Actualiza el médico tratante si fue enviado y difiere del actual."""
     if "attending_physician_id" not in data:
         return []
     new_physician = _validate_attending_physician(data["attending_physician_id"])
@@ -358,6 +363,7 @@ def _apply_physician_update(patient: Patient, data: dict[str, Any]) -> list[str]
 
 
 def _apply_guardian_updates(patient: Patient, data: dict[str, Any]) -> list[str]:
+    """Actualiza los datos normalizados de madre/padre que hayan cambiado."""
     changed: list[str] = []
     for field, value in _clean_guardian_data(data).items():
         if value != getattr(patient, field):
@@ -367,6 +373,7 @@ def _apply_guardian_updates(patient: Patient, data: dict[str, Any]) -> list[str]
 
 
 def _crib_movement_kind(old_crib: Crib | None, new_crib: Crib | None) -> str:
+    """Determina el tipo de movimiento según la cuna de origen y destino."""
     if old_crib is None:
         return CribMovementKind.ASSIGN
     if new_crib is None:
@@ -408,22 +415,16 @@ def update_patient(
 ) -> Patient:
     """Actualiza parcialmente los datos de un paciente activo y audita los campos modificados.
 
-    Args:
-        actor: Usuario que realiza el cambio (Neonatólogo o Matrona/Enfermera).
-        patient: Paciente a modificar; se vuelve a leer con bloqueo de fila.
-        data: Solo los campos a cambiar. ``diagnosis`` y ``attending_physician_id``
-            son exclusivos de Neonatólogo.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``CLINICAL_STAFF``; si ``data`` incluye ``diagnosis`` o ``attending_physician_id``, ``actor`` debe ser Neonatólogo.
+        - El paciente existe y permanece en estado ``ACTIVE``.
 
-    Returns:
-        El paciente actualizado.
+    Postcondiciones:
+        - Persiste únicamente los campos validados que cambiaron y registra un evento ``UPDATE`` en auditoría si hubo modificaciones.
+        - Si cambió ``current_weight_g``, crea automáticamente un ``WeightRecord`` sincronizado.
 
-    Raises:
-        PermissionDomainError: Si el rol no puede editar pacientes o la enfermera
-            intenta cambiar campos médicos restringidos.
-        ConflictDomainError: Si el paciente ya fue egresado o la cuna no está disponible.
-        NotFoundDomainError: Si el médico o la cuna indicados no existen.
-        DomainError: Si algún valor está fuera de rango o es inválido.
+    Invariante:
+        - Si el paciente queda con una cuna asignada, dicha cuna tiene estado ``OCCUPIED``.
     """
     require_role(
         actor, CLINICAL_STAFF, "Solo el personal clínico puede modificar datos de un paciente."
@@ -461,6 +462,12 @@ def update_patient(
                 ip_address=ip_address,
             )
 
+    assert locked_patient.status == PatientStatus.ACTIVE, (
+        "Invariante fallido: la edición cambió indebidamente el estado de actividad del paciente."
+    )
+    assert locked_patient.crib is None or locked_patient.crib.status == CribStatus.OCCUPIED, (
+        "Invariante fallido: la cuna vinculada al paciente no figura como ocupada."
+    )
     return locked_patient
 
 
@@ -475,21 +482,18 @@ def discharge_patient(
 ) -> Patient:
     """Egresa a un paciente (alta, traslado o fallecimiento) y libera su cuna.
 
-    Args:
-        actor: Neonatólogo que firma el egreso.
-        patient: Paciente activo.
-        outcome: Desenlace (``DischargeOutcome``).
-        cause: Causa clínica; obligatoria si el desenlace es fallecimiento.
-        notes: Observaciones de egreso.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``NEONATOLOGIST_ONLY``.
+        - El paciente está en estado ``ACTIVE`` y ``outcome`` pertenece a ``DischargeOutcome``.
+        - Si ``outcome == DischargeOutcome.DECEASED``, ``cause`` es obligatoria y distinta de ``DischargeCause.NONE``.
 
-    Returns:
-        El paciente egresado.
+    Postcondiciones:
+        - El paciente transiciona a estado terminal (``DISCHARGED``, ``TRANSFERRED`` o ``DECEASED``) con ``discharged_at`` y ``discharged_by`` poblados.
+        - Se desvincula y libera la cuna ocupada (``crib is None`` y ``old_crib.status == AVAILABLE``).
+        - Se finalizan sus planes de cuidado activos, se resuelven sus alertas y se cancelan sus prescripciones vigentes.
 
-    Raises:
-        PermissionDomainError: Si el actor no es Neonatólogo.
-        ConflictDomainError: Si el paciente ya fue egresado.
-        DomainError: Si el desenlace o la causa son inválidos.
+    Invariante:
+        - Ningún paciente egresado puede conservar una cuna asignada ni indicaciones médicas activas.
     """
     require_role(
         actor,
@@ -572,6 +576,14 @@ def discharge_patient(
             ip_address=ip_address,
         )
 
+    assert (
+        locked_patient.status != PatientStatus.ACTIVE
+        and locked_patient.discharged_at is not None
+        and locked_patient.discharged_by_id == actor.id
+    ), "Postcondición fallida: el paciente no registró correctamente los metadatos de egreso."
+    assert locked_patient.crib_id is None and (
+        old_crib is None or old_crib.status == CribStatus.AVAILABLE
+    ), "Invariante fallido: la cuna no quedó liberada tras el egreso del paciente."
     return locked_patient
 
 
@@ -584,19 +596,17 @@ def assign_patient_to_crib(
 ) -> Crib:
     """Asigna un paciente activo a una cuna disponible.
 
-    Args:
-        actor: Neonatólogo o Matrona/Enfermera.
-        crib: Cuna destino; se relee con bloqueo de fila.
-        patient_id: Paciente a asignar.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``CLINICAL_OR_ADMIN``.
+        - ``crib`` está operativa (no en mantenimiento ni fuera de línea) y no ocupada por otro paciente.
+        - El paciente existe, está ``ACTIVE`` y no ocupa ya esa misma cuna.
 
-    Returns:
-        La cuna ocupada.
+    Postcondiciones:
+        - Si el paciente ocupaba otra cuna, esta pasa a ``AVAILABLE``.
+        - ``patient.crib`` apunta a ``crib``, ``crib.status`` pasa a ``OCCUPIED`` y se registra el movimiento (``ASSIGN`` o ``MOVE``).
 
-    Raises:
-        PermissionDomainError: Si el rol no puede asignar cunas.
-        NotFoundDomainError: Si el paciente no existe.
-        ConflictDomainError: Cuna no disponible u ocupada, o paciente ya asignado a ella.
+    Invariante:
+        - Toda cuna retornada queda en estado ``OCCUPIED`` con su ``current_patient`` vinculado.
     """
     require_role(
         actor,
@@ -649,6 +659,11 @@ def assign_patient_to_crib(
         )
 
     locked_crib.refresh_from_db()
+    assert (
+        locked_crib.status == CribStatus.OCCUPIED
+        and getattr(locked_crib, "current_patient", None) is not None
+        and locked_crib.current_patient.id == patient_id
+    ), "Postcondición fallida: la cuna no quedó ocupada por el paciente asignado."
     return locked_crib
 
 
@@ -660,17 +675,16 @@ def release_patient_from_crib(
 ) -> Crib:
     """Libera una cuna ocupada, desasignando a su paciente.
 
-    Args:
-        actor: Neonatólogo o Matrona/Enfermera.
-        crib: Cuna a liberar.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``CLINICAL_OR_ADMIN``.
+        - La cuna se encuentra actualmente ocupada por un paciente.
 
-    Returns:
-        La cuna disponible.
+    Postcondiciones:
+        - El paciente queda sin cuna asignada (``crib is None``) manteniendo su estado clínico.
+        - La cuna transiciona a estado ``AVAILABLE`` y se registra un movimiento de tipo ``RELEASE``.
 
-    Raises:
-        PermissionDomainError: Si el rol no puede liberar cunas.
-        ConflictDomainError: Si la cuna ya estaba libre.
+    Invariante:
+        - La cuna retornada queda en estado ``AVAILABLE`` sin paciente asociado.
     """
     require_role(
         actor,
@@ -707,6 +721,10 @@ def release_patient_from_crib(
         )
 
     locked_crib.refresh_from_db()
+    assert (
+        locked_crib.status == CribStatus.AVAILABLE
+        and getattr(locked_crib, "current_patient", None) is None
+    ), "Postcondición fallida: la cuna no quedó libre y disponible."
     return locked_crib
 
 
@@ -719,8 +737,16 @@ def swap_patients_between_cribs(
 ) -> tuple[Crib, Crib]:
     """Intercambia a los pacientes de dos cunas ocupadas en una sola operación.
 
-    Ningún paciente egresa ni queda sin cuna en el proceso; cada uno recibe un
-    movimiento de tipo intercambio en su historial.
+    Precondiciones:
+        - ``actor`` posee rol en ``CLINICAL_OR_ADMIN``.
+        - ``crib.pk != other_crib_id`` y ambas cunas existen, están operativas y ocupadas por sendos pacientes.
+
+    Postcondiciones:
+        - El ocupante inicial de ``crib`` pasa a ocupar ``other_crib`` y viceversa.
+        - Ambos pacientes registran un ``CribMovement`` de tipo ``SWAP`` y su evento de auditoría.
+
+    Invariante:
+        - Conservación de ocupación: ambas cunas permanecen ocupadas y ninguno de los dos pacientes queda sin cuna.
     """
     require_role(
         actor,
@@ -756,6 +782,9 @@ def swap_patients_between_cribs(
                 "para una cuna libre usa la asignación."
             )
 
+        first_patient_id = first_patient.id
+        second_patient_id = second_patient.id
+
         # La relación uno a uno exige soltar una cuna antes de ocuparla con el otro paciente
         first_patient.crib = None
         first_patient.save(update_fields=["crib", "updated_at"])
@@ -787,6 +816,12 @@ def swap_patients_between_cribs(
 
     first_crib.refresh_from_db()
     second_crib.refresh_from_db()
+    assert (
+        getattr(first_crib, "current_patient", None) is not None
+        and getattr(second_crib, "current_patient", None) is not None
+        and first_crib.current_patient.id == second_patient_id
+        and second_crib.current_patient.id == first_patient_id
+    ), "Postcondición fallida: los ocupantes no quedaron intercambiados correctamente."
     return first_crib, second_crib
 
 
@@ -799,9 +834,17 @@ def delete_patient_permanently(
 ) -> None:
     """Elimina al paciente y todo su registro clínico sin posibilidad de recuperarlo.
 
-    Pensado para ingresos creados por error. Exige escribir el número de ficha
-    como confirmación; la auditoría conserva solo el identificador numérico.
-    Las administraciones ya descontadas del stock no se reponen.
+    Precondiciones:
+        - ``actor`` posee rol en ``ADMIN_ONLY``.
+        - ``confirmation`` normalizada coincide exactamente con ``patient.medical_record_number``.
+
+    Postcondiciones:
+        - El registro del paciente y todos sus registros clínicos dependientes son eliminados de la base de datos.
+        - Si el paciente ocupaba una cuna, dicha cuna queda en estado ``AVAILABLE``.
+        - Se conserva el evento ``DELETE`` en la bitácora de auditoría.
+
+    Invariante:
+        - No quedan registros huérfanos del paciente ni cunas bloqueadas por el registro eliminado.
     """
     require_role(
         actor, ADMIN_ONLY, "Solo un Administrador puede eliminar definitivamente a un paciente."
@@ -818,9 +861,10 @@ def delete_patient_permanently(
     with transaction.atomic():
         locked_patient = Patient.objects.select_for_update().get(pk=patient.pk)
         patient_id = locked_patient.id
+        crib_id = locked_patient.crib_id
 
-        if locked_patient.crib_id is not None:
-            crib = Crib.objects.select_for_update().get(pk=locked_patient.crib_id)
+        if crib_id is not None:
+            crib = Crib.objects.select_for_update().get(pk=crib_id)
             locked_patient.crib = None
             locked_patient.save(update_fields=["crib", "updated_at"])
             crib.status = CribStatus.AVAILABLE
@@ -847,6 +891,13 @@ def delete_patient_permanently(
             ip_address=ip_address,
         )
 
+    assert not Patient.objects.filter(pk=patient_id).exists(), (
+        "Postcondición fallida: el registro del paciente no fue eliminado."
+    )
+    assert (
+        crib_id is None or Crib.objects.filter(pk=crib_id, status=CribStatus.AVAILABLE).exists()
+    ), "Invariante fallido: la cuna ocupada no quedó liberada tras el borrado."
+
 
 def record_patient_weight(
     *,
@@ -857,19 +908,16 @@ def record_patient_weight(
 ) -> WeightRecord:
     """Registra una medición de peso y actualiza el peso actual del paciente.
 
-    Args:
-        actor: Personal clínico que mide.
-        patient: Paciente activo.
-        weight_g: Peso en gramos (200 a 10000).
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``CLINICAL_STAFF``.
+        - ``200 <= weight_g <= 10000`` y el paciente se encuentra en estado ``ACTIVE``.
 
-    Returns:
-        El registro de peso; si el último registro tiene el mismo peso, lo devuelve sin duplicar.
+    Postcondiciones:
+        - Retorna el ``WeightRecord`` correspondiente (reutilizando el último si el valor no varió).
+        - Si hubo variación, actualiza ``patient.current_weight_g == weight_g`` y audita el cambio.
 
-    Raises:
-        PermissionDomainError: Si el rol no es clínico.
-        ConflictDomainError: Si el paciente ya fue egresado.
-        DomainError: Si el peso está fuera de rango.
+    Invariante:
+        - El ``current_weight_g`` del paciente coincide con el último punto de su curva ponderal.
     """
     require_role(
         actor, CLINICAL_STAFF, "Solo el personal clínico puede registrar mediciones de peso."
@@ -906,6 +954,12 @@ def record_patient_weight(
             ip_address=ip_address,
         )
 
+    assert weight_record.pk is not None and weight_record.weight_g == weight_g, (
+        "Postcondición fallida: la medición de peso no se registró correctamente."
+    )
+    assert locked_patient.current_weight_g == weight_g, (
+        "Invariante fallido: el peso actual del paciente no coincide con el último registro."
+    )
     return weight_record
 
 
@@ -921,23 +975,16 @@ def create_care_plan(
 ) -> CarePlan:
     """Crea un plan de cuidado para un paciente activo.
 
-    Args:
-        actor: Personal clínico.
-        patient_id: Paciente destinatario.
-        care_area: Área de cuidado (obligatoria).
-        intervention: Intervención (obligatoria).
-        frequency: Frecuencia (obligatoria).
-        status: Estado inicial del plan.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``CLINICAL_STAFF``.
+        - ``care_area``, ``intervention`` y ``frequency`` son cadenas no vacías y ``status`` pertenece a ``CarePlanStatus``.
+        - El paciente existe y permanece en estado ``ACTIVE``.
 
-    Returns:
-        El plan creado.
+    Postcondiciones:
+        - Persiste un ``CarePlan`` vinculado al paciente y registra la creación en auditoría.
 
-    Raises:
-        PermissionDomainError: Si el rol no es clínico.
-        NotFoundDomainError: Si el paciente no existe.
-        ConflictDomainError: Si el paciente ya fue egresado.
-        DomainError: Si faltan campos o el estado es inválido.
+    Invariante:
+        - Todo plan de cuidado persistido tiene área, intervención y frecuencia no vacías.
     """
     require_role(actor, CLINICAL_STAFF, "Solo el personal clínico puede crear planes de cuidado.")
     if status not in set(CarePlanStatus.values):
@@ -972,6 +1019,13 @@ def create_care_plan(
             changed_fields=["care_area", "intervention", "frequency", "status"],
             ip_address=ip_address,
         )
+
+    assert plan.pk is not None and plan.patient_id == patient_id, (
+        "Postcondición fallida: el plan de cuidado no quedó persistido."
+    )
+    assert bool(plan.care_area and plan.intervention and plan.frequency), (
+        "Invariante fallido: plan de cuidado con campos obligatorios vacíos."
+    )
     return plan
 
 
@@ -984,19 +1038,15 @@ def update_care_plan(
 ) -> CarePlan:
     """Actualiza parcialmente un plan de cuidado de un paciente activo.
 
-    Args:
-        actor: Personal clínico.
-        care_plan: Plan a modificar; se relee con bloqueo de fila.
-        data: Solo los campos a cambiar.
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``CLINICAL_STAFF``.
+        - Los campos textuales informados no están vacíos y ``status`` (si se envía) pertenece a ``CarePlanStatus``.
 
-    Returns:
-        El plan actualizado.
+    Postcondiciones:
+        - Persiste únicamente los campos modificados del ``CarePlan`` y audita el cambio si hubo variación.
 
-    Raises:
-        PermissionDomainError: Si el rol no es clínico.
-        ConflictDomainError: Si el paciente ya fue egresado.
-        DomainError: Si algún campo queda vacío o el estado es inválido.
+    Invariante:
+        - Ningún plan de cuidado actualizado queda con área, intervención o frecuencia vacía.
     """
     require_role(
         actor, CLINICAL_STAFF, "Solo el personal clínico puede actualizar planes de cuidado."
@@ -1034,6 +1084,10 @@ def update_care_plan(
                 changed_fields=changed_fields,
                 ip_address=ip_address,
             )
+
+    assert bool(locked_plan.care_area and locked_plan.intervention and locked_plan.frequency), (
+        "Invariante fallido: plan de cuidado actualizado con campos obligatorios vacíos."
+    )
     return locked_plan
 
 
@@ -1047,21 +1101,16 @@ def create_clinical_observation(
 ) -> ClinicalObservation:
     """Registra una observación clínica sobre un paciente activo.
 
-    Args:
-        actor: Personal clínico autor.
-        patient_id: Paciente observado.
-        content: Texto de la observación (obligatorio).
-        category: Categoría (``ObservationCategory``).
-        ip_address: IP de origen para la auditoría.
+    Precondiciones:
+        - ``actor`` posee rol en ``CLINICAL_STAFF``.
+        - ``category`` pertenece a ``ObservationCategory`` y ``content`` contiene texto no vacío.
+        - El paciente existe y permanece en estado ``ACTIVE``.
 
-    Returns:
-        La observación creada.
+    Postcondiciones:
+        - Persiste una ``ClinicalObservation`` asociada al paciente y al autor, auditando su creación.
 
-    Raises:
-        PermissionDomainError: Si el rol no puede registrar observaciones.
-        NotFoundDomainError: Si el paciente no existe.
-        ConflictDomainError: Si el paciente ya fue egresado.
-        DomainError: Si la categoría es inválida o el contenido está vacío.
+    Invariante:
+        - Toda observación clínica persistida conserva contenido no vacío y autor identificado.
     """
     require_role(
         actor, CLINICAL_STAFF, "Solo el personal clínico puede registrar observaciones clínicas."
@@ -1093,4 +1142,11 @@ def create_clinical_observation(
             changed_fields=["category", "content"],
             ip_address=ip_address,
         )
+
+    assert observation.pk is not None and observation.author_id == actor.id, (
+        "Postcondición fallida: la observación clínica no quedó persistida."
+    )
+    assert bool(observation.content), (
+        "Invariante fallido: observación clínica persistida sin contenido."
+    )
     return observation

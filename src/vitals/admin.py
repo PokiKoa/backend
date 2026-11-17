@@ -1,3 +1,5 @@
+"""Configuración del panel administrativo de Django para las lecturas de signos vitales."""
+
 from typing import ClassVar
 
 from django.contrib import admin
@@ -7,6 +9,8 @@ from .models import VitalSignReading
 
 @admin.register(VitalSignReading)
 class VitalSignReadingAdmin(admin.ModelAdmin):
+    """Define columnas visibles, filtros laterales y búsqueda para ``VitalSignReading``."""
+
     list_display: ClassVar[list[str]] = [
         "id",
         "crib",

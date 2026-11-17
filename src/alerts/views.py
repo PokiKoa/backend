@@ -28,7 +28,7 @@ from .services import (
 
 
 class AlertFilter(django_filters.FilterSet):
-    """Filtros del listado de alertas: estado, severidad, tipo, cuna, paciente, fechas e ``is_open``."""
+    """Filtros de búsqueda avanzada para el listado de alertas clínicas."""
 
     is_open = django_filters.BooleanFilter(method="filter_is_open")
     triggered_after = django_filters.IsoDateTimeFilter(field_name="triggered_at", lookup_expr="gte")
@@ -50,7 +50,16 @@ class AlertFilter(django_filters.FilterSet):
         ]
 
     def filter_is_open(self, queryset, name: str, value: bool):
-        """``is_open=true`` devuelve alertas activas o reconocidas; ``false``, las resueltas."""
+        """Filtra las alertas según su estado abierto (activas o reconocidas) o cerrado (resueltas).
+
+        Args:
+            queryset: Conjunto de consultas actual.
+            name: Nombre del campo de filtro.
+            value: Valor booleano recibido (`True` para abiertas, `False` para resueltas).
+
+        Returns:
+            QuerySet: Conjunto de consultas filtrado.
+        """
         if value:
             return queryset.filter(status__in=[AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED])
         return queryset.filter(status=AlertStatus.RESOLVED)
@@ -61,7 +70,7 @@ class AlertViewSet(
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Alertas clínicas de solo lectura con acciones para reconocer y resolver."""
+    """ViewSet de solo lectura para consultar alertas con acciones operativas de reconocimiento y resolución."""
 
     queryset = (
         Alert.objects.select_related(
@@ -92,7 +101,15 @@ class AlertViewSet(
     )
     @action(detail=True, methods=["post"], url_path="acknowledge")
     def acknowledge(self, request: Request, pk=None) -> Response:
-        """Reconoce una alerta activa y responde 200 con la alerta."""
+        """Marca una alerta activa como reconocida por el usuario autenticado.
+
+        Args:
+            request: Petición HTTP autenticada.
+            pk: Identificador único de la alerta.
+
+        Returns:
+            Response: Respuesta HTTP 200 con la serialización de la alerta actualizada.
+        """
         alert = self.get_object()
         updated = acknowledge_alert(
             actor=request.user,
@@ -108,7 +125,15 @@ class AlertViewSet(
     )
     @action(detail=True, methods=["post"], url_path="resolve")
     def resolve(self, request: Request, pk=None) -> Response:
-        """Resuelve manualmente una alerta y responde 200 con la alerta."""
+        """Resuelve manualmente una alerta clínica abierta.
+
+        Args:
+            request: Petición HTTP autenticada.
+            pk: Identificador único de la alerta.
+
+        Returns:
+            Response: Respuesta HTTP 200 con la serialización de la alerta resuelta.
+        """
         alert = self.get_object()
         updated = resolve_alert(
             actor=request.user,
@@ -119,7 +144,7 @@ class AlertViewSet(
 
 
 class DefaultAlertThresholdView(APIView):
-    """Umbrales globales neonatales por defecto."""
+    """Endpoint para consultar y actualizar los umbrales globales neonatales por defecto."""
 
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
@@ -128,7 +153,14 @@ class DefaultAlertThresholdView(APIView):
         responses={200: AlertThresholdConfigSerializer},
     )
     def get(self, request: Request) -> Response:
-        """Responde 200 con los umbrales globales vigentes."""
+        """Retorna la configuración vigente de umbrales globales del sistema.
+
+        Args:
+            request: Petición HTTP autenticada.
+
+        Returns:
+            Response: Respuesta HTTP 200 con los umbrales globales.
+        """
         config = get_effective_thresholds(patient=None)
         return Response(
             AlertThresholdConfigSerializer(config).data,
@@ -141,7 +173,14 @@ class DefaultAlertThresholdView(APIView):
         responses={200: AlertThresholdConfigSerializer},
     )
     def put(self, request: Request) -> Response:
-        """Reemplaza los umbrales globales y responde 200."""
+        """Reemplaza completamente los umbrales globales por defecto.
+
+        Args:
+            request: Petición HTTP con los nuevos valores de umbrales.
+
+        Returns:
+            Response: Respuesta HTTP 200 con la configuración actualizada.
+        """
         serializer = AlertThresholdConfigUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         config = upsert_threshold_config(
@@ -161,5 +200,5 @@ class DefaultAlertThresholdView(APIView):
         responses={200: AlertThresholdConfigSerializer},
     )
     def patch(self, request: Request) -> Response:
-        """Actualiza parcialmente los umbrales globales y responde 200."""
+        """Actualiza parcialmente los umbrales globales (delega en ``put``)."""
         return self.put(request)

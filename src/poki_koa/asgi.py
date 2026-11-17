@@ -1,3 +1,5 @@
+"""Punto de entrada ASGI de Poki Koa: enruta peticiones HTTP y conexiones WebSocket autenticadas."""
+
 import os
 
 from channels.routing import ProtocolTypeRouter, URLRouter
@@ -11,8 +13,8 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "poki_koa.settings.prod")
 
 django_asgi_app = get_asgi_application()
 
-from vitals.realtime import JwtWebSocketAuthMiddleware
-from vitals.routing import websocket_urlpatterns
+from vitals.realtime import JwtWebSocketAuthMiddleware  # noqa: E402
+from vitals.routing import websocket_urlpatterns  # noqa: E402
 
 application = ProtocolTypeRouter(
     {

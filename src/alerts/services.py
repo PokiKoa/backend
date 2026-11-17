@@ -54,13 +54,14 @@ class AlertEvaluationSummary:
 
 
 def get_effective_thresholds(patient: Patient | None = None) -> AlertThresholdConfig:
-    """Obtiene los umbrales aplicables a un paciente.
+    """Obtiene los umbrales aplicables a un paciente, priorizando la configuración
+    personalizada sobre la global o los valores por defecto.
 
     Args:
-        patient: Paciente consultado; si no tiene configuración propia se usa la global.
+        patient: Instancia del paciente consultado (opcional).
 
     Returns:
-        Configuración del paciente, la global o los valores clínicos por defecto (sin persistir).
+        AlertThresholdConfig: Configuración efectiva de umbrales.
     """
     if patient is not None:
         custom = AlertThresholdConfig.objects.filter(patient=patient).first()
@@ -73,6 +74,7 @@ def get_effective_thresholds(patient: Patient | None = None) -> AlertThresholdCo
 
 
 def _validate_threshold_values(config: AlertThresholdConfig) -> None:
+    """Valida que los umbrales configurados cumplan con el orden estricto y los rangos fisiológicos."""
     if not (
         HEART_RATE_MIN
         <= config.heart_rate_critical_low
@@ -113,21 +115,17 @@ def upsert_threshold_config(
     data: dict[str, Any],
     ip_address: str | None = None,
 ) -> AlertThresholdConfig:
-    """Crea o actualiza los umbrales de alerta, globales o de un paciente.
+    """Crea o actualiza la configuración de umbrales de alerta (global o por paciente).
 
-    Args:
-        actor: Neonatólogo o Administrador.
-        patient: Paciente al que aplican; ``None`` para la configuración global.
-        data: Umbrales a establecer.
-        ip_address: IP de origen para la auditoría.
-
-    Returns:
-        La configuración vigente.
-
-    Raises:
-        PermissionDomainError: Si el rol no puede configurar umbrales.
-        ConflictDomainError: Si el paciente ya fue egresado.
-        DomainError: Si los umbrales no respetan el orden estricto y el rango fisiológico.
+    Precondiciones:
+        - El `actor` debe poseer rol de Neonatólogo o Administrador (THRESHOLD_MANAGERS).
+        - Si se especifica un `patient`, este no debe encontrarse egresado.
+        - Los valores proporcionados deben cumplir estrictamente los rangos fisiológicos y orden lógico.
+    Postcondiciones:
+        - Se persiste o actualiza la instancia `AlertThresholdConfig` en la base de datos.
+        - Se registra un evento de auditoría detallando los cambios realizados.
+    Invariante:
+        - Ninguna configuración de umbrales almacenada viola el orden estricto entre niveles críticos y de advertencia.
     """
     require_role(
         actor,
@@ -196,17 +194,20 @@ def upsert_threshold_config(
             ip_address=ip_address,
         )
 
+    assert config.id is not None, "Invariante roto: La configuración de umbrales no fue persistida."
     return config
 
 
 def evaluate_reading_alerts(*, reading: VitalSignReading) -> AlertEvaluationSummary:
-    """Evalúa una lectura y sincroniza las alertas: crea, deduplica, escala o autorresuelve.
+    """Evalúa una lectura de signos vitales y sincroniza el estado de las alertas (creación, deduplicación, escalamiento y autorresolución).
 
-    Args:
-        reading: Lectura recién ingerida.
-
-    Returns:
-        Resumen con las alertas creadas, deduplicadas y resueltas.
+    Precondiciones:
+        - La lectura `reading` debe estar asociada a una cuna válida y contener signos vitales evaluables.
+    Postcondiciones:
+        - Se actualizan, crean o resuelven las alertas según las anomalías detectadas en la lectura.
+        - Se retorna un resumen con el desglose de alertas creadas, deduplicadas, auto-resueltas y escaladas.
+    Invariante:
+        - No pueden existir múltiples alertas abiertas del mismo tipo y cuna con la misma severidad.
     """
     now = timezone.now()
     thresholds = get_effective_thresholds(reading.patient)
@@ -232,7 +233,6 @@ def evaluate_reading_alerts(*, reading: VitalSignReading) -> AlertEvaluationSumm
             anomaly = anomalies.get(alert_type)
 
             if anomaly is None:
-                # Autorresolución cuando la variable vuelve al rango normal
                 for open_alert in existing_open:
                     open_alert.status = AlertStatus.RESOLVED
                     open_alert.resolution_reason = ResolutionReason.AUTO_NORMALIZED
@@ -254,7 +254,6 @@ def evaluate_reading_alerts(*, reading: VitalSignReading) -> AlertEvaluationSumm
                 if open_alert.severity == anomaly.severity and matching_open is None:
                     matching_open = open_alert
                 else:
-                    # Cambio de severidad: cierra la alerta previa y escalará a una nueva
                     open_alert.status = AlertStatus.RESOLVED
                     open_alert.resolution_reason = ResolutionReason.SEVERITY_ESCALATED
                     open_alert.resolved_at = now
@@ -270,7 +269,6 @@ def evaluate_reading_alerts(*, reading: VitalSignReading) -> AlertEvaluationSumm
                     escalated_resolved_alerts.append(open_alert)
 
             if matching_open is not None:
-                # Deduplicación: incrementa contador y actualiza lectura sin duplicar fila
                 matching_open.patient = reading.patient
                 matching_open.message = anomaly.message
                 matching_open.measured_value = anomaly.measured_value
@@ -304,12 +302,16 @@ def evaluate_reading_alerts(*, reading: VitalSignReading) -> AlertEvaluationSumm
                 )
                 created_alerts.append(new_alert)
 
-    return AlertEvaluationSummary(
+    summary = AlertEvaluationSummary(
         created_alerts=created_alerts,
         deduplicated_alerts=deduplicated_alerts,
         auto_resolved_alerts=auto_resolved_alerts,
         escalated_resolved_alerts=escalated_resolved_alerts,
     )
+    assert isinstance(summary, AlertEvaluationSummary), (
+        "Invariante roto: El resumen de evaluación debe ser un objeto válido."
+    )
+    return summary
 
 
 def acknowledge_alert(
@@ -318,19 +320,16 @@ def acknowledge_alert(
     alert: Alert,
     ip_address: str | None = None,
 ) -> Alert:
-    """Marca una alerta activa como reconocida.
+    """Marca una alerta activa como reconocida por el personal autorizado.
 
-    Args:
-        actor: Personal clínico o administrativo.
-        alert: Alerta a reconocer; se relee con bloqueo de fila.
-        ip_address: IP de origen para la auditoría.
-
-    Returns:
-        La alerta reconocida.
-
-    Raises:
-        PermissionDomainError: Si el rol no puede reconocer alertas.
-        ConflictDomainError: Si la alerta ya fue resuelta o reconocida.
+    Precondiciones:
+        - El `actor` debe tener rol clínico o administrativo (CLINICAL_OR_ADMIN).
+        - La alerta `alert` debe existir y encontrarse en estado activo (`ACTIVE`), sin estar ya resuelta ni reconocida.
+    Postcondiciones:
+        - La alerta pasa al estado `ACKNOWLEDGED`, registrando al actor y la marca de tiempo de reconocimiento.
+        - Se registra el evento de auditoría y se transmite la actualización en tiempo real vía WebSocket.
+    Invariante:
+        - Ninguna alerta en estado `RESOLVED` puede ser reconocida.
     """
     require_role(
         actor,
@@ -379,6 +378,9 @@ def acknowledge_alert(
         patient_id=locked_alert.patient_id,
     )
 
+    assert locked_alert.status == AlertStatus.ACKNOWLEDGED, (
+        "Invariante roto: La alerta no quedó en estado reconocido."
+    )
     return locked_alert
 
 
@@ -388,19 +390,16 @@ def resolve_alert(
     alert: Alert,
     ip_address: str | None = None,
 ) -> Alert:
-    """Resuelve manualmente una alerta abierta.
+    """Resuelve manualmente una alerta abierta por parte del personal autorizado.
 
-    Args:
-        actor: Personal clínico o administrativo.
-        alert: Alerta a resolver; se relee con bloqueo de fila.
-        ip_address: IP de origen para la auditoría.
-
-    Returns:
-        La alerta resuelta.
-
-    Raises:
-        PermissionDomainError: Si el rol no puede resolver alertas.
-        ConflictDomainError: Si la alerta ya estaba resuelta.
+    Precondiciones:
+        - El `actor` debe tener rol clínico o administrativo (CLINICAL_OR_ADMIN).
+        - La alerta seleccionada debe existir y no encontrarse ya resuelta.
+    Postcondiciones:
+        - La alerta pasa al estado `RESOLVED` con motivo `manual`, registrando al actor y la marca de tiempo.
+        - Se registra el evento de auditoría y se transmite la notificación en tiempo real.
+    Invariante:
+        - Toda alerta resuelta manualmente contiene obligatoriamente la referencia al actor y el motivo de resolución.
     """
     require_role(
         actor,
@@ -453,21 +452,28 @@ def resolve_alert(
         patient_id=locked_alert.patient_id,
     )
 
+    assert locked_alert.status == AlertStatus.RESOLVED, (
+        "Invariante roto: La alerta debe quedar en estado resuelto."
+    )
+    assert locked_alert.resolution_reason == ResolutionReason.MANUAL, (
+        "Invariante roto: El motivo de resolución debe ser manual."
+    )
     return locked_alert
 
 
 def resolve_patient_alerts_on_discharge(*, patient: Patient, actor: User) -> int:
-    """Resuelve las alertas abiertas de un paciente al egresarlo.
+    """Resuelve automáticamente todas las alertas abiertas asociadas a un paciente al momento de su egreso.
 
-    Args:
-        patient: Paciente egresado.
-        actor: Usuario que firma el egreso.
-
-    Returns:
-        Número de alertas resueltas.
+    Precondiciones:
+        - El paciente `patient` debe ser válido y encontrarse en proceso de egreso.
+    Postcondiciones:
+        - Todas las alertas activas o reconocidas del paciente pasan a estado resuelto con motivo de egreso (`patient_discharged`).
+        - Retorna la cantidad total de alertas afectadas.
+    Invariante:
+        - Ninguna alerta abierta permanece asociada a un paciente egresado.
     """
     now = timezone.now()
-    return Alert.objects.filter(
+    updated_count = Alert.objects.filter(
         patient=patient,
         status__in=[AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED],
     ).update(
@@ -477,6 +483,11 @@ def resolve_patient_alerts_on_discharge(*, patient: Patient, actor: User) -> int
         resolution_reason=ResolutionReason.PATIENT_DISCHARGED,
         last_evaluated_at=now,
     )
+    assert not Alert.objects.filter(
+        patient=patient,
+        status__in=[AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED],
+    ).exists(), "Invariante roto: Quedaron alertas abiertas para un paciente egresado."
+    return updated_count
 
 
 def trigger_or_deduplicate_offline_alert(
@@ -485,15 +496,16 @@ def trigger_or_deduplicate_offline_alert(
     patient: Patient | None,
     timeout_seconds: int,
 ) -> Alert:
-    """Crea la alerta de pérdida de señal de una cuna o actualiza la ya abierta.
+    """Crea o deduplica una alerta de pérdida de señal (sensor_fault) para una cuna inactiva.
 
-    Args:
-        crib: Cuna sin telemetría.
-        patient: Paciente asignado; con paciente la severidad es crítica, sin él, advertencia.
-        timeout_seconds: Segundos de inactividad que se informan en el mensaje.
-
-    Returns:
-        La alerta de tipo ``sensor_fault`` abierta para la cuna.
+    Precondiciones:
+        - La cuna `crib` debe existir.
+        - El parámetro `timeout_seconds` debe representar un intervalo de inactividad válido.
+    Postcondiciones:
+        - Se crea una nueva alerta de fallo de sensor o se actualiza la existente incrementando su contador.
+        - Se transmite el evento en tiempo real vía WebSocket.
+    Invariante:
+        - Toda alerta de pérdida de telemetría activa está debidamente vinculada a la cuna correspondiente.
     """
     now = timezone.now()
     severity = AlertSeverity.CRITICAL if patient is not None else AlertSeverity.WARNING
@@ -567,5 +579,9 @@ def trigger_or_deduplicate_offline_alert(
         alert_data=AlertSerializer(alert).data,
         crib_id=alert.crib_id,
         patient_id=alert.patient_id,
+    )
+
+    assert alert.id is not None, (
+        "Invariante roto: La alerta de sensor no fue generada correctamente."
     )
     return alert

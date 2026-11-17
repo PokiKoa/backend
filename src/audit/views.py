@@ -17,7 +17,7 @@ from .serializers import AuditLogSerializer
 
 
 class AuditLogFilter(django_filters.FilterSet):
-    """Filtros del registro de auditoría: acción, recurso, paciente, usuario y fechas."""
+    """Filtros de búsqueda avanzada para el registro de auditoría clínica."""
 
     timestamp_after = django_filters.IsoDateTimeFilter(field_name="timestamp", lookup_expr="gte")
     timestamp_before = django_filters.IsoDateTimeFilter(field_name="timestamp", lookup_expr="lte")
@@ -36,14 +36,14 @@ class AuditLogFilter(django_filters.FilterSet):
 
 
 class AuditActionCountSerializer(serializers.Serializer):
-    """Conteo de eventos de auditoría por acción."""
+    """Representación serializada del conteo de eventos de auditoría agrupados por acción."""
 
     action = serializers.ChoiceField(choices=AuditAction.choices)
     total = serializers.IntegerField()
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    """Registro de auditoría de solo lectura (sin valores clínicos, solo nombres de campos)."""
+    """ViewSet de solo lectura para consultar los registros de auditoría forense."""
 
     queryset = AuditLog.objects.select_related("actor_user").all()
     serializer_class = AuditLogSerializer
@@ -64,7 +64,15 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     )
     @action(detail=False, methods=["get"], url_path="summary", pagination_class=None)
     def summary(self, request: Request) -> Response:
-        """Responde 200 con el conteo de eventos por acción, con los mismos filtros del listado."""
+        """Calcula y retorna el conteo de eventos de auditoría agrupados por tipo de acción,
+        aplicando los filtros de búsqueda vigentes.
+
+        Args:
+            request: Petición HTTP autenticada.
+
+        Returns:
+            Response: Respuesta HTTP 200 con la lista de conteos por acción.
+        """
         rows = (
             self.filter_queryset(self.get_queryset())
             .order_by()

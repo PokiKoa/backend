@@ -11,5 +11,11 @@ register = template.Library()
 
 @register.simple_tag
 def clinical_dashboard_stats() -> dict[str, Any]:
-    """Devuelve las estadísticas del panel clínico para usarlas en plantillas."""
+    """Obtiene las métricas actuales del panel clínico para renderizarlas
+    directamente en las plantillas HTML del administrador.
+
+    Returns:
+        dict[str, Any]: Un diccionario con los indicadores y estadísticas
+        del dashboard (ej. cunas ocupadas, pacientes activos).
+    """
     return get_clinical_dashboard_stats()

@@ -66,6 +66,7 @@ class MedicationCatalogItem(models.Model):
         verbose_name_plural = "Catálogo de Medicamentos"
 
     def __str__(self) -> str:
+        """Retorna la representación legible del medicamento con su concentración y stock."""
         return f"{self.name} ({self.concentration_mg} mg - stock: {self.stock})"
 
     @property
@@ -150,6 +151,7 @@ class Prescription(models.Model):
         verbose_name_plural = "Indicaciones Médicas"
 
     def __str__(self) -> str:
+        """Retorna el resumen legible de la indicación médica y su estado."""
         return f"{self.medication.name} {self.dose} ({self.get_status_display()})"
 
 
@@ -185,4 +187,5 @@ class MedicationAdministration(models.Model):
         verbose_name_plural = "Administraciones de Medicamentos"
 
     def __str__(self) -> str:
+        """Retorna el detalle legible de la toma administrada."""
         return f"Dosis {self.scheduled_for:%Y-%m-%d %H:%M} de indicación #{self.prescription_id}"

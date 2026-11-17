@@ -1,3 +1,5 @@
+"""Rutas WebSocket de tiempo real para los flujos de cuna, paciente y unidad neonatal."""
+
 from django.urls import path
 
 from .consumers import TelemetryAlertConsumer

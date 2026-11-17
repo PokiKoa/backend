@@ -38,6 +38,14 @@ class DomainError(Exception):
         details: dict[str, Any] | None = None,
         status_code: int | None = None,
     ) -> None:
+        """Inicializa la excepción de dominio con metadatos estructurados para la API.
+
+        Args:
+            message: Descripción legible del error; usa ``default_message`` si se omite.
+            code: Identificador máquina del error; usa ``default_code`` si se omite.
+            details: Diccionario opcional con errores específicos por campo.
+            status_code: Código de estado HTTP; sobreescribe el atributo de clase si se indica.
+        """
         self.message = message or self.default_message
         self.code = code or self.default_code
         self.details = details or {}
@@ -109,7 +117,15 @@ _API_EXCEPTION_DESCRIPTIONS: tuple[tuple[type[Exception], str, str], ...] = (
 
 
 def _describe_api_exception(exc: Exception, response_data: Any) -> tuple[str, str]:
-    """Devuelve el ``(code, message)`` de la envoltura de error para una excepción DRF."""
+    """Resuelve el par ``(code, message)`` de la envoltura de error para una excepción DRF.
+
+    Args:
+        exc: Excepción capturada durante el ciclo de vista de DRF.
+        response_data: Cuerpo de respuesta generado por el manejador base de DRF.
+
+    Returns:
+        Tupla ``(code, message)`` normalizada para el cliente de la API.
+    """
     for exc_type, code, message in _API_EXCEPTION_DESCRIPTIONS:
         if isinstance(exc, exc_type):
             return code, message

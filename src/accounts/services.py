@@ -32,6 +32,15 @@ LOCKOUT_DURATION = timedelta(minutes=15)
 
 
 def _issue_tokens_for_user(user: User) -> dict[str, str]:
+    """Genera y emite el par de tokens JWT (access y refresh) con los claims
+    personalizados del usuario.
+
+    Args:
+        user: Instancia del usuario autenticado.
+
+    Returns:
+        dict[str, str]: Diccionario con los tokens 'access' y 'refresh'.
+    """
     refresh = RefreshToken.for_user(user)
     refresh["role"] = user.role
     refresh["username"] = user.username
@@ -44,9 +53,15 @@ def _issue_tokens_for_user(user: User) -> dict[str, str]:
 
 
 def _register_failed_attempt(user: User, ip_address: str | None) -> bool:
-    """Incrementa el contador de fallos y persiste el bloqueo si alcanza el umbral.
+    """Incrementa el contador de intentos fallidos de login y persiste el bloqueo
+    si se alcanza el umbral máximo permitido.
 
-    Retorna True si la cuenta quedó bloqueada en este intento.
+    Args:
+        user: Instancia del usuario que falló el acceso.
+        ip_address: Dirección IP de origen de la petición.
+
+    Returns:
+        bool: True si la cuenta quedó bloqueada en este intento, False en caso contrario.
     """
     user.failed_login_attempts += 1
     if user.failed_login_attempts >= MAX_FAILED_LOGIN_ATTEMPTS:
@@ -77,10 +92,17 @@ def _register_failed_attempt(user: User, ip_address: str | None) -> bool:
 def _login_error(
     user: User | None, password: str, otp_code: str | None, ip_address: str | None
 ) -> DomainError | None:
-    """Evalúa las credenciales y devuelve el error de login que corresponde, o ``None`` si son válidas.
+    """Evalúa las credenciales de acceso y retorna el error de dominio correspondiente,
+    o None si las credenciales son completamente válidas.
 
-    Registra la auditoría y el contador de fallos según el caso; el llamador decide
-    cuándo lanzar la excepción para no revertir esos registros.
+    Args:
+        user: Instancia del usuario encontrado o None si no existe.
+        password: Contraseña en texto plano ingresada.
+        otp_code: Código de doble factor (2FA) opcional.
+        ip_address: Dirección IP de origen.
+
+    Returns:
+        DomainError | None: Excepción de dominio si falla alguna validación, o None si pasa.
     """
     if user is None:
         record_audit_event(
@@ -129,23 +151,16 @@ def authenticate_user(
 ) -> dict[str, Any]:
     """Autentica a un usuario por nombre de usuario o correo y emite el par de tokens JWT.
 
-    Aplica bloqueo temporal tras intentos fallidos y exige el código TOTP si el usuario
-    tiene 2FA activo. Los fallos se auditan sin revertirse.
-
-    Args:
-        username: Nombre de usuario (alternativo a ``email``).
-        email: Correo electrónico (alternativo a ``username``).
-        password: Contraseña en texto plano.
-        otp_code: Código TOTP, obligatorio si el usuario tiene 2FA.
-        ip_address: IP de origen para la auditoría.
-
-    Returns:
-        Diccionario con ``access``, ``refresh`` y ``user``.
-
-    Raises:
-        DomainError: Si falta usuario o contraseña.
-        AuthenticationDomainError: Credenciales inválidas, cuenta desactivada o 2FA requerido/inválido.
-        AccountLockedError: Si la cuenta quedó bloqueada temporalmente.
+    Precondiciones:
+        - Se debe proporcionar al menos un identificador válido (`username` o `email`) y una contraseña no vacía.
+        - El usuario correspondiente debe existir en el sistema y no encontrarse bloqueado temporalmente.
+        - Si el usuario tiene activo el doble factor (2FA), se exige un código TOTP válido.
+    Postcondiciones:
+        - Si la autenticación es exitosa, se restablecen los contadores de fallos de login, se actualiza el último acceso y se emiten los tokens JWT.
+        - Se registra un evento de auditoría exitoso o fallido según corresponda.
+    Invariante:
+        - Ningún usuario bloqueado temporalmente (`locked_until` en el futuro) o inactivo (`is_active=False`) puede obtener un token de acceso.
+        - Todo login exitoso retorna obligatoriamente un diccionario con las claves 'access', 'refresh' y 'user'.
     """
     identifier = (username or email or "").strip().lower()
     if not identifier or not password:
@@ -154,8 +169,6 @@ def authenticate_user(
     auth_error: DomainError | None = None
     tokens: dict[str, str] = {}
 
-    # Se persiste el contador de fallos y la auditoría dentro de la transacción
-    # y se lanza la excepción fuera del bloque atomic para no revertir el registro
     with transaction.atomic():
         user = (
             User.objects.select_for_update()
@@ -188,6 +201,14 @@ def authenticate_user(
     if auth_error is not None:
         raise auth_error
 
+    assert user is not None, "Invariante roto: Se autenticó un usuario nulo."
+    assert user.is_active and not user.is_temporarily_locked, (
+        "Invariante roto: Un usuario inactivo o bloqueado obtuvo acceso."
+    )
+    assert "access" in tokens and "refresh" in tokens, (
+        "Invariante roto: La autenticación exitosa no generó los tokens JWT requeridos."
+    )
+
     return {
         "access": tokens["access"],
         "refresh": tokens["refresh"],
@@ -196,13 +217,13 @@ def authenticate_user(
 
 
 def rotate_refresh_token(*, refresh_token_str: str) -> dict[str, str]:
-    """Rota un refresh token: lo revoca y emite un nuevo par de tokens.
+    """Rota un refresh token: lo revoca en la lista negra y emite un nuevo par de tokens.
 
     Args:
-        refresh_token_str: Refresh token vigente.
+        refresh_token_str: Cadena del refresh token vigente.
 
     Returns:
-        Diccionario con los nuevos ``access`` y ``refresh``.
+        dict[str, str]: Diccionario con los nuevos 'access' y 'refresh' tokens.
 
     Raises:
         DomainError: Si el token viene vacío.
@@ -248,16 +269,16 @@ def logout_user(
     actor: User,
     ip_address: str | None = None,
 ) -> None:
-    """Cierra sesión revocando (lista negra) el refresh token del usuario.
+    """Cierra sesión revocando explícitamente (lista negra) el refresh token del usuario.
 
     Args:
-        refresh_token_str: Refresh token a revocar.
-        actor: Usuario autenticado que cierra sesión.
-        ip_address: IP de origen para la auditoría.
+        refresh_token_str: Cadena del refresh token a revocar.
+        actor: Instancia del usuario autenticado que solicita el cierre de sesión.
+        ip_address: Dirección IP de origen para auditoría.
 
     Raises:
-        DomainError: Si el token viene vacío.
-        AuthenticationDomainError: Si el token es inválido o no pertenece al usuario.
+        DomainError: Si el token de refresco está vacío.
+        AuthenticationDomainError: Si el token es inválido o no pertenece al usuario autenticado.
     """
     if not refresh_token_str or not isinstance(refresh_token_str, str):
         raise DomainError("El token de refresco es obligatorio para cerrar sesión.")
@@ -301,22 +322,22 @@ def change_own_password(
     new_password: str,
     ip_address: str | None = None,
 ) -> dict[str, str]:
-    """Cambia la contraseña del propio usuario y reemite sus tokens.
+    """Cambia la contraseña del propio usuario autenticado, revoca las sesiones anteriores
+    y reemite un nuevo par de tokens.
 
     Args:
-        user: Usuario autenticado.
-        current_password: Contraseña actual, para confirmar identidad.
-        new_password: Nueva contraseña; debe cumplir los validadores de Django.
-        ip_address: IP de origen para la auditoría.
+        user: Instancia del usuario autenticado.
+        current_password: Contraseña actual en texto plano para confirmar identidad.
+        new_password: Nueva contraseña propuesta; debe cumplir los validadores del sistema.
+        ip_address: Dirección IP de origen para auditoría.
 
     Returns:
-        Nuevo par ``access``/``refresh`` (los anteriores quedan revocados).
+        dict[str, str]: Nuevo par de tokens 'access' y 'refresh'.
 
     Raises:
-        DomainError: Si la contraseña actual es incorrecta o la nueva no es válida.
+        DomainError: Si la contraseña actual es incorrecta o la nueva contraseña no es válida.
     """
     if not user.check_password(current_password or ""):
-        # 400 y no 401: un 401 haría que el frontend cierre la sesión por un error de tipeo
         raise DomainError(
             "La contraseña actual no es correcta.",
             details={"current_password": ["La contraseña actual no es correcta."]},
@@ -331,7 +352,6 @@ def change_own_password(
     with transaction.atomic():
         user.set_password(new_password)
         user.save(update_fields=["password", "updated_at"])
-        # Cambiar la contraseña cierra las demás sesiones: revoca todos los refresh vigentes
         pending = OutstandingToken.objects.filter(user=user).exclude(
             id__in=BlacklistedToken.objects.values("token_id")
         )
@@ -351,17 +371,17 @@ def change_own_password(
 
 
 def setup_two_factor(*, user: User, ip_address: str | None = None) -> dict[str, str]:
-    """Genera un secreto TOTP pendiente de confirmación para el usuario.
+    """Genera un secreto TOTP temporal pendiente de confirmación para habilitar 2FA.
 
     Args:
-        user: Usuario que configura 2FA.
-        ip_address: IP de origen para la auditoría.
+        user: Instancia del usuario que solicita la configuración.
+        ip_address: Dirección IP de origen para auditoría.
 
     Returns:
-        Diccionario con ``secret`` y ``provisioning_uri`` (para el código QR).
+        dict[str, str]: Diccionario con el secreto y la URI de aprovisionamiento (para código QR).
 
     Raises:
-        ConflictDomainError: Si el 2FA ya está activo.
+        ConflictDomainError: Si el doble factor ya se encuentra activo en la cuenta.
     """
     with transaction.atomic():
         if user.is_two_factor_enabled:
@@ -393,18 +413,19 @@ def enable_two_factor(
     otp_code: str,
     ip_address: str | None = None,
 ) -> User:
-    """Activa el 2FA tras verificar un código TOTP generado con el secreto pendiente.
+    """Activa definitivamente el 2FA tras verificar exitosamente un código TOTP
+    generado a partir del secreto pendiente.
 
     Args:
-        user: Usuario que activa 2FA.
-        otp_code: Código de 6 dígitos de la app autenticadora.
-        ip_address: IP de origen para la auditoría.
+        user: Instancia del usuario.
+        otp_code: Código numérico de 6 dígitos de la aplicación autenticadora.
+        ip_address: Dirección IP de origen para auditoría.
 
     Returns:
-        El usuario con 2FA activo.
+        User: La instancia del usuario actualizada con el 2FA activo.
 
     Raises:
-        DomainError: Si no hay secreto configurado o el código es inválido.
+        DomainError: Si no hay un secreto configurado previamente o el código TOTP es inválido.
     """
     if not user.totp_secret:
         raise DomainError("Debe configurar primero el secreto TOTP antes de activar 2FA.")
@@ -434,19 +455,19 @@ def disable_two_factor(
     otp_code: str,
     ip_address: str | None = None,
 ) -> User:
-    """Desactiva el 2FA tras verificar un código TOTP vigente.
+    """Desactiva el doble factor de autenticación tras verificar un código TOTP vigente.
 
     Args:
-        user: Usuario que desactiva 2FA.
-        otp_code: Código de 6 dígitos de la app autenticadora.
-        ip_address: IP de origen para la auditoría.
+        user: Instancia del usuario.
+        otp_code: Código numérico de 6 dígitos de la aplicación autenticadora.
+        ip_address: Dirección IP de origen para auditoría.
 
     Returns:
-        El usuario sin 2FA.
+        User: La instancia del usuario con el 2FA desactivado y secreto limpiado.
 
     Raises:
-        ConflictDomainError: Si el 2FA no está activo.
-        DomainError: Si el código es inválido.
+        ConflictDomainError: Si el 2FA no se encuentra activo actualmente.
+        DomainError: Si el código TOTP proporcionado es inválido.
     """
     if not user.is_two_factor_enabled:
         raise ConflictDomainError("El doble factor de autenticación (2FA) no está activo.")
@@ -485,24 +506,16 @@ def create_user_by_admin(
 ) -> User:
     """Crea una cuenta de usuario desde el panel de administración.
 
-    Args:
-        actor: Administrador que crea la cuenta.
-        username: Nombre de usuario único (se normaliza a minúsculas).
-        email: Correo único opcional.
-        full_name: Nombre completo (obligatorio).
-        password: Contraseña inicial; debe cumplir los validadores de Django.
-        role: Rol RBAC de la cuenta.
-        shift: Turno de trabajo opcional.
-        is_active: Si la cuenta nace activa.
-        ip_address: IP de origen para la auditoría.
-
-    Returns:
-        El usuario creado.
-
-    Raises:
-        PermissionDomainError: Si el actor no es administrador.
-        ConflictDomainError: Si el usuario o correo ya existen.
-        DomainError: Si faltan datos obligatorios o el rol/turno/contraseña son inválidos.
+    Precondiciones:
+        - El nombre de usuario (o el correo para derivarlo) y el nombre completo no deben estar vacíos.
+        - El `role` y el `shift` (si se provee) deben pertenecer a los valores permitidos por el sistema.
+        - No debe existir un usuario previamente registrado con el mismo `username` o `email`.
+    Postcondiciones:
+        - Se persiste en la base de datos un nuevo registro `User` con la contraseña hasheada.
+        - Se registra un evento de auditoría (CREATE) vinculado al administrador que ejecutó la acción.
+    Invariante:
+        - La contraseña del usuario creado nunca se almacena en texto plano.
+        - Si el usuario tiene rol de Administrador, obligatoriamente debe tener permisos de `is_staff`.
     """
     normalized_email = (email or "").strip().lower()
     normalized_username = (username or "").strip().lower()
@@ -545,11 +558,29 @@ def create_user_by_admin(
             changed_fields=["username", "email", "full_name", "role", "shift", "is_active"],
             ip_address=ip_address,
         )
+
+    assert candidate.password != password, (
+        "Invariante roto: La contraseña se guardó en texto plano."
+    )
+    assert candidate.is_staff == (candidate.role == UserRole.ADMIN), (
+        "Invariante roto: Inconsistencia entre el rol ADMIN y el flag is_staff."
+    )
+
     return candidate
 
 
 def _check_admin_self_update(actor: User, target: User, data: dict[str, Any]) -> None:
-    """Impide que un administrador se desactive o se quite el rol a sí mismo."""
+    """Impide que un administrador modifique su propia cuenta para desactivarse
+    o quitarse el rol administrativo.
+
+    Args:
+        actor: Administrador que ejecuta la acción.
+        target: Instancia del usuario que está siendo modificado.
+        data: Diccionario con los datos parciales a actualizar.
+
+    Raises:
+        ConflictDomainError: Si el admin intenta auto-desactivarse o quitarse los privilegios.
+    """
     if target.id != actor.id:
         return
     if data.get("is_active") is False:
@@ -559,6 +590,7 @@ def _check_admin_self_update(actor: User, target: User, data: dict[str, Any]) ->
 
 
 def _normalize_username(user: User, value: Any) -> str:
+    """Normaliza y valida la unicidad del nombre de usuario durante una actualización."""
     username = str(value).strip().lower()
     if not username:
         raise DomainError("El nombre de usuario no puede estar vacío.")
@@ -571,6 +603,7 @@ def _normalize_username(user: User, value: Any) -> str:
 
 
 def _normalize_email(user: User, value: Any) -> str:
+    """Normaliza y valida la unicidad del correo electrónico durante una actualización."""
     email = str(value or "").strip().lower()
     if (
         email
@@ -582,6 +615,7 @@ def _normalize_email(user: User, value: Any) -> str:
 
 
 def _normalize_full_name(user: User, value: Any) -> str:
+    """Normaliza y valida que el nombre completo no esté vacío."""
     name = str(value).strip()
     if not name:
         raise DomainError("El nombre completo no puede estar vacío.")
@@ -589,12 +623,14 @@ def _normalize_full_name(user: User, value: Any) -> str:
 
 
 def _normalize_role(user: User, value: Any) -> str:
+    """Valida que el rol pertenezca a los valores permitidos del sistema."""
     if value not in set(UserRole.values):
         raise DomainError("El rol especificado no es válido.")
     return value
 
 
 def _normalize_shift(user: User, value: Any) -> str | None:
+    """Valida que el turno pertenezca a los valores permitidos del sistema."""
     shift = value or None
     if shift and shift not in set(WorkShift.values):
         raise DomainError("El turno especificado no es válido.")
@@ -602,10 +638,10 @@ def _normalize_shift(user: User, value: Any) -> str | None:
 
 
 def _normalize_is_active(user: User, value: Any) -> bool:
+    """Normaliza el valor booleano de activación de cuenta."""
     return bool(value)
 
 
-# Campos editables por un administrador. El orden define ``changed_fields`` en la auditoría.
 _ADMIN_EDITABLE_FIELDS = {
     "username": _normalize_username,
     "email": _normalize_email,
@@ -617,7 +653,7 @@ _ADMIN_EDITABLE_FIELDS = {
 
 
 def _apply_admin_field_updates(user: User, data: dict[str, Any]) -> list[str]:
-    """Valida y asigna en memoria los campos editables enviados; devuelve los que cambiaron."""
+    """Valida y asigna en memoria los campos editables enviados por un admin; devuelve los modificados."""
     changed: list[str] = []
     for field, normalize in _ADMIN_EDITABLE_FIELDS.items():
         if field not in data:
@@ -633,6 +669,7 @@ def _apply_admin_field_updates(user: User, data: dict[str, Any]) -> list[str]:
 
 
 def _apply_unlock_and_password(user: User, data: dict[str, Any]) -> list[str]:
+    """Procesa el desbloqueo manual de cuenta y la actualización de contraseña si se solicitan."""
     changed: list[str] = []
     if data.get("unlock_account") is True and (
         user.failed_login_attempts > 0 or user.locked_until is not None
@@ -659,17 +696,15 @@ def update_user_by_admin(
     Args:
         actor: Administrador que realiza el cambio.
         target_user: Usuario a modificar; se relee con bloqueo de fila.
-        data: Solo los campos a cambiar (``username``, ``email``, ``full_name``, ``role``,
-            ``shift``, ``is_active``, ``unlock_account``, ``password``).
+        data: Diccionario con los campos a cambiar.
         ip_address: IP de origen para la auditoría.
 
     Returns:
-        El usuario actualizado.
+        User: La instancia del usuario actualizada.
 
     Raises:
-        ConflictDomainError: Auto-desactivación/auto-revocación de rol o duplicado de
-            usuario/correo.
-        DomainError: Valores vacíos o inválidos (rol, turno, contraseña débil).
+        ConflictDomainError: Auto-desactivación/auto-revocación de rol o duplicados.
+        DomainError: Valores vacíos o inválidos.
     """
     with transaction.atomic():
         locked_target = User.objects.select_for_update().get(pk=target_user.pk)
@@ -698,14 +733,14 @@ ASSIGNABLE_ROLES = {UserRole.NURSE, UserRole.NEONATOLOGIST}
 
 
 def shift_window(shift: str, day: date) -> tuple[datetime, datetime]:
-    """Calcula el intervalo de un turno para un día.
+    """Calcula el intervalo de tiempo (inicio y fin) de un turno para una fecha determinada.
 
     Args:
-        shift: Turno (``WorkShift``).
-        day: Día en que el turno comienza.
+        shift: Identificador del turno (WorkShift).
+        day: Fecha de inicio del turno.
 
     Returns:
-        Tupla ``(inicio, fin)`` con zona horaria; el fin cae al día siguiente en turnos nocturnos.
+        tuple[datetime, datetime]: Tupla con los datetimes de inicio y fin con zona horaria.
     """
     start_time, end_time = SHIFT_HOURS[shift]
     start = timezone.make_aware(datetime.combine(day, start_time))
@@ -714,13 +749,13 @@ def shift_window(shift: str, day: date) -> tuple[datetime, datetime]:
 
 
 def current_shift(now: datetime | None = None) -> tuple[date, str]:
-    """Determina el turno vigente.
+    """Determina la fecha de inicio y el tipo de turno vigente en un instante dado.
 
     Args:
-        now: Instante a evaluar; por defecto, ahora.
+        now: Instante temporal a evaluar (por defecto, el momento actual).
 
     Returns:
-        Tupla ``(día_de_inicio_del_turno, turno)``.
+        tuple[date, str]: Tupla con (día_de_inicio, tipo_de_turno).
     """
     local = timezone.localtime(now or timezone.now())
     for shift in WorkShift.values:
@@ -740,24 +775,20 @@ def create_shift_assignment(
     shift: str,
     ip_address: str | None = None,
 ) -> ShiftAssignment:
-    """Asigna un profesional a una cuna para un turno y día.
+    """Asigna un profesional a una cuna para un turno y día específico.
 
-    Args:
-        actor: Administrador que asigna.
-        user_id: Profesional (neonatólogo o enfermera) activo.
-        crib_id: Cuna existente.
-        day: Día del turno.
-        shift: Turno (``WorkShift``).
-        ip_address: IP de origen para la auditoría.
-
-    Returns:
-        La asignación creada.
-
-    Raises:
-        PermissionDomainError: Si el actor no es administrador.
-        NotFoundDomainError: Si el profesional o la cuna no existen.
-        ConflictDomainError: Si la asignación ya existe.
-        DomainError: Si el turno es inválido o el rol no es asignable.
+    Precondiciones:
+        - El `actor` debe tener rol de Administrador.
+        - El `shift` debe ser un turno válido (Mañana, Tarde, Noche).
+        - El `user_id` debe corresponder a un usuario activo con rol clínico (Neonatólogo o Matrona/Enfermera).
+        - El `crib_id` debe corresponder a una cuna existente.
+        - No debe existir una asignación previa para este profesional, cuna, día y turno.
+    Postcondiciones:
+        - Se crea, persiste y retorna un registro `ShiftAssignment`.
+        - Se registra un evento de auditoría de creación en el sistema.
+    Invariante:
+        - La asignación retornada siempre debe pertenecer a un usuario con rol clínico autorizado (NURSE o NEONATOLOGIST).
+        - La asignación siempre preserva intactos el día y turno solicitados.
     """
     from devices.models import Crib
 
@@ -789,21 +820,29 @@ def create_shift_assignment(
             changed_fields=["user_id", "crib_id", "date", "shift"],
             ip_address=ip_address,
         )
+
+    assert assignment.user.role in ASSIGNABLE_ROLES, (
+        "Invariante roto: Se asignó una cuna a un rol no clínico."
+    )
+    assert assignment.date == day and assignment.shift == shift, (
+        "Invariante roto: La asignación mutó el día o turno original."
+    )
+
     return assignment
 
 
 def delete_shift_assignment(
     *, actor: User, assignment: ShiftAssignment, ip_address: str | None = None
 ) -> None:
-    """Elimina una asignación de turno.
+    """Elimina formalmente una asignación de turno previa.
 
     Args:
-        actor: Administrador que elimina.
-        assignment: Asignación a borrar.
-        ip_address: IP de origen para la auditoría.
+        actor: Administrador que ejecuta la eliminación.
+        assignment: Instancia de ShiftAssignment a borrar.
+        ip_address: Dirección IP de origen para auditoría.
 
     Raises:
-        PermissionDomainError: Si el actor no es administrador.
+        PermissionDomainError: Si el actor no posee rol de Administrador.
     """
     require_role(actor, ADMIN_ONLY, "Solo un administrador puede eliminar asignaciones de turno.")
     with transaction.atomic():
@@ -820,14 +859,14 @@ def delete_shift_assignment(
 
 
 def assigned_crib_ids(*, user: User, now: datetime | None = None) -> tuple[date, str, list[int]]:
-    """Lista las cunas asignadas a un usuario en el turno vigente.
+    """Lista los identificadores de las cunas asignadas a un profesional en el turno vigente.
 
     Args:
-        user: Profesional consultado.
-        now: Instante a evaluar; por defecto, ahora.
+        user: Instancia del profesional consultado.
+        now: Instante temporal de evaluación (por defecto, ahora).
 
     Returns:
-        Tupla ``(día, turno, ids_de_cunas)``.
+        tuple[date, str, list[int]]: Tupla conteniendo (fecha_inicio, turno, lista_de_ids_de_cunas).
     """
     day, shift = current_shift(now)
     crib_ids = list(

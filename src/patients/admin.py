@@ -1,3 +1,5 @@
+"""Configuración del panel de administración de Django para pacientes neonatales y sus registros clínicos."""
+
 from typing import ClassVar
 
 from django.contrib import admin
@@ -14,27 +16,41 @@ from .models import (
 
 
 class WeightRecordInline(admin.TabularInline):
+    """Vista tabular embebida del historial ponderal del paciente."""
+
     model = WeightRecord
     extra = 0
-    fields = ("weight_g", "recorded_by", "recorded_at")
-    readonly_fields = ("recorded_at",)
+    fields: ClassVar[tuple[str, ...]] = ("weight_g", "recorded_by", "recorded_at")
+    readonly_fields: ClassVar[tuple[str, ...]] = ("recorded_at",)
 
 
 class CarePlanInline(admin.TabularInline):
+    """Vista tabular embebida de los planes de cuidado activos e históricos del paciente."""
+
     model = CarePlan
     extra = 0
-    fields = ("care_area", "intervention", "frequency", "status", "created_by")
+    fields: ClassVar[tuple[str, ...]] = (
+        "care_area",
+        "intervention",
+        "frequency",
+        "status",
+        "created_by",
+    )
 
 
 class ClinicalObservationInline(admin.TabularInline):
+    """Vista tabular embebida de las evoluciones y notas clínicas del paciente."""
+
     model = ClinicalObservation
     extra = 0
-    fields = ("category", "content", "author", "created_at")
-    readonly_fields = ("created_at",)
+    fields: ClassVar[tuple[str, ...]] = ("category", "content", "author", "created_at")
+    readonly_fields: ClassVar[tuple[str, ...]] = ("created_at",)
 
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
+    """Administración de fichas clínicas de pacientes neonatales y su estado de hospitalización."""
+
     list_display: ClassVar[list[str]] = [
         "medical_record_number",
         "full_name",
@@ -53,7 +69,7 @@ class PatientAdmin(admin.ModelAdmin):
         WeightRecordInline,
         ClinicalObservationInline,
     ]
-    fieldsets = (
+    fieldsets: ClassVar[tuple] = (
         (
             "Identificación y Datos Neonatales",
             {
@@ -97,6 +113,14 @@ class PatientAdmin(admin.ModelAdmin):
 
     @admin.display(description="Estado")
     def status_badge(self, obj: Patient) -> str:
+        """Renderiza una insignia HTML con el estado clínico actual del paciente.
+
+        Args:
+            obj: Instancia del paciente neonatal.
+
+        Returns:
+            str: Fragmento HTML seguro con la etiqueta visual de estado.
+        """
         colors = {
             PatientStatus.ACTIVE: ("#d1fae5", "#065f46"),
             PatientStatus.DISCHARGED: ("#e0f2fe", "#075985"),
@@ -114,6 +138,8 @@ class PatientAdmin(admin.ModelAdmin):
 
 @admin.register(WeightRecord)
 class WeightRecordAdmin(admin.ModelAdmin):
+    """Administración de registros ponderales individuales."""
+
     list_display: ClassVar[list[str]] = [
         "patient",
         "weight_g",
@@ -125,6 +151,8 @@ class WeightRecordAdmin(admin.ModelAdmin):
 
 @admin.register(CarePlan)
 class CarePlanAdmin(admin.ModelAdmin):
+    """Administración de planes de cuidado e intervenciones de enfermería."""
+
     list_display: ClassVar[list[str]] = [
         "patient",
         "care_area",
@@ -139,6 +167,8 @@ class CarePlanAdmin(admin.ModelAdmin):
 
 @admin.register(ClinicalObservation)
 class ClinicalObservationAdmin(admin.ModelAdmin):
+    """Administración de observaciones y notas clínicas por paciente."""
+
     list_display: ClassVar[list[str]] = [
         "patient",
         "category",
@@ -163,7 +193,9 @@ class CribMovementAdmin(admin.ModelAdmin):
     list_filter: ClassVar[list[str]] = ["kind"]
 
     def has_add_permission(self, request) -> bool:
+        """Bloquea el alta manual para garantizar que todo movimiento pase por los servicios de dominio."""
         return False
 
     def has_change_permission(self, request, obj=None) -> bool:
+        """Bloquea la edición manual para preservar la inmutabilidad del historial de traslados."""
         return False

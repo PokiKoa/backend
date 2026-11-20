@@ -86,7 +86,7 @@ En la columna `Missing`, `12` es una línea sin ejecutar y `12->15` es una rama 
 
 ## Desarrollo junto al frontend
 
-El frontend (React + Vite) vive en [PokiKoa/frontend](https://github.com/PokiKoa/frontend), rama `rewrite/v2`. Clónalo junto a este repositorio (`../frontend`) y sigue su README: levanta este backend con `uvicorn`, opcionalmente `simulate_telemetry`, y luego `npm run dev`. Vite redirige `/api` y `/ws` a `http://localhost:8000`, así la cookie httpOnly del refresh funciona sin CORS. Usuarios de demo de `seed_demo`: `admin` / `admin2026`, y `dr.soto`, `matrona.diaz` y `qf.silva` con `Clinica#2026`.
+El frontend (React + Vite) vive en [PokiKoa/frontend](https://github.com/PokiKoa/frontend), rama `desarrollo`. Clónalo junto a este repositorio (`../frontend`) y sigue su README: levanta este backend con `uvicorn`, opcionalmente `simulate_telemetry`, y luego `npm run dev`. Vite redirige `/api` y `/ws` a `http://localhost:8000`, así la cookie httpOnly del refresh funciona sin CORS. Usuarios de demo de `seed_demo`: `admin` / `admin2026`, y `dr.soto`, `matrona.diaz` y `qf.silva` con `Clinica#2026`.
 
 ## Contrato OpenAPI para el frontend
 

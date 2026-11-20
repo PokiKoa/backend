@@ -18,7 +18,7 @@ Poki Koa protege los datos clínicos neonatales mediante autenticación diferenc
   - **Frontend en otro dominio:** si el frontend vive en otro sitio (no solo en otro puerto), define `REFRESH_COOKIE_SAMESITE=None` (en `prod.py`, `Secure` ya es obligatorio). La verificación de `Origin` sigue protegiendo frente a CSRF.
   - `CORS_ALLOW_CREDENTIALS = True` permite que el navegador envíe la cookie a los orígenes de `CORS_ALLOWED_ORIGINS`.
   - Recargar la página pierde el access token en memoria; basta con llamar a `/auth/refresh/` al iniciar la aplicación para recuperar la sesión desde la cookie.
-- **WebSocket:** los navegadores no permiten cabeceras personalizadas en WebSocket, así que el access token se envía como subprotocolo: `new WebSocket(url, ["bearer", accessToken])`. El servidor confirma el subprotocolo `bearer` al aceptar. El token en la URL (`?token=`) ya no se acepta, para que no quede en logs de proxies.
+- **WebSocket:** los navegadores no permiten cabeceras personalizadas en WebSocket, así que el access token se envía como subprotocolo: `new WebSocket(url, ["bearer", accessToken])`. El servidor confirma el subprotocolo `bearer` al aceptar. El token en la URL (`?token=`) ya no se acepta, para que no quede en logs de proxies. Además, `SettingsOriginValidator` (`vitals/realtime.py`) rechaza el handshake si `Origin` no pertenece a `ALLOWED_HOSTS` ni a `CORS_ALLOWED_ORIGINS`, para que una página de otro sitio no pueda abrir el canal (*Cross-Site WebSocket Hijacking*).
 - **Protección contra fuerza bruta:**
   - Política de contraseñas de mínimo 10 caracteres con exigencia de mayúsculas, minúsculas y dígitos (`ClinicalPasswordValidator`).
   - Rate limiting en login (`5/min`).

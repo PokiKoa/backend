@@ -10,6 +10,9 @@ dist/
 
 # Archivos de entorno, cobertura y logs
 .env
+.env.*
+!.env.example
+!.env.prod.example
 *.log
 .coverage
 .coverage.*

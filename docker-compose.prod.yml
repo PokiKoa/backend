@@ -1,0 +1,107 @@
+# Producción de Poki Koa (backend): API + WebSockets, monitor de cunas, PostgreSQL y Redis.
+#
+#   cp .env.prod.example .env          # completar los valores marcados como obligatorios
+#   docker compose -f docker-compose.prod.yml build
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Todo se lee de .env. Las variables con ${VAR:?...} son obligatorias: si faltan, compose se
+# detiene antes de crear contenedores. PostgreSQL y Redis no publican puertos; la API solo
+# escucha en 127.0.0.1 para que la alcance el proxy TLS del host (Caddy), nunca internet.
+# Guía completa: docs/DEPLOYMENT_AND_OPERATIONS.md.
+name: poki-koa
+
+x-app-environment: &app-environment
+  DJANGO_SETTINGS_MODULE: poki_koa.settings.prod
+  DEBUG: "False"
+  SECRET_KEY: ${SECRET_KEY:?Falta SECRET_KEY en .env (cadena aleatoria de 50+ caracteres)}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:?Falta ALLOWED_HOSTS en .env (ej. pokikoa.racsu.com)}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Falta CORS_ALLOWED_ORIGINS en .env (ej. https://pokikoa.racsu.com)}
+  CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-${CORS_ALLOWED_ORIGINS}}
+  DATABASE_URL: postgres://${POSTGRES_USER:-poki_koa}:${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}@db:5432/${POSTGRES_DB:-poki_koa}
+  REDIS_URL: redis://redis:6379/0
+  TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-1}
+  SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-True}
+  REFRESH_COOKIE_NAME: ${REFRESH_COOKIE_NAME:-poki_refresh}
+  REFRESH_COOKIE_SAMESITE: ${REFRESH_COOKIE_SAMESITE:-Lax}
+  REFRESH_COOKIE_DOMAIN: ${REFRESH_COOKIE_DOMAIN:-}
+  JWT_ACCESS_MINUTES: ${JWT_ACCESS_MINUTES:-15}
+  JWT_REFRESH_HOURS: ${JWT_REFRESH_HOURS:-8}
+  LOGIN_THROTTLE_RATE: ${LOGIN_THROTTLE_RATE:-5/min}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
+  TZ: ${TZ:-America/Santiago}
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-poki_koa}
+      POSTGRES_USER: ${POSTGRES_USER:-poki_koa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+      TZ: ${TZ:-America/Santiago}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Solo capa de canales de WebSockets (datos efímeros): sin persistencia en disco
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # API REST y WebSockets; aplica las migraciones al iniciar
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: poki-koa-backend:prod
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *app-environment
+      # Procesos de uvicorn; con más de 1, los eventos se reparten por Redis
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+    ports:
+      - "127.0.0.1:${APP_HOST_PORT:-8000}:8000"
+    # El healthcheck entra por HTTP sin pasar por el proxy: /health/ready/ está exento del
+    # redirect a HTTPS y se envía el Host público para cumplir ALLOWED_HOSTS
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import os, urllib.request as u;
+          host = os.environ['ALLOWED_HOSTS'].split(',')[0].strip().lstrip('.');
+          u.urlopen(u.Request('http://127.0.0.1:8000/api/v1/health/ready/', headers={'Host': host}), timeout=4)
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # Marca como offline las cunas sin telemetría reciente y emite alertas sensor_fault
+  offline-monitor:
+    image: poki-koa-backend:prod
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment: *app-environment
+    command: ["uv", "run", "poki_koa", "check_offline_cribs", "--every", "60"]
+
+volumes:
+  postgres_data:

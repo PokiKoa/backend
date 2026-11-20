@@ -6,13 +6,16 @@ from unittest import mock
 
 from django.contrib import admin
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import User
 from patients.models import CribMovement, Patient
 
 
+# seed_demo con contraseñas públicas es solo de desarrollo (DEBUG=True)
+@override_settings(DEBUG=True)
+@mock.patch.dict(os.environ, {"SEED_DEMO_PASSWORD": ""})
 class SeedDemoCommandTests(TestCase):
     def test_seed_demo_loads_data_and_is_idempotent(self) -> None:
         output = StringIO()
@@ -88,6 +91,8 @@ class EntrypointTests(TestCase):
         sys.modules.pop("poki_koa.settings.prod", None)
 
 
+@override_settings(DEBUG=True)
+@mock.patch.dict(os.environ, {"SEED_DEMO_PASSWORD": ""})
 class AdminPagesTests(TestCase):
     """Recorre el listado y el formulario de cada modelo registrado en el admin."""
 

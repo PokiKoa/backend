@@ -110,6 +110,10 @@ STORAGES = {
 }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Proxies inversos propios delante de la app (1 con un Caddy o Nginx). Con 0 se ignora
+# X-Forwarded-For, que cualquier cliente puede falsificar; lo usa la auditoría.
+TRUSTED_PROXY_COUNT = env.int("TRUSTED_PROXY_COUNT", default=0)
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",

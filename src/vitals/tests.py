@@ -305,6 +305,10 @@ class VitalsEndpointTests(APITestCase):
         self.assertEqual(self.crib1.status, CribStatus.OCCUPIED)
 
 
+# Origen del servidor de pruebas: como un navegador, toda conexión lleva Origin
+TEST_ORIGIN = b"http://testserver"
+
+
 class WebsocketCommunicator(ApplicationCommunicator):
     def __init__(
         self,
@@ -312,13 +316,17 @@ class WebsocketCommunicator(ApplicationCommunicator):
         path: str,
         headers: list[tuple[bytes, bytes]] | None = None,
         subprotocols: list[str] | None = None,
+        origin: bytes | None = TEST_ORIGIN,
     ) -> None:
         parsed = urlparse(path)
+        headers = list(headers or [])
+        if origin is not None:
+            headers.append((b"origin", origin))
         scope = {
             "type": "websocket",
             "path": unquote(parsed.path),
             "query_string": parsed.query.encode("utf-8"),
-            "headers": headers or [],
+            "headers": headers,
             "subprotocols": subprotocols or [],
         }
         super().__init__(app, scope)

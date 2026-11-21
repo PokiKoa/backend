@@ -12,3 +12,6 @@ htmlcov
 .env
 src/db.sqlite3
 staticfiles
+.env.*
+!.env.example
+!.env.prod.example

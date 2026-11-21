@@ -20,6 +20,8 @@ docker compose up --build
 
 Levanta PostgreSQL, Redis, la API en `http://localhost:8000` y el servicio `offline-monitor`, que cada 60 segundos marca como `offline` las cunas sin telemetría reciente y emite alertas `sensor_fault`.
 
+Para producción se usa `docker-compose.prod.yml` con `.env.prod.example` como plantilla (sin valores por defecto inseguros, PostgreSQL y Redis sin puertos publicados). Ver [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md#6-despliegue-de-producción-con-docker-compose-docker-composeprodyml).
+
 ## Ejecución local con `uv`
 
 La forma más simple es el script de instalación. Verifica los requisitos (uv, Python del proyecto, Docker y el plugin `compose`), crea `.env` si falta, levanta PostgreSQL y Redis, y ejecuta `uv sync`, `migrate` y `seed_demo`. Si algo falta, se detiene y dice cómo corregirlo. Se puede ejecutar varias veces:
@@ -109,4 +111,5 @@ uv run poki_koa spectacular --validate --fail-on-warn --file openapi/schema.yml
 - [docs/API_REFERENCE.md](./docs/API_REFERENCE.md): Contrato REST `/api/v1/`, canales WebSocket `/ws/v1/` y formato de errores.
 - [docs/SECURITY_AND_RBAC.md](./docs/SECURITY_AND_RBAC.md): Autenticación JWT, matriz de permisos RBAC, API keys por dispositivo y 2FA (TOTP).
 - [docs/DATA_SCHEMA.md](./docs/DATA_SCHEMA.md): Esquema de datos relacional v2, diagrama ER e invariantes.
+- [docs/info_despliegue.md](./docs/info_despliegue.md): Guía corta para desplegar una instancia propia con Docker.
 - [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md): Guía de servidor ASGI (`Uvicorn`), archivos estáticos (`WhiteNoise`), producción y operación.

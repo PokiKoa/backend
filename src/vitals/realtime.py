@@ -5,6 +5,8 @@ from typing import Any
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
+from channels.security.websocket import OriginValidator
+from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken
@@ -74,6 +76,26 @@ class JwtWebSocketAuthMiddleware:
         else:
             scope["user"] = AnonymousUser()
         return await self.app(scope, receive, send)
+
+
+class SettingsOriginValidator(OriginValidator):
+    """Rechaza el handshake WebSocket si ``Origin`` no es de ``ALLOWED_HOSTS`` ni de ``CORS_ALLOWED_ORIGINS``.
+
+    Evita que una página de otro sitio abra el canal en nombre del usuario (CSWSH). Se aceptan
+    el mismo origen que la API (``ALLOWED_HOSTS``) y los frontends autorizados por CORS; una
+    conexión sin ``Origin`` se rechaza salvo que ``ALLOWED_HOSTS`` contenga ``*``.
+    """
+
+    def __init__(self, application: Any) -> None:
+        self.application = application
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """Orígenes permitidos, leídos de settings en cada conexión."""
+        hosts = list(settings.ALLOWED_HOSTS)
+        if settings.DEBUG and not hosts:
+            hosts = ["localhost", "127.0.0.1", "[::1]"]
+        return [*hosts, *getattr(settings, "CORS_ALLOWED_ORIGINS", [])]
 
 
 def _send_to_groups(groups: list[str], payload: dict[str, Any]) -> None:

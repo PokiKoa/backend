@@ -90,3 +90,17 @@ class ForwardedForSpoofingTests(TestCase):
         self._login("203.0.113.66")
         log = AuditLog.objects.get(action=AuditAction.LOGIN_SUCCESS, actor_user=self.nurse)
         self.assertEqual(log.ip_address, "10.0.0.2")
+
+    @override_settings(
+        REST_FRAMEWORK={
+            "EXCEPTION_HANDLER": "poki_koa.exceptions.custom_exception_handler",
+            "DEFAULT_THROTTLE_RATES": {"login": "3/min"},
+            "NUM_PROXIES": 0,
+        }
+    )
+    def test_rotating_forwarded_for_does_not_bypass_login_throttle(self) -> None:
+        for attempt in range(3):
+            res = self._login(f"203.0.113.{attempt}", password="incorrecta")
+            self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+        throttled = self._login("203.0.113.99", password="incorrecta")
+        self.assertEqual(throttled.status_code, status.HTTP_429_TOO_MANY_REQUESTS)

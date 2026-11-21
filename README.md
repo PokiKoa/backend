@@ -20,6 +20,8 @@ docker compose up --build
 
 Levanta PostgreSQL, Redis, la API en `http://localhost:8000` y el servicio `offline-monitor`, que cada 60 segundos marca como `offline` las cunas sin telemetría reciente y emite alertas `sensor_fault`.
 
+Para producción se usa `docker-compose.prod.yml` con `.env.prod.example` como plantilla (sin valores por defecto inseguros, PostgreSQL y Redis sin puertos publicados). Ver [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md#6-despliegue-de-producción-con-docker-compose-docker-composeprodyml).
+
 ## Ejecución local con `uv`
 
 La forma más simple es el script de instalación. Verifica los requisitos (uv, Python del proyecto, Docker y el plugin `compose`), crea `.env` si falta, levanta PostgreSQL y Redis, y ejecuta `uv sync`, `migrate` y `seed_demo`. Si algo falta, se detiene y dice cómo corregirlo. Se puede ejecutar varias veces:

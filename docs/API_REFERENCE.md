@@ -145,6 +145,8 @@ Cada elemento de `cribs` incluye además todos los campos de `GET /api/v1/cribs/
 
 Las conexiones WebSocket se autentican con el access token JWT enviado como subprotocolo (`new WebSocket(url, ["bearer", accessToken])`) o, en clientes que no son navegador, con la cabecera `Authorization: Bearer`. Solo se autorizan los roles clínicos y administrativos (`admin`, `neonatologist`, `nurse`). Códigos de cierre: `4401` (sin token o token inválido), `4403` (rol no autorizado), `4404` (cuna o paciente inexistente).
 
+Antes de autenticar, el handshake exige una cabecera `Origin` cuyo host esté en `ALLOWED_HOSTS` (mismo origen que la API) o que coincida exactamente, con esquema y puerto, con un valor de `CORS_ALLOWED_ORIGINS`. Si no cumple, o si falta `Origin`, la conexión se rechaza antes de aceptarse (HTTP 403 en el handshake). Los navegadores envían `Origin` siempre; un cliente que no es navegador debe enviarla explícitamente.
+
 | Ruta WebSocket | Eventos emitidos |
 |---|---|
 | `ws/v1/cribs/{crib_id}/stream/` | `telemetry.reading` (lectura + alertas activas/autorresueltas), `alert.triggered` (p. ej. cuna offline), `alert.acknowledged`, `alert.resolved` de la cuna. |

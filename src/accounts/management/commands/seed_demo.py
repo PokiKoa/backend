@@ -1,9 +1,13 @@
 """Comando que carga datos ficticios de demostración (usuarios, cunas, pacientes, medicación y telemetría)."""
 
+import os
 from datetime import time, timedelta
 from decimal import Decimal
 
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from accounts.models import ShiftAssignment, User, UserRole, WorkShift
@@ -21,16 +25,57 @@ from patients.services import (
 )
 from vitals.services import ingest_telemetry
 
+# Contraseñas públicas (README): solo sirven en desarrollo, nunca en un servidor con DEBUG=False
+DEMO_ADMIN_PASSWORD = "admin2026"
+DEMO_STAFF_PASSWORD = "Clinica#2026"
+PASSWORD_ENV_VAR = "SEED_DEMO_PASSWORD"
+
+
+def resolve_demo_passwords() -> tuple[str, str]:
+    """Elige las contraseñas de ``admin`` y del resto de usuarios de demostración.
+
+    Con ``SEED_DEMO_PASSWORD`` definida, todos los usuarios usan esa contraseña, que debe cumplir
+    la política de contraseñas y no puede ser una de las públicas. Sin ella, se usan las públicas
+    solo si ``DEBUG=True``.
+
+    Returns:
+        Tupla ``(contraseña_admin, contraseña_resto)``.
+
+    Raises:
+        CommandError: Si ``DEBUG=False`` y falta la variable, o si la contraseña no es válida.
+    """
+    custom = os.environ.get(PASSWORD_ENV_VAR, "")
+    if not custom:
+        if not settings.DEBUG:
+            raise CommandError(
+                f"seed_demo no crea usuarios con contraseñas públicas cuando DEBUG=False. "
+                f"Define {PASSWORD_ENV_VAR} con una contraseña robusta para los usuarios de demostración."
+            )
+        return DEMO_ADMIN_PASSWORD, DEMO_STAFF_PASSWORD
+    if custom in (DEMO_ADMIN_PASSWORD, DEMO_STAFF_PASSWORD):
+        raise CommandError(
+            f"{PASSWORD_ENV_VAR} no puede ser una de las contraseñas públicas de demostración."
+        )
+    try:
+        validate_password(custom)
+    except ValidationError as exc:
+        raise CommandError(
+            f"{PASSWORD_ENV_VAR} no cumple la política de contraseñas: {' '.join(exc.messages)}"
+        ) from exc
+    return custom, custom
+
 
 class Command(BaseCommand):
     """Carga datos ficticios de demostración neonatal y asegura el usuario ``admin``. Solo para desarrollo."""
 
     help = (
-        "Carga datos ficticios de demostración neonatal y asegura el superusuario admin/admin2026."
+        "Carga datos ficticios de demostración neonatal y asegura el superusuario admin "
+        "(admin2026 en desarrollo; con DEBUG=False exige SEED_DEMO_PASSWORD)."
     )
 
     def handle(self, *args, **options) -> None:
         """Crea de forma idempotente usuarios, cunas, pacientes, catálogo, indicaciones y lecturas de ejemplo."""
+        admin_password, staff_password = resolve_demo_passwords()
         admin_user, _ = User.objects.get_or_create(
             username="admin",
             defaults={
@@ -45,7 +90,7 @@ class Command(BaseCommand):
         admin_user.is_staff = True
         admin_user.is_superuser = True
         admin_user.role = UserRole.ADMIN
-        admin_user.set_password("admin2026")
+        admin_user.set_password(admin_password)
         admin_user.save()
 
         neo, _ = User.objects.get_or_create(
@@ -58,7 +103,7 @@ class Command(BaseCommand):
                 "is_staff": True,
             },
         )
-        neo.set_password("Clinica#2026")
+        neo.set_password(staff_password)
         neo.save()
 
         nurse, _ = User.objects.get_or_create(
@@ -71,7 +116,7 @@ class Command(BaseCommand):
                 "is_staff": True,
             },
         )
-        nurse.set_password("Clinica#2026")
+        nurse.set_password(staff_password)
         nurse.save()
 
         pharmacist, _ = User.objects.get_or_create(
@@ -84,7 +129,7 @@ class Command(BaseCommand):
                 "is_staff": True,
             },
         )
-        pharmacist.set_password("Clinica#2026")
+        pharmacist.set_password(staff_password)
         pharmacist.save()
 
         crib_specs = [
@@ -256,8 +301,13 @@ class Command(BaseCommand):
                     units_per_administration=1,
                 )
 
+        password_hint = (
+            f"clave: '{DEMO_ADMIN_PASSWORD}'"
+            if admin_password == DEMO_ADMIN_PASSWORD
+            else f"clave: la de {PASSWORD_ENV_VAR}"
+        )
         self.stdout.write(
             self.style.SUCCESS(
-                "Datos ficticios cargados y superusuario 'admin' (clave: 'admin2026') listo."
+                f"Datos ficticios cargados y superusuario 'admin' ({password_hint}) listo."
             )
         )

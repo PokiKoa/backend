@@ -7,7 +7,7 @@ Backend REST (`/api/v1/`) y tiempo real (`ws/v1/`) para monitoreo clínico en un
 ## Modelado y despliegue
 
 - **Modelado UML (Entrega 3):** [docs/modelado/](./docs/modelado/README.md), con los diagramas de casos de uso, clases, secuencia y componentes.
-- **Despliegue:** [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md).
+- **Despliegue:** [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md) y la guía corta [docs/info_despliegue.md](./docs/info_despliegue.md).
 
 ## Stack
 
@@ -24,6 +24,8 @@ docker compose up --build
 ```
 
 Levanta PostgreSQL, Redis, la API en `http://localhost:8000` y el servicio `offline-monitor`, que cada 60 segundos marca como `offline` las cunas sin telemetría reciente y emite alertas `sensor_fault`.
+
+Para producción se usa `docker-compose.prod.yml` con `.env.prod.example` como plantilla (sin valores por defecto inseguros, PostgreSQL y Redis sin puertos publicados). Ver [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md#6-despliegue-de-producción-con-docker-compose-docker-composeprodyml).
 
 ## Ejecución local con `uv`
 
@@ -91,7 +93,13 @@ En la columna `Missing`, `12` es una línea sin ejecutar y `12->15` es una rama 
 
 ## Desarrollo junto al frontend
 
-El frontend (React + Vite) vive en [PokiKoa/frontend](https://github.com/PokiKoa/frontend), rama `rewrite/v2`. Clónalo junto a este repositorio (`../frontend`) y sigue su README: levanta este backend con `uvicorn`, opcionalmente `simulate_telemetry`, y luego `npm run dev`. Vite redirige `/api` y `/ws` a `http://localhost:8000`, así la cookie httpOnly del refresh funciona sin CORS. Usuarios de demo de `seed_demo`: `admin` / `admin2026`, y `dr.soto`, `matrona.diaz` y `qf.silva` con `Clinica#2026`.
+El frontend (React + Vite) vive en [PokiKoa/frontend](https://github.com/PokiKoa/frontend), rama `desarrollo`. Clónalo junto a este repositorio (`../frontend`) y sigue su README: levanta este backend con `uvicorn`, opcionalmente `simulate_telemetry`, y luego `npm run dev`. Vite redirige `/api` y `/ws` a `http://localhost:8000`, así la cookie httpOnly del refresh funciona sin CORS. Usuarios de demo de `seed_demo`: `admin` / `admin2026`, y `dr.soto`, `matrona.diaz` y `qf.silva` con `Clinica#2026`.
+
+Esas contraseñas son públicas y solo se usan con `DEBUG=True`. Con `DEBUG=False` (producción), `seed_demo` se niega a ejecutarse salvo que se defina `SEED_DEMO_PASSWORD`, que debe cumplir la política de contraseñas y pasa a ser la clave de los cuatro usuarios de demostración:
+
+```bash
+SEED_DEMO_PASSWORD='<contraseña robusta>' uv run poki_koa seed_demo
+```
 
 ## Contrato OpenAPI para el frontend
 
@@ -114,4 +122,5 @@ uv run poki_koa spectacular --validate --fail-on-warn --file openapi/schema.yml
 - [docs/API_REFERENCE.md](./docs/API_REFERENCE.md): Contrato REST `/api/v1/`, canales WebSocket `/ws/v1/` y formato de errores.
 - [docs/SECURITY_AND_RBAC.md](./docs/SECURITY_AND_RBAC.md): Autenticación JWT, matriz de permisos RBAC, API keys por dispositivo y 2FA (TOTP).
 - [docs/DATA_SCHEMA.md](./docs/DATA_SCHEMA.md): Esquema de datos relacional v2, diagrama ER e invariantes.
+- [docs/info_despliegue.md](./docs/info_despliegue.md): Guía corta para desplegar una instancia propia con Docker.
 - [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md): Guía de servidor ASGI (`Uvicorn`), archivos estáticos (`WhiteNoise`), producción y operación.

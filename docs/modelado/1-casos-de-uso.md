@@ -134,3 +134,7 @@ flowchart TB
 | CU-24 Validar rangos fisiológicos | — (incluido) | `vitals.rules.validate_telemetry_payload` |
 | CU-25 Generar alerta clínica | — (extensión) | `alerts.services.evaluate_reading_alerts` con `alerts.policies.evaluate_vital_reading` |
 | CU-26 Detectar cunas desconectadas | Temporizador | Comando `check_offline_cribs --every 60` → `devices.services.detect_offline_cribs` (el personal también puede lanzarlo con `POST /cribs/check-offline/`) |
+
+## Nota de lectura
+
+Pusimos la frontera alrededor de lo que el equipo construyó (backend y frontend). La cuna física queda afuera, como actor externo: su firmware no es nuestro y se autentica con su propia API Key, no con una sesión de usuario. El químico farmacéutico no está asociado al monitoreo en tiempo real a propósito: el WebSocket lo rechaza con `4403`, porque su trabajo es el catálogo y no la vigilancia de signos vitales. Agrupamos a los actores según los conjuntos de roles que usa el código: *Personal clínico* es `CLINICAL_STAFF` y *Equipo de la unidad* es `CLINICAL_OR_ADMIN`. Las dos relaciones entre casos de uso responden a la frecuencia con que ocurren. *Egresar paciente* **incluye** *Resolver alertas del paciente* porque todo egreso cierra sus alertas. En cambio, *Generar alerta clínica* **extiende** *Registrar telemetría* porque la mayoría de las lecturas son normales y no generan alerta. Dejamos fuera la integración con otros sistemas del hospital (ficha electrónica, laboratorio): el sistema no la implementa.

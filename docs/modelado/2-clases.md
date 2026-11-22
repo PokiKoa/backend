@@ -255,3 +255,7 @@ classDiagram
 | `MedicationCatalogItem`, `Prescription`, `MedicationAdministration` | `src/medications/models.py` |
 | `AuditLog` | `src/audit/models.py` |
 | `AbstractBaseUser`, `PermissionsMixin` | Django (`django.contrib.auth`), clases base de `User` |
+
+## Nota de lectura
+
+La relación que mejor muestra una decisión es la **composición** entre `Patient` y `AlertThresholdConfig`. Los umbrales propios de un paciente no tienen sentido sin él, y por eso la clave foránea usa `on_delete=CASCADE`. Del lado del paciente la multiplicidad es `0..1`: un `AlertThresholdConfig` sin paciente es la configuración global de la unidad, la que se usa cuando el paciente no tiene umbrales propios. El resto de la historia clínica (lecturas, alertas, pesos, indicaciones, administraciones) usa `PROTECT`, a propósito: un borrado accidental del paciente nunca debe arrastrar su ficha, y solo el borrado definitivo, reservado al administrador y con confirmación, la elimina de forma explícita. `Crib` y `Patient` son una asociación `0..1` a `0..1` y no una composición, porque la cuna sobrevive al egreso y recibe al siguiente paciente. Por último, `AuditLog` guarda `patient_id` como número y no como clave foránea, para que la bitácora se conserve aunque el paciente se borre.

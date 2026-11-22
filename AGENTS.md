@@ -4,7 +4,7 @@
 
 Este repositorio es **solo backend**. El frontend (React + Vite) vive en otro repositorio.
 
-La evidencia académica de la versión prototipo inicial (v1) se conserva en el tag `entrega2` sobre `main`. La rama `rewrite/v2` contiene la reescritura profesional por aplicaciones de dominio.
+La evidencia académica de la versión prototipo inicial (v1) se conserva en el tag `entrega2` sobre `main`. La reescritura v2 por aplicaciones de dominio ya está integrada: el desarrollo se hace en ramas `feat/...` o `fix/...` que salen de `desarrollo` y vuelven a ella por pull request; `main` recibe `desarrollo`.
 
 ## 2. Stack y Arquitectura (v2)
 

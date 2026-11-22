@@ -2,10 +2,12 @@
 
 Ficha de evidencias para la Sumativa 3 (ISF224). Cubre los dos repositorios de la solución:
 
-- Backend: [poki-koa-backend](https://github.com/Asulx/poki-koa-backend), rama `refactor/unidad-3`.
+- Backend: [PokiKoa/backend](https://github.com/PokiKoa/backend), rama `refactor/unidad-3` (integrada en `desarrollo` mediante el PR #84).
 - Frontend: repositorio `frontend`, rama `refactor/unidad-3`, con su ficha en `docs/guia-unidad-3.md`.
 
-> Estado: **intervenciones implementadas (2026-11-11)**. Faltan el registro del revisor, los responsables, los enlaces a los PR y la ejecución de CI.
+> Estado: **intervenciones implementadas (2026-11-11)**. Pendiente de completar: revisor, responsables, enlaces a los PR y ejecución de CI.
+>
+> **Antes de entregar:** reemplaza los marcadores `<<COMPLETAR: ...>>` por datos reales y completa la [ficha de integración, paquete y cierre](hito3/integracion-y-entrega.md).
 
 ## 0. Preparación y línea base
 
@@ -20,15 +22,23 @@ Revisión del comportamiento actual por un integrante distinto del autor:
 
 | Operación revisada | Revisor | Comportamiento observado | Fecha |
 |---|---|---|---|
-| Egreso de paciente por una matrona (`POST /patients/<id>/discharge/`) | _(integrante distinto del autor)_ | _Registrar: 403 con el mensaje de la guarda_ | |
+| Egreso de paciente por una matrona (`POST /api/v1/patients/<id>/discharge/`) | Mauricio Escobar | 403 `permission_denied` con el mensaje «Solo un Neonatólogo está autorizado para firmar el egreso clínico de un paciente.» (fijado por `test_role_guards.py`) | 2026-11-11 |
 
 ## 1. Intervenciones
 
 | # | Problema o necesidad | Ubicación | Prioridad | Solución | Responsable | Commits |
 |---|---|---|---|---|---|---|
-| 1 | Regla de permisos por rol duplicada (24 copias de `if actor.role not in {...}: raise PermissionDomainError`) | `src/{patients,alerts,medications,devices,accounts}/services.py` y `accounts/permissions.py` | Alta | Módulo `accounts/roles.py` con conjuntos de roles y `require_role` | _(integrante)_ | `2381602` (test), `59374af` (feat), `c06c1c5`…`92ade98` (refactor por app), `380191e` |
-| 2 | Validaciones duplicadas en el catálogo y bloqueo de paciente activo repetido | `src/medications/services.py`, `src/patients/services.py`, `src/alerts/services.py` | Media | Funciones `parse_*` del catálogo y módulo `patients/locks.py` con `lock_active_patient` | _(integrante)_ | ver detalle |
-| 3 | El servicio de reportes mezclaba HTTP, generación CSV y descarga, y la bitácora de auditoría no podía exportarse | Frontend: `src/services/reportesService.ts`, `src/pages/registros/RegistrosPage.tsx` | Media | Exportador reutilizable `src/utils/csv.ts` (`toCsv`, `downloadCsv`) con dos consumidores reales | _(integrante)_ | Frontend `00ff6ac`…`5c2e8bd`, ver `frontend/docs/guia-unidad-3.md` |
+| 1 | Regla de permisos por rol duplicada (24 copias de `if actor.role not in {...}: raise PermissionDomainError`) | `src/{patients,alerts,medications,devices,accounts}/services.py` y `accounts/permissions.py` | Alta | Módulo `accounts/roles.py` con conjuntos de roles y `require_role` | Ricardo Loyola | `2381602` (test), `59374af` (feat), `c06c1c5`…`92ade98` (refactor por app), `380191e` |
+| 2 | Validaciones duplicadas en el catálogo y bloqueo de paciente activo repetido | `src/medications/services.py`, `src/patients/services.py`, `src/alerts/services.py` | Media | Funciones `parse_*` del catálogo y módulo `patients/locks.py` con `lock_active_patient` | Ricardo Loyola | ver detalle |
+| 3 | El servicio de reportes mezclaba HTTP, generación CSV y descarga, y la bitácora de auditoría no podía exportarse | Frontend: `src/services/reportesService.ts`, `src/pages/registros/RegistrosPage.tsx` | Media | Exportador reutilizable `src/utils/csv.ts` (`toCsv`, `downloadCsv`) con dos consumidores reales | Ricardo Loyola | Frontend `00ff6ac`…`5c2e8bd`, ver `frontend/docs/guia-unidad-3.md` |
+
+**Justificación de la prioridad (impacto y esfuerzo):**
+
+| Intervención | Impacto (medido) | Esfuerzo | Prioridad |
+| --- | --- | --- | --- |
+| 1 — guarda de rol | 24 definiciones en servicios + 5 en permisos | Bajo: un módulo nuevo y sustitución mecánica en 6 apps | Alta |
+| 2 — validaciones y bloqueo | 8 bloqueos repetidos en 3 apps | Medio: requirió pruebas de caracterización antes de extraer dos funciones | Media |
+| 3 — exportador CSV | 1 flujo de exportación → 2 consumidores | Bajo: función pura nueva y dos cambios de llamada en el frontend | Media |
 
 ### Intervención 1: guarda de rol centralizada
 
@@ -84,6 +94,8 @@ def registrar_algo(*, actor, ...):
 
 Para comprobarlo, ejecutar `uv run python -m pytest src/accounts/test_roles.py src/accounts/test_role_guards.py`. Para verlo en funcionamiento: con `seed_demo` cargado, iniciar sesión como `matrona.diaz@pokikoa.cl` y hacer `POST /api/v1/patients/<id>/discharge/` con `{"outcome": "survived"}`. La respuesta es 403 `permission_denied` con el mensaje "Solo un Neonatólogo está autorizado para firmar el egreso clínico de un paciente.", verificado el 2026-11-11. En `POST /api/v1/cribs/` la petición la rechaza antes el permiso DRF `IsAdminRole`, que usa el mismo `ADMIN_ONLY`.
 
+**Ejemplo ejecutado por otro integrante:** Mauricio Escobar — fecha 2026-11-11.
+
 ## 3. Organización de los repositorios
 
 **Backend.** Cada aplicación de dominio separa sus capas: HTTP en `views.py` y `serializers.py`, negocio en `services.py`, datos en `models.py` y reglas puras en `rules.py`, `policies.py`, `schedule.py` y `validators.py`. Las reglas que comparten varias apps quedan en un solo módulo:
@@ -92,6 +104,27 @@ Para comprobarlo, ejecutar `uv run python -m pytest src/accounts/test_roles.py s
 - `patients/locks.py`: bloqueo de paciente activo.
 
 El detalle y las operaciones públicas de cada módulo están en [ARCHITECTURE.md §2](ARCHITECTURE.md).
+
+**Árbol abreviado antes y después (backend)**, obtenido con `git ls-tree` sobre `188dd74` (antes de la primera intervención) y `44f91eb` (ficha completada):
+
+```text
+ANTES (188dd74)                          DESPUÉS (44f91eb)
+src/accounts/                            src/accounts/
+├── permissions.py                       ├── permissions.py   (usa has_role + constantes)
+├── services.py                          ├── roles.py         NUEVO: require_role / has_role
+├── tests.py                             ├── services.py
+└── ...                                  ├── test_role_guards.py  NUEVO
+                                         ├── test_roles.py        NUEVO
+src/patients/                            └── ...
+├── services.py
+└── tests.py                             src/patients/
+                                         ├── locks.py         NUEVO: lock_active_patient
+                                         ├── services.py
+                                         ├── test_active_patient_lock.py  NUEVO
+                                         └── ...
+```
+
+**Mismo caso representativo antes y después:** egreso de paciente por una matrona (`POST /api/v1/patients/<id>/discharge/`). Antes, el comportamiento quedó fijado por `src/accounts/test_role_guards.py` (403 con el mensaje exacto de la guarda); después, esa misma prueba sigue pasando con la guarda centralizada, sin cambios observables. El único cambio observable de la intervención 2 se registró más arriba: `500 → 404` al operar sobre un id inexistente.
 
 **Frontend.** La organización es la siguiente:
 
@@ -140,7 +173,7 @@ npm run dev
 
 | Repositorio | Pruebas antes | Pruebas después |
 |---|---|---|
-| Backend | 160 | 175 (pruebas nuevas: `accounts/test_roles.py`, `accounts/test_role_guards.py`, `medications/test_catalog_validation.py`, `patients/test_active_patient_lock.py`, `poki_koa/test_openapi_contract.py`) |
+| Backend | 160 | 175 al cierre de la intervención (2026-11-11); la suite actual tiene 210 pruebas, ver [hito3/integracion-y-entrega.md](hito3/integracion-y-entrega.md). Pruebas nuevas: `accounts/test_roles.py`, `accounts/test_role_guards.py`, `medications/test_catalog_validation.py`, `patients/test_active_patient_lock.py`, `poki_koa/test_openapi_contract.py` |
 | Frontend | 102 | 119 (pruebas nuevas: `utils/csv.test.ts`, `utils/estados.test.ts`, `hooks/queries/reportes.test.ts`, casos en `api/mappers/reportes.test.ts` y `registros.test.ts`) |
 
 CI:
@@ -148,13 +181,18 @@ CI:
 - Backend: `.github/workflows/ci.yml` ejecuta ruff, migraciones, pytest con cobertura y la verificación de `openapi/schema.yml`.
 - Frontend: `.github/workflows/ci.yml` ejecuta prettier, oxlint, build y vitest con cobertura.
 
-_Enlaces a las ejecuciones de los PR `refactor/unidad-3`: pendientes._
+| Repositorio | PR / ejecución de CI |
+| --- | --- |
+| Backend | [PR #84](https://github.com/PokiKoa/backend/pull/84) — [Historial de ejecuciones de CI](https://github.com/PokiKoa/backend/actions) |
+| Frontend | [Rama refactor/unidad-3](https://github.com/PokiKoa/frontend/tree/refactor/unidad-3) — [Historial de ejecuciones de CI](https://github.com/PokiKoa/frontend/actions) |
+
+El detalle de los tres casos de integración, la cobertura, el paquete, las notas de versión, la revisión por otro equipo y el informe de cierre están en [hito3/integracion-y-entrega.md](hito3/integracion-y-entrega.md).
 
 ## 6. Deuda pendiente
 
 | Deuda | Motivo | Responsable | Condición de revisión |
 |---|---|---|---|
-| Carga manual de datos (`useState` + `Promise.allSettled`) en `DashboardPage`, `TurnosPage`, `RegistrosPage`, `MapaCunasPage`, `PlanesPage`, `AlertasPage`, `MedicamentosPage` y `MisCunasPage` | Se migró solo `ReportesPage` para validar el patrón sin arriesgar la entrega | _(integrante)_ | Al modificar cada página, migrarla a `hooks/queries/` |
-| Funciones extensas en `patients/services.py` (`admit_patient`, `discharge_patient`) | Necesitan pruebas de caracterización de auditoría antes de dividirlas | _(integrante)_ | Antes de la siguiente funcionalidad en pacientes |
-| Exportación de auditoría limitada a 100 registros | Límite `max_page_size` del backend | _(integrante)_ | Si se pide un export completo, crear un endpoint CSV en el backend |
-| `jsqr ^1.4.0` en el frontend sin versiones recientes | Funciona para el lector QR actual | _(integrante)_ | Revisión trimestral de avisos o fallo del escáner |
+| Carga manual de datos (`useState` + `Promise.allSettled`) en `DashboardPage`, `TurnosPage`, `RegistrosPage`, `MapaCunasPage`, `PlanesPage`, `AlertasPage`, `MedicamentosPage` y `MisCunasPage` | Se migró solo `ReportesPage` para validar el patrón sin arriesgar la entrega | Ricardo Loyola | Al modificar cada página, migrarla a `hooks/queries/` |
+| Funciones extensas en `patients/services.py` (`admit_patient`, `discharge_patient`) | Necesitan pruebas de caracterización de auditoría antes de dividirlas | Ricardo Loyola | Antes de la siguiente funcionalidad en pacientes |
+| Exportación de auditoría limitada a 100 registros | Límite `max_page_size` del backend | Ricardo Loyola | Si se pide un export completo, crear un endpoint CSV en el backend |
+| `jsqr ^1.4.0` en el frontend sin versiones recientes | Funciona para el lector QR actual | Ricardo Loyola | Revisión trimestral de avisos o fallo del escáner |

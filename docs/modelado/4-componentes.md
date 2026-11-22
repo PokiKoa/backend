@@ -87,3 +87,18 @@ flowchart TB
 - La persistencia es PostgreSQL, el único componente con estado clínico. Dentro del backend, el ORM de Django (los `models.py` de cada aplicación) es el único que habla SQL.
 - Todo corre en el servidor de cada centro con Docker, salvo el navegador y la cuna.
 - Para no recargar el dibujo, solo dos aplicaciones de dominio aparecen usando `record_audit_event()`. En el código la llaman todos los servicios que modifican datos: `accounts`, `devices`, `patients`, `alerts` y `medications`.
+
+## Correspondencia con el repositorio
+
+| Componente o interfaz | Dónde existe |
+|---|---|
+| Frontend SPA (nginx) | Repositorio `PokiKoa/frontend`: `src/pages/`, `src/api/axios.ts`, `src/api/tiempoReal.ts`, `Dockerfile`, `docker/nginx.conf` |
+| Backend Poki Koa | Servicio `app` de `docker-compose.prod.yml`: `src/poki_koa/` y las aplicaciones `src/accounts/`, `src/devices/`, `src/patients/`, `src/vitals/`, `src/alerts/`, `src/medications/`, `src/audit/`, `src/reports/` |
+| offline-monitor | Servicio `offline-monitor` de `docker-compose.prod.yml`, comando `src/devices/management/commands/check_offline_cribs.py` |
+| PostgreSQL 16 | Servicio `db` de `docker-compose.prod.yml`, configurado con `DATABASE_URL` |
+| Redis 7 | Servicio `redis` de `docker-compose.prod.yml`, configurado con `REDIS_URL` (`CHANNEL_LAYERS` en `src/poki_koa/settings/base.py`) |
+| Caddy | Proxy del servidor de cada centro, configurado según `docs/info_despliegue.md` |
+| REST `/api/v1` | `src/poki_koa/urls.py`, contrato en `openapi/schema.yml` |
+| WebSocket `/ws/v1` | `src/vitals/routing.py` y `src/vitals/consumers.py` |
+| Telemetría `X-Device-Api-Key` | `src/devices/authentication.py` y la acción `telemetry` de `src/devices/views.py` |
+| `ingest_telemetry()` · `evaluate_reading_alerts()` · `record_audit_event()` | `src/vitals/services.py` · `src/alerts/services.py` · `src/audit/services.py` |

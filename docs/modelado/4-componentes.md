@@ -1,6 +1,6 @@
 # 4. Diagrama de componentes
 
-En qué piezas se divide Poki Koa cuando se despliega con `docker-compose.prod.yml` y qué interfaces las conectan. Cada componente corresponde a una carpeta de este repositorio, a una carpeta de [PokiKoa/frontend](https://github.com/PokiKoa/frontend) o a un servicio del archivo de despliegue.
+En qué piezas se divide Poki Koa en producción y qué interfaces las conectan. El backend, el `offline-monitor`, PostgreSQL y Redis se despliegan con `docker-compose.prod.yml`; el frontend (nginx) y Caddy se despliegan aparte, según `docs/info_despliegue.md`. Cada componente corresponde a una carpeta de este repositorio, a una carpeta de [PokiKoa/frontend](https://github.com/PokiKoa/frontend) o a un servicio del archivo de despliegue.
 
 ```mermaid
 flowchart TB
@@ -102,3 +102,7 @@ flowchart TB
 | WebSocket `/ws/v1` | `src/vitals/routing.py` y `src/vitals/consumers.py` |
 | Telemetría `X-Device-Api-Key` | `src/devices/authentication.py` y la acción `telemetry` de `src/devices/views.py` |
 | `ingest_telemetry()` · `evaluate_reading_alerts()` · `record_audit_event()` | `src/vitals/services.py` · `src/alerts/services.py` · `src/audit/services.py` |
+
+## Nota de lectura
+
+Separamos el sistema según qué puede fallar o cambiar sin arrastrar al resto. El `offline-monitor` es un proceso aparte porque detectar una cuna desconectada es reaccionar a la **ausencia** de peticiones, algo que la API no puede hacer sola; si se cae, la API sigue atendiendo. Redis queda detrás de la interfaz *Channel layer*: es la pieza que se puede **reemplazar sin tocar código**, porque sin `REDIS_URL` el backend usa `InMemoryChannelLayer`, que sirve para un solo proceso. Con Redis, los eventos llegan a todos los procesos de uvicorn y también los del monitor. El Temporizador del caso de uso *CU-26 Detectar cunas desconectadas* no es un componente aparte: es el `--every 60` del propio `offline-monitor`, que se despierta cada 60 segundos sin que nadie lo llame. La cuna física tampoco es imprescindible: el comando `simulate_telemetry` la reemplaza usando la misma interfaz *Telemetría `X-Device-Api-Key`*. Dentro del backend, cada aplicación expone servicios y no modelos, por ejemplo `ingest_telemetry()` y `evaluate_reading_alerts()`, los mismos mensajes que muestra el diagrama de secuencia.

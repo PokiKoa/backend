@@ -78,11 +78,11 @@ uv run coverage html
 uv run coverage xml
 ```
 
-Resultado verificado el 2026-11-22: `ruff check src` sin hallazgos, `ruff format --check src` con 132 archivos formateados, `uv run pytest` → **210 passed, 178 subtests passed** (58 advertencias por `staticfiles/` ausente).
+Resultado verificado el 2026-11-22: `ruff check src` sin hallazgos, `ruff format --check src` con 132 archivos formateados, `uv run pytest` → **216 passed, 178 subtests passed** (58 advertencias por `staticfiles/` ausente).
 
 | Evidencia | Registro |
 | --- | --- |
-| Porcentaje total de cobertura | **95,3 %** — `TOTAL 4286 148 792 79 95.3%` (líneas y ramas de `src/`; umbral 90 %) |
+| Porcentaje total de cobertura | **95,3 %** — `TOTAL 4295 148 798 79 95.3%` (líneas y ramas de `src/`; umbral 90 %) |
 | Reporte HTML/XML | Generados localmente en `htmlcov/index.html` y `coverage.xml` (ambos ignorados por Git). Enlace al artefacto de CI: seleccionar `cobertura-backend` en el run de Actions |
 | Ejecución de CI (backend) | [Historial de ejecuciones](https://github.com/PokiKoa/backend/actions) — pegar la URL del run de la entrega |
 | Ejecución de CI (frontend) | [Historial de ejecuciones](https://github.com/PokiKoa/frontend/actions) — pegar la URL del run de la entrega |

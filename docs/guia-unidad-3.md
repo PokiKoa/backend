@@ -173,7 +173,7 @@ npm run dev
 
 | Repositorio | Pruebas antes | Pruebas después |
 |---|---|---|
-| Backend | 160 | 175 al cierre de la intervención (2026-11-11); la suite actual tiene 210 pruebas, ver [hito3/integracion-y-entrega.md](hito3/integracion-y-entrega.md). Pruebas nuevas: `accounts/test_roles.py`, `accounts/test_role_guards.py`, `medications/test_catalog_validation.py`, `patients/test_active_patient_lock.py`, `poki_koa/test_openapi_contract.py` |
+| Backend | 160 | 175 al cierre de la intervención (2026-11-11); la suite actual tiene 216 pruebas, ver [hito3/integracion-y-entrega.md](hito3/integracion-y-entrega.md). Pruebas nuevas: `accounts/test_roles.py`, `accounts/test_role_guards.py`, `medications/test_catalog_validation.py`, `patients/test_active_patient_lock.py`, `poki_koa/test_openapi_contract.py` |
 | Frontend | 102 | 119 (pruebas nuevas: `utils/csv.test.ts`, `utils/estados.test.ts`, `hooks/queries/reportes.test.ts`, casos en `api/mappers/reportes.test.ts` y `registros.test.ts`) |
 
 CI:

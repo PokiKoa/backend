@@ -101,6 +101,8 @@ Esas contraseñas son públicas y solo se usan con `DEBUG=True`. Con `DEBUG=Fals
 SEED_DEMO_PASSWORD='<contraseña robusta>' uv run poki_koa seed_demo
 ```
 
+Volver a ejecutar `seed_demo` no cambia la contraseña de los usuarios que ya existen. Solo la cambia (para los cuatro) si se define `SEED_DEMO_PASSWORD`, que sirve para rotarlas a propósito. Los datos de demostración son ficticios: los padres no tienen RUT, los correos usan `example.org` y los teléfonos son de relleno (`+56 9 0000 XXXX`).
+
 ## Contrato OpenAPI para el frontend
 
 `openapi/schema.yml` es el contrato versionado de la API; CI verifica que coincida con el código. El frontend puede generar sus tipos TypeScript desde ese archivo sin autenticarse contra el backend (`/api/v1/schema/` exige sesión):

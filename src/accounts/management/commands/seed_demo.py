@@ -30,6 +30,16 @@ DEMO_ADMIN_PASSWORD = "admin2026"
 DEMO_STAFF_PASSWORD = "Clinica#2026"
 PASSWORD_ENV_VAR = "SEED_DEMO_PASSWORD"
 
+# Datos de contacto de demostración que no pueden pertenecer a nadie. Los padres van sin RUT:
+# el validador exige dígito verificador válido y cualquier RUT válido puede ser de una persona
+# real. Los correos usan example.org (dominio reservado, RFC 2606) y los teléfonos un relleno
+# evidente (9 0000 XXXX), para que nadie los confunda con un contacto real.
+DEMO_PHONES = {
+    "mother_1": "+56 9 0000 0101",
+    "father_1": "+56 9 0000 0102",
+    "mother_2": "+56 9 0000 0201",
+}
+
 
 def resolve_demo_passwords() -> tuple[str, str]:
     """Elige las contraseñas de ``admin`` y del resto de usuarios de demostración.
@@ -79,7 +89,7 @@ class Command(BaseCommand):
         admin_user, _ = User.objects.get_or_create(
             username="admin",
             defaults={
-                "email": "admin@pokikoa.cl",
+                "email": "admin@example.org",
                 "full_name": "Administrador General UCIN",
                 "role": UserRole.ADMIN,
                 "is_staff": True,
@@ -96,7 +106,7 @@ class Command(BaseCommand):
         neo, _ = User.objects.get_or_create(
             username="dr.soto",
             defaults={
-                "email": "dr.soto@pokikoa.cl",
+                "email": "dr.soto@example.org",
                 "full_name": "Dr. Martín Soto (Neonatólogo)",
                 "role": UserRole.NEONATOLOGIST,
                 "shift": WorkShift.MORNING,
@@ -109,7 +119,7 @@ class Command(BaseCommand):
         nurse, _ = User.objects.get_or_create(
             username="matrona.diaz",
             defaults={
-                "email": "matrona.diaz@pokikoa.cl",
+                "email": "matrona.diaz@example.org",
                 "full_name": "Matrona Javiera Díaz",
                 "role": UserRole.NURSE,
                 "shift": WorkShift.MORNING,
@@ -122,7 +132,7 @@ class Command(BaseCommand):
         pharmacist, _ = User.objects.get_or_create(
             username="qf.silva",
             defaults={
-                "email": "qf.silva@pokikoa.cl",
+                "email": "qf.silva@example.org",
                 "full_name": "QF. Rodrigo Silva",
                 "role": UserRole.PHARMACIST,
                 "shift": WorkShift.MORNING,
@@ -179,14 +189,12 @@ class Command(BaseCommand):
                 crib_id=cribs["C-01"].id,
                 # RUT y teléfonos ficticios (dígito verificador válido, números de ejemplo)
                 guardians={
-                    "mother_rut": "16.482.937-5",
                     "mother_first_names": "Camila Andrea",
                     "mother_last_names": "Rojas Muñoz",
-                    "mother_phone": "+56 9 5555 0101",
-                    "father_rut": "15.739.204-2",
+                    "mother_phone": DEMO_PHONES["mother_1"],
                     "father_first_names": "Felipe Ignacio",
                     "father_last_names": "González Pérez",
-                    "father_phone": "+56 9 5555 0102",
+                    "father_phone": DEMO_PHONES["father_1"],
                 },
             )
             record_patient_weight(actor=nurse, patient=p1, weight_g=1535)
@@ -230,10 +238,9 @@ class Command(BaseCommand):
                 attending_physician_id=neo.id,
                 crib_id=cribs["C-02"].id,
                 guardians={
-                    "mother_rut": "17.205.846-9",
                     "mother_first_names": "Valentina Paz",
                     "mother_last_names": "Contreras Fuentes",
-                    "mother_phone": "+56 9 5555 0201",
+                    "mother_phone": DEMO_PHONES["mother_2"],
                 },
             )
             create_care_plan(

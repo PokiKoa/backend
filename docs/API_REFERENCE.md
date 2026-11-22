@@ -4,7 +4,7 @@ Todas las rutas HTTP del backend están versionadas bajo `/api/v1/` con identifi
 
 - **Esquema OpenAPI 3.0:** `GET /api/v1/schema/`
 - **Documentación interactiva (Swagger UI):** `GET /api/v1/docs/`
-- **Diagnóstico del sistema:** `GET /api/v1/health/`
+- **Diagnóstico del sistema:** `GET /api/v1/health/` (healthcheck ligero: `GET /api/v1/health/ready/`)
 
 ---
 
@@ -69,6 +69,7 @@ GET /api/v1/alerts/?is_open=true&crib=3&triggered_after=2026-11-03T03:00:00-03:0
 | Módulo | Método y Ruta | Descripción |
 |---|---|---|
 | **Sistema** | `GET /api/v1/health/` | Estado operativo de base de datos, canal de tiempo real y métricas. |
+| **Sistema** | `GET /api/v1/health/ready/` | Healthcheck ligero para Docker y proxies: `200 {"status": "ok"}` si la base de datos responde, `503 {"status": "unavailable"}` si no. Público, sin métricas, exento de `SECURE_SSL_REDIRECT` y fuera del contrato OpenAPI. |
 | **Autenticación** | `POST /api/v1/auth/login/` | Inicio de sesión por `username` y `password` (y `otp_code` si 2FA está activo). Devuelve `{"access", "user"}` y deja el refresh en una cookie httpOnly. |
 | | `POST /api/v1/auth/refresh/` | Sin cuerpo: rota el refresh de la cookie httpOnly `poki_refresh` y devuelve `{"access"}`. |
 | | `POST /api/v1/auth/logout/` | Sin cuerpo: revoca el refresh de la cookie y la elimina (idempotente). |

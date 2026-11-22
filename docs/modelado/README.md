@@ -14,6 +14,7 @@ Cuatro diagramas UML que describen el sistema **tal como está construido** en e
 Los cuatro diagramas son un solo modelo: un mismo concepto se llama igual en todos y en el código. La forma de comprobarlo es seguir un concepto de punta a punta:
 
 - **La alerta.** En casos de uso es *CU-25 Generar alerta clínica* y *CU-17 Reconocer o resolver alerta*. En clases es `Alert`, que se evalúa con los umbrales de `AlertThresholdConfig` (la composición de `Patient`). En la secuencia la crea, deduplica o resuelve `evaluate_reading_alerts` (mensajes 17 a 19). En el código vive en `src/alerts/`.
-- **La cuna.** En casos de uso es el actor externo *Cuna con monitor*. En clases es `Crib`. En la secuencia es la primera línea de vida, autenticada con `X-Device-Api-Key`. En el código vive en `src/devices/`.
+- **La cuna.** En casos de uso es el actor externo *Cuna con monitor*. En clases es `Crib`. En la secuencia es la primera línea de vida, autenticada con `X-Device-Api-Key`. En el código vive en `src/devices/`. En componentes es ese mismo actor externo, conectado por la interfaz *Telemetría `X-Device-Api-Key`* al servicio `app`.
+- **El monitor desconectado.** En casos de uso es *CU-26 Detectar cunas desconectadas* (el temporizador). En componentes es el proceso `offline-monitor`, que comparte con el backend la interfaz *Channel layer* para publicar alertas; si se cae, la API sigue atendiendo.
 
 Elegimos diagramas como código, y no imágenes, porque así el modelo evoluciona junto al sistema. Si un modelo, una regla de permisos o un servicio cambia, el diagrama se corrige en el mismo PR y la diferencia queda en el historial.

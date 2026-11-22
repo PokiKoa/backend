@@ -13,12 +13,14 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "poki_koa.settings.prod")
 
 django_asgi_app = get_asgi_application()
 
-from vitals.realtime import JwtWebSocketAuthMiddleware  # noqa: E402
+from vitals.realtime import JwtWebSocketAuthMiddleware, SettingsOriginValidator  # noqa: E402
 from vitals.routing import websocket_urlpatterns  # noqa: E402
 
 application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
-        "websocket": JwtWebSocketAuthMiddleware(URLRouter(websocket_urlpatterns)),
+        "websocket": SettingsOriginValidator(
+            JwtWebSocketAuthMiddleware(URLRouter(websocket_urlpatterns))
+        ),
     }
 )

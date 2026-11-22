@@ -20,6 +20,8 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=CORS_ALLOWED_ORI
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+# El healthcheck del contenedor llega por HTTP desde la red interna, sin pasar por el proxy TLS
+SECURE_REDIRECT_EXEMPT = [r"^api/v1/health/ready/$"]
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 REFRESH_COOKIE["SECURE"] = True

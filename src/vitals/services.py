@@ -8,7 +8,8 @@ from django.db import transaction
 from django.db.models import Count, OuterRef, Subquery
 from django.utils import timezone
 
-from accounts.models import User, UserRole
+from accounts.models import User
+from accounts.roles import CLINICAL_OR_ADMIN, has_role
 from alerts.models import Alert, AlertSeverity, AlertStatus
 from alerts.serializers import AlertSerializer
 from alerts.services import AlertEvaluationSummary, evaluate_reading_alerts
@@ -51,15 +52,7 @@ def ingest_telemetry(
     assert isinstance(payload, dict), "payload debe ser un diccionario."
     assert isinstance(is_device_authenticated, bool), "is_device_authenticated debe ser booleano."
 
-    if not is_device_authenticated and (
-        actor_user is None
-        or actor_user.role
-        not in {
-            UserRole.ADMIN,
-            UserRole.NEONATOLOGIST,
-            UserRole.NURSE,
-        }
-    ):
+    if not is_device_authenticated and not has_role(actor_user, CLINICAL_OR_ADMIN):
         raise PermissionDomainError(
             "Solo un dispositivo autenticado o personal clínico/administrativo puede enviar telemetría."
         )
@@ -157,7 +150,7 @@ def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
     """
     assert crib_ids is None or (
         isinstance(crib_ids, list) and all(isinstance(i, int) for i in crib_ids)
-    ), "cribs_ids debe ser None o una lista de enteros."
+    ), "crib_ids debe ser None o una lista de enteros."
 
     # Consultas acotadas e independientes del número de cunas para el panel principal
     latest_reading_id = (

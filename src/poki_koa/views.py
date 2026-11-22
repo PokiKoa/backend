@@ -1,15 +1,17 @@
 """Vistas de infraestructura: portada con estadísticas y chequeo de salud del servicio."""
 
 import json
+import logging
 import time
 from typing import Any, ClassVar
 
 from channels.layers import get_channel_layer
 from django.conf import settings
-from django.db import connection
-from django.http import HttpRequest, HttpResponse
+from django.db import DatabaseError, connection
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
+from django.views.decorators.http import require_safe
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
@@ -18,6 +20,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .dashboard import get_clinical_dashboard_stats
+
+logger = logging.getLogger(__name__)
 
 
 def root_dashboard_view(request: HttpRequest) -> HttpResponse:
@@ -132,3 +136,28 @@ class HealthCheckView(APIView):
                 },
             )
         return Response(payload, status=status.HTTP_200_OK)
+
+
+@require_safe
+def readiness_view(request: HttpRequest) -> JsonResponse:
+    """Healthcheck ligero para Docker y proxies: solo comprueba que la base de datos responda.
+
+    Es público y no expone métricas ni versiones. Queda fuera del contrato OpenAPI y exento de
+    ``SECURE_SSL_REDIRECT`` (ver ``settings/prod.py``) porque el healthcheck del contenedor
+    lo llama por HTTP dentro de la red interna.
+
+    Args:
+        request: Petición HTTP ``GET`` o ``HEAD``.
+
+    Returns:
+        200 con ``{"status": "ok"}``, o 503 con ``{"status": "unavailable"}`` si la base de
+        datos no responde.
+    """
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except DatabaseError:
+        logger.warning("Healthcheck: la base de datos no responde", exc_info=True)
+        return JsonResponse({"status": "unavailable"}, status=503)
+    return JsonResponse({"status": "ok"})

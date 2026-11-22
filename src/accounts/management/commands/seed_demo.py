@@ -1,9 +1,12 @@
 """Comando que carga datos ficticios de demostración (usuarios, cunas, pacientes, medicación y telemetría)."""
 
+import os
 from datetime import time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
@@ -22,37 +25,101 @@ from patients.services import (
 )
 from vitals.services import ingest_telemetry
 
+# Contraseñas públicas (README): solo sirven en desarrollo, nunca en un servidor con DEBUG=False
+DEMO_ADMIN_PASSWORD = "admin2026"
+DEMO_STAFF_PASSWORD = "Clinica#2026"
+PASSWORD_ENV_VAR = "SEED_DEMO_PASSWORD"
+
+# Datos de contacto de demostración que no pueden pertenecer a nadie. Los padres van sin RUT:
+# el validador exige dígito verificador válido y cualquier RUT válido puede ser de una persona
+# real. Los correos usan example.org (dominio reservado, RFC 2606) y los teléfonos un relleno
+# evidente (9 0000 XXXX), para que nadie los confunda con un contacto real.
+DEMO_PHONES = {
+    "mother_1": "+56 9 0000 0101",
+    "father_1": "+56 9 0000 0102",
+    "mother_2": "+56 9 0000 0201",
+}
+
+
+def resolve_demo_passwords() -> tuple[str, str]:
+    """Elige las contraseñas de ``admin`` y del resto de usuarios de demostración.
+
+    Con ``SEED_DEMO_PASSWORD`` definida, todos los usuarios usan esa contraseña, que debe cumplir
+    la política de contraseñas y no puede ser una de las públicas. Sin ella, se usan las públicas
+    solo si ``DEBUG=True``.
+
+    Returns:
+        Tupla ``(contraseña_admin, contraseña_resto)``.
+
+    Raises:
+        CommandError: Si ``DEBUG=False`` y falta la variable, o si la contraseña no es válida.
+    """
+    custom = os.environ.get(PASSWORD_ENV_VAR, "")
+    if not custom:
+        if not settings.DEBUG:
+            raise CommandError(
+                f"seed_demo no crea usuarios con contraseñas públicas cuando DEBUG=False. "
+                f"Define {PASSWORD_ENV_VAR} con una contraseña robusta para los usuarios de demostración."
+            )
+        return DEMO_ADMIN_PASSWORD, DEMO_STAFF_PASSWORD
+    if custom in (DEMO_ADMIN_PASSWORD, DEMO_STAFF_PASSWORD):
+        raise CommandError(
+            f"{PASSWORD_ENV_VAR} no puede ser una de las contraseñas públicas de demostración."
+        )
+    try:
+        validate_password(custom)
+    except ValidationError as exc:
+        raise CommandError(
+            f"{PASSWORD_ENV_VAR} no cumple la política de contraseñas: {' '.join(exc.messages)}"
+        ) from exc
+    return custom, custom
+
+
+def _set_demo_password(user: User, password: str, *, created: bool, rotate: bool) -> None:
+    """Fija la clave de un usuario de demostración sin pisar la de uno que ya existía.
+
+    Volver a correr ``seed_demo`` sin ``SEED_DEMO_PASSWORD`` no puede devolver a un usuario
+    existente a las claves públicas: si la base ya tiene usuarios con claves propias (por
+    ejemplo, una base desplegada), quedarían expuestas con la contraseña del README.
+
+    Args:
+        user: Usuario de demostración recién obtenido o creado.
+        password: Clave que le corresponde según ``resolve_demo_passwords``.
+        created: Si ``get_or_create`` acaba de crearlo.
+        rotate: Si se definió ``SEED_DEMO_PASSWORD`` para rotar las claves a propósito.
+    """
+    if created or rotate:
+        user.set_password(password)
+
 
 class Command(BaseCommand):
     """Comando que carga datos ficticios de demostración neonatal y asegura el usuario ``admin``."""
 
     help = (
-        "Carga datos ficticios de demostración neonatal y asegura el superusuario admin/admin2026."
+        "Carga datos ficticios de demostración neonatal y asegura el superusuario admin "
+        "(admin2026 en desarrollo; con DEBUG=False exige SEED_DEMO_PASSWORD)."
     )
 
     def handle(self, *args, **options) -> None:
         """Crea de forma idempotente usuarios, cunas, pacientes, catálogo, indicaciones y lecturas de ejemplo.
 
         Contrato de la función:
-        - Precondición: El entorno de ejecución debe ser de desarrollo (DEBUG=True) o de pruebas.
-        - Postcondición: Los usuarios base, cunas, pacientes de prueba (RN Mateo/Sofía) y
-          medicamentos base existen en la base de datos con sus relaciones establecidas.
-        - Invariante: La ejecución repetida no duplica pacientes ni usuarios base (Idempotencia).
+            - Precondición: Si ``DEBUG=False``, debe definirse una ``SEED_DEMO_PASSWORD`` válida
+              y distinta de las contraseñas públicas.
+            - Postcondición: Los usuarios base, cunas, pacientes de prueba (RN Mateo/Sofía) y
+              medicamentos base existen en la base de datos con sus relaciones establecidas.
+            - Invariante: La ejecución repetida no duplica registros ni sobrescribe contraseñas
+              de usuarios existentes salvo que se solicite rotación explícita (Idempotencia).
         """
-        # 1. Validación defensiva en la frontera (Evita desastres en Producción, permitiendo pruebas)
-        db_name = str(settings.DATABASES.get("default", {}).get("NAME", ""))
-        is_test_environment = ":memory:" in db_name or "test" in db_name.lower()
-
-        if not settings.DEBUG and not is_test_environment:
-            raise CommandError(
-                "Validación fallida: No se permite ejecutar la carga de datos ficticios en Producción."
-            )
+        admin_password, staff_password = resolve_demo_passwords()
+        # Con SEED_DEMO_PASSWORD explícita se rotan las claves; sin ella solo se fijan al crear
+        rotate = bool(os.environ.get(PASSWORD_ENV_VAR, ""))
 
         # --- Creación de Usuarios ---
-        admin_user, _ = User.objects.get_or_create(
+        admin_user, admin_user_created = User.objects.get_or_create(
             username="admin",
             defaults={
-                "email": "admin@pokikoa.cl",
+                "email": "admin@example.org",
                 "full_name": "Administrador General UCIN",
                 "role": UserRole.ADMIN,
                 "is_staff": True,
@@ -63,51 +130,51 @@ class Command(BaseCommand):
         admin_user.is_staff = True
         admin_user.is_superuser = True
         admin_user.role = UserRole.ADMIN
-        admin_user.set_password("admin2026")
+        _set_demo_password(admin_user, admin_password, created=admin_user_created, rotate=rotate)
         admin_user.save()
 
-        # 2. Aserción de supuesto interno/invariante
+        # Aserción de supuesto interno/invariante
         assert admin_user.is_superuser, (
             "Invariante roto: El usuario admin debe tener privilegios de superusuario al iniciar el sistema."
         )
 
-        neo, _ = User.objects.get_or_create(
+        neo, neo_created = User.objects.get_or_create(
             username="dr.soto",
             defaults={
-                "email": "dr.soto@pokikoa.cl",
+                "email": "dr.soto@example.org",
                 "full_name": "Dr. Martín Soto (Neonatólogo)",
                 "role": UserRole.NEONATOLOGIST,
                 "shift": WorkShift.MORNING,
                 "is_staff": True,
             },
         )
-        neo.set_password("Clinica#2026")
+        _set_demo_password(neo, staff_password, created=neo_created, rotate=rotate)
         neo.save()
 
-        nurse, _ = User.objects.get_or_create(
+        nurse, nurse_created = User.objects.get_or_create(
             username="matrona.diaz",
             defaults={
-                "email": "matrona.diaz@pokikoa.cl",
+                "email": "matrona.diaz@example.org",
                 "full_name": "Matrona Javiera Díaz",
                 "role": UserRole.NURSE,
                 "shift": WorkShift.MORNING,
                 "is_staff": True,
             },
         )
-        nurse.set_password("Clinica#2026")
+        _set_demo_password(nurse, staff_password, created=nurse_created, rotate=rotate)
         nurse.save()
 
-        pharmacist, _ = User.objects.get_or_create(
+        pharmacist, pharmacist_created = User.objects.get_or_create(
             username="qf.silva",
             defaults={
-                "email": "qf.silva@pokikoa.cl",
+                "email": "qf.silva@example.org",
                 "full_name": "QF. Rodrigo Silva",
                 "role": UserRole.PHARMACIST,
                 "shift": WorkShift.MORNING,
                 "is_staff": True,
             },
         )
-        pharmacist.set_password("Clinica#2026")
+        _set_demo_password(pharmacist, staff_password, created=pharmacist_created, rotate=rotate)
         pharmacist.save()
 
         # --- Creación de Cunas ---
@@ -129,7 +196,7 @@ class Command(BaseCommand):
                 )
             cribs[code] = existing
 
-        # 3. Aserción de supuesto interno
+        # Aserción de supuesto interno
         assert len(cribs) >= 4, (
             "Supuesto interno fallido: No se generaron las 4 cunas base requeridas."
         )
@@ -164,14 +231,12 @@ class Command(BaseCommand):
                 attending_physician_id=neo.id,
                 crib_id=cribs["C-01"].id,
                 guardians={
-                    "mother_rut": "16.482.937-5",
                     "mother_first_names": "Camila Andrea",
                     "mother_last_names": "Rojas Muñoz",
-                    "mother_phone": "+56 9 5555 0101",
-                    "father_rut": "15.739.204-2",
+                    "mother_phone": DEMO_PHONES["mother_1"],
                     "father_first_names": "Felipe Ignacio",
                     "father_last_names": "González Pérez",
-                    "father_phone": "+56 9 5555 0102",
+                    "father_phone": DEMO_PHONES["father_1"],
                 },
             )
             record_patient_weight(actor=nurse, patient=p1, weight_g=1535)
@@ -215,10 +280,9 @@ class Command(BaseCommand):
                 attending_physician_id=neo.id,
                 crib_id=cribs["C-02"].id,
                 guardians={
-                    "mother_rut": "17.205.846-9",
                     "mother_first_names": "Valentina Paz",
                     "mother_last_names": "Contreras Fuentes",
-                    "mother_phone": "+56 9 5555 0201",
+                    "mother_phone": DEMO_PHONES["mother_2"],
                 },
             )
             create_care_plan(
@@ -284,8 +348,14 @@ class Command(BaseCommand):
                     units_per_administration=1,
                 )
 
+        if not (admin_user_created or rotate):
+            password_hint = "clave existente, sin cambios"
+        elif admin_password == DEMO_ADMIN_PASSWORD:
+            password_hint = f"clave: '{DEMO_ADMIN_PASSWORD}'"
+        else:
+            password_hint = f"clave: la de {PASSWORD_ENV_VAR}"
         self.stdout.write(
             self.style.SUCCESS(
-                "Datos ficticios cargados y superusuario 'admin' (clave: 'admin2026') listo."
+                f"Datos ficticios cargados y superusuario 'admin' ({password_hint}) listo."
             )
         )

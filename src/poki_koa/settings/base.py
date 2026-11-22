@@ -112,6 +112,10 @@ STORAGES = {
 }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Proxies inversos propios delante de la app (1 con un Caddy o Nginx). Con 0 se ignora
+# X-Forwarded-For, que cualquier cliente puede falsificar; lo usan la auditoría y el throttling.
+TRUSTED_PROXY_COUNT = env.int("TRUSTED_PROXY_COUNT", default=0)
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -126,6 +130,7 @@ REST_FRAMEWORK = {
         "rest_framework.filters.OrderingFilter",
     ),
     "EXCEPTION_HANDLER": "poki_koa.exceptions.custom_exception_handler",
+    "NUM_PROXIES": TRUSTED_PROXY_COUNT,
     "DEFAULT_THROTTLE_RATES": {
         "login": env("LOGIN_THROTTLE_RATE", default="5/min"),
     },

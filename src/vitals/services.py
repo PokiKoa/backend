@@ -8,7 +8,8 @@ from django.db import transaction
 from django.db.models import Count, OuterRef, Subquery
 from django.utils import timezone
 
-from accounts.models import User, UserRole
+from accounts.models import User
+from accounts.roles import CLINICAL_OR_ADMIN, has_role
 from alerts.models import Alert, AlertSeverity, AlertStatus
 from alerts.serializers import AlertSerializer
 from alerts.services import AlertEvaluationSummary, evaluate_reading_alerts
@@ -43,15 +44,7 @@ def ingest_telemetry(
         PermissionDomainError: Si no es un dispositivo autenticado ni personal autorizado.
         DomainError: Si el payload no supera la validación fisiológica.
     """
-    if not is_device_authenticated and (
-        actor_user is None
-        or actor_user.role
-        not in {
-            UserRole.ADMIN,
-            UserRole.NEONATOLOGIST,
-            UserRole.NURSE,
-        }
-    ):
+    if not is_device_authenticated and not has_role(actor_user, CLINICAL_OR_ADMIN):
         raise PermissionDomainError(
             "Solo un dispositivo autenticado o personal clínico/administrativo puede enviar telemetría."
         )

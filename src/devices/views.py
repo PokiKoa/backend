@@ -10,8 +10,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from accounts.models import UserRole
 from accounts.permissions import IsAdminRole
+from accounts.roles import CLINICAL_OR_ADMIN, require_role
 from audit.services import get_client_ip
 from poki_koa.exceptions import PermissionDomainError
 
@@ -126,10 +126,11 @@ class CribViewSet(
     @action(detail=True, methods=["post"], url_path="assign-patient")
     def assign_patient(self, request: Request, pk=None) -> Response:
         """Asigna un paciente activo a la cuna y responde 200 con la cuna."""
-        if request.user.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
-            raise PermissionDomainError(
-                "Solo el personal clínico o administrativo puede asignar pacientes a una cuna."
-            )
+        require_role(
+            request.user,
+            CLINICAL_OR_ADMIN,
+            "Solo el personal clínico o administrativo puede asignar pacientes a una cuna.",
+        )
         crib = self.get_object()
         serializer = CribAssignPatientSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -152,10 +153,11 @@ class CribViewSet(
     @action(detail=True, methods=["post"], url_path="release")
     def release(self, request: Request, pk=None) -> Response:
         """Libera la cuna desvinculando a su paciente y responde 200 con la cuna."""
-        if request.user.role not in {UserRole.ADMIN, UserRole.NEONATOLOGIST, UserRole.NURSE}:
-            raise PermissionDomainError(
-                "Solo el personal clínico o administrativo puede liberar una cuna."
-            )
+        require_role(
+            request.user,
+            CLINICAL_OR_ADMIN,
+            "Solo el personal clínico o administrativo puede liberar una cuna.",
+        )
         crib = self.get_object()
 
         from patients.services import release_patient_from_crib
@@ -252,14 +254,11 @@ class CribViewSet(
     @action(detail=False, methods=["post"], url_path="check-offline")
     def check_offline(self, request: Request) -> Response:
         """Marca como offline las cunas activas sin telemetría reciente y responde 200 con las detectadas."""
-        if request.user.role not in {
-            UserRole.ADMIN,
-            UserRole.NEONATOLOGIST,
-            UserRole.NURSE,
-        }:
-            raise PermissionDomainError(
-                "Solo el personal clínico o administrativo puede ejecutar la verificación de cunas desconectadas."
-            )
+        require_role(
+            request.user,
+            CLINICAL_OR_ADMIN,
+            "Solo el personal clínico o administrativo puede ejecutar la verificación de cunas desconectadas.",
+        )
         raw_timeout = (
             request.data.get("timeout_seconds", 120) if isinstance(request.data, dict) else 120
         )

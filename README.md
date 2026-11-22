@@ -6,7 +6,7 @@ Backend REST (`/api/v1/`) y tiempo real (`ws/v1/`) para monitoreo clínico en un
 
 ## Modelado y despliegue
 
-- **Modelado UML (Entrega 3):** [docs/modelado/](./docs/modelado/README.md), con los diagramas de casos de uso, clases y secuencia.
+- **Modelado UML (Entrega 3):** [docs/modelado/](./docs/modelado/README.md), con los diagramas de casos de uso, clases, secuencia y componentes.
 - **Despliegue:** [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md) y la guía corta [docs/info_despliegue.md](./docs/info_despliegue.md).
 
 ## Stack

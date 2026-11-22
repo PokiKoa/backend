@@ -6,7 +6,7 @@ Backend REST (`/api/v1/`) y tiempo real (`ws/v1/`) para monitoreo clínico en un
 
 ## Modelado y despliegue
 
-- **Modelado UML (Entrega 3):** [docs/modelado/](./docs/modelado/README.md), con los diagramas de casos de uso, clases, secuencia y componentes.
+- **Modelado UML (Entrega 3):** [docs/modelado/](./docs/modelado/README.md), con los diagramas de casos de uso, clases y secuencia.
 - **Despliegue:** [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md) y la guía corta [docs/info_despliegue.md](./docs/info_despliegue.md).
 
 ## Stack
@@ -115,9 +115,18 @@ Tras cambiar la API, regenera el archivo:
 uv run poki_koa spectacular --validate --fail-on-warn --file openapi/schema.yml
 ```
 
+## Evidencias del Hito 3 (Unidad 3)
+
+- [Ficha de intervenciones, modularización y dependencia](./docs/guia-unidad-3.md): tres refactorizaciones, indicadores antes/después, contrato reutilizable y revisión de `drf-spectacular`.
+- [Integración, cobertura, paquete y cierre](./docs/hito3/integracion-y-entrega.md): flujo principal, tres casos ejecutados, resultados de pruebas y cobertura, versión e informe de cierre.
+
+Para extender el sistema, crea una app de dominio en `src/` siguiendo [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (HTTP en `views.py`, negocio en `services.py`, reglas puras en `rules.py`), agrega sus pruebas en `src/<app>/test_*.py` y ejecuta `uv run pytest` y `uv run ruff check src` antes de abrir el PR.
+
 ## Documentación del Proyecto
 
 - [AGENTS.md](./AGENTS.md): Guía operativa, reglas de código y convenciones del repositorio.
+- [docs/guia-unidad-3.md](./docs/guia-unidad-3.md): Ficha de evidencias de la Unidad 3.
+- [docs/hito3/integracion-y-entrega.md](./docs/hito3/integracion-y-entrega.md): Integración, cobertura, paquete, versión e informe de cierre.
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md): Arquitectura modular por dominios, reglas fisiológicas y ciclo de vida de alertas.
 - [docs/API_REFERENCE.md](./docs/API_REFERENCE.md): Contrato REST `/api/v1/`, canales WebSocket `/ws/v1/` y formato de errores.
 - [docs/SECURITY_AND_RBAC.md](./docs/SECURITY_AND_RBAC.md): Autenticación JWT, matriz de permisos RBAC, API keys por dispositivo y 2FA (TOTP).

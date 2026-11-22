@@ -30,6 +30,16 @@ DEMO_ADMIN_PASSWORD = "admin2026"
 DEMO_STAFF_PASSWORD = "Clinica#2026"
 PASSWORD_ENV_VAR = "SEED_DEMO_PASSWORD"
 
+# Datos de contacto de demostración que no pueden pertenecer a nadie. Los padres van sin RUT:
+# el validador exige dígito verificador válido y cualquier RUT válido puede ser de una persona
+# real. Los correos usan example.org (dominio reservado, RFC 2606) y los teléfonos un relleno
+# evidente (9 0000 XXXX), para que nadie los confunda con un contacto real.
+DEMO_PHONES = {
+    "mother_1": "+56 9 0000 0101",
+    "father_1": "+56 9 0000 0102",
+    "mother_2": "+56 9 0000 0201",
+}
+
 
 def resolve_demo_passwords() -> tuple[str, str]:
     """Elige las contraseñas de ``admin`` y del resto de usuarios de demostración.
@@ -65,6 +75,23 @@ def resolve_demo_passwords() -> tuple[str, str]:
     return custom, custom
 
 
+def _set_demo_password(user: User, password: str, *, created: bool, rotate: bool) -> None:
+    """Fija la clave de un usuario de demostración sin pisar la de uno que ya existía.
+
+    Volver a correr ``seed_demo`` sin ``SEED_DEMO_PASSWORD`` no puede devolver a un usuario
+    existente a las claves públicas: si la base ya tiene usuarios con claves propias (por
+    ejemplo, una base desplegada), quedarían expuestas con la contraseña del README.
+
+    Args:
+        user: Usuario de demostración recién obtenido o creado.
+        password: Clave que le corresponde según ``resolve_demo_passwords``.
+        created: Si ``get_or_create`` acaba de crearlo.
+        rotate: Si se definió ``SEED_DEMO_PASSWORD`` para rotar las claves a propósito.
+    """
+    if created or rotate:
+        user.set_password(password)
+
+
 class Command(BaseCommand):
     """Carga datos ficticios de demostración neonatal y asegura el usuario ``admin``. Solo para desarrollo."""
 
@@ -76,10 +103,12 @@ class Command(BaseCommand):
     def handle(self, *args, **options) -> None:
         """Crea de forma idempotente usuarios, cunas, pacientes, catálogo, indicaciones y lecturas de ejemplo."""
         admin_password, staff_password = resolve_demo_passwords()
-        admin_user, _ = User.objects.get_or_create(
+        # Con SEED_DEMO_PASSWORD explícita se rotan las claves; sin ella solo se fijan al crear
+        rotate = bool(os.environ.get(PASSWORD_ENV_VAR, ""))
+        admin_user, admin_user_created = User.objects.get_or_create(
             username="admin",
             defaults={
-                "email": "admin@pokikoa.cl",
+                "email": "admin@example.org",
                 "full_name": "Administrador General UCIN",
                 "role": UserRole.ADMIN,
                 "is_staff": True,
@@ -90,46 +119,46 @@ class Command(BaseCommand):
         admin_user.is_staff = True
         admin_user.is_superuser = True
         admin_user.role = UserRole.ADMIN
-        admin_user.set_password(admin_password)
+        _set_demo_password(admin_user, admin_password, created=admin_user_created, rotate=rotate)
         admin_user.save()
 
-        neo, _ = User.objects.get_or_create(
+        neo, neo_created = User.objects.get_or_create(
             username="dr.soto",
             defaults={
-                "email": "dr.soto@pokikoa.cl",
+                "email": "dr.soto@example.org",
                 "full_name": "Dr. Martín Soto (Neonatólogo)",
                 "role": UserRole.NEONATOLOGIST,
                 "shift": WorkShift.MORNING,
                 "is_staff": True,
             },
         )
-        neo.set_password(staff_password)
+        _set_demo_password(neo, staff_password, created=neo_created, rotate=rotate)
         neo.save()
 
-        nurse, _ = User.objects.get_or_create(
+        nurse, nurse_created = User.objects.get_or_create(
             username="matrona.diaz",
             defaults={
-                "email": "matrona.diaz@pokikoa.cl",
+                "email": "matrona.diaz@example.org",
                 "full_name": "Matrona Javiera Díaz",
                 "role": UserRole.NURSE,
                 "shift": WorkShift.MORNING,
                 "is_staff": True,
             },
         )
-        nurse.set_password(staff_password)
+        _set_demo_password(nurse, staff_password, created=nurse_created, rotate=rotate)
         nurse.save()
 
-        pharmacist, _ = User.objects.get_or_create(
+        pharmacist, pharmacist_created = User.objects.get_or_create(
             username="qf.silva",
             defaults={
-                "email": "qf.silva@pokikoa.cl",
+                "email": "qf.silva@example.org",
                 "full_name": "QF. Rodrigo Silva",
                 "role": UserRole.PHARMACIST,
                 "shift": WorkShift.MORNING,
                 "is_staff": True,
             },
         )
-        pharmacist.set_password(staff_password)
+        _set_demo_password(pharmacist, staff_password, created=pharmacist_created, rotate=rotate)
         pharmacist.save()
 
         crib_specs = [
@@ -179,14 +208,12 @@ class Command(BaseCommand):
                 crib_id=cribs["C-01"].id,
                 # RUT y teléfonos ficticios (dígito verificador válido, números de ejemplo)
                 guardians={
-                    "mother_rut": "16.482.937-5",
                     "mother_first_names": "Camila Andrea",
                     "mother_last_names": "Rojas Muñoz",
-                    "mother_phone": "+56 9 5555 0101",
-                    "father_rut": "15.739.204-2",
+                    "mother_phone": DEMO_PHONES["mother_1"],
                     "father_first_names": "Felipe Ignacio",
                     "father_last_names": "González Pérez",
-                    "father_phone": "+56 9 5555 0102",
+                    "father_phone": DEMO_PHONES["father_1"],
                 },
             )
             record_patient_weight(actor=nurse, patient=p1, weight_g=1535)
@@ -230,10 +257,9 @@ class Command(BaseCommand):
                 attending_physician_id=neo.id,
                 crib_id=cribs["C-02"].id,
                 guardians={
-                    "mother_rut": "17.205.846-9",
                     "mother_first_names": "Valentina Paz",
                     "mother_last_names": "Contreras Fuentes",
-                    "mother_phone": "+56 9 5555 0201",
+                    "mother_phone": DEMO_PHONES["mother_2"],
                 },
             )
             create_care_plan(
@@ -301,11 +327,12 @@ class Command(BaseCommand):
                     units_per_administration=1,
                 )
 
-        password_hint = (
-            f"clave: '{DEMO_ADMIN_PASSWORD}'"
-            if admin_password == DEMO_ADMIN_PASSWORD
-            else f"clave: la de {PASSWORD_ENV_VAR}"
-        )
+        if not (admin_user_created or rotate):
+            password_hint = "clave existente, sin cambios"
+        elif admin_password == DEMO_ADMIN_PASSWORD:
+            password_hint = f"clave: '{DEMO_ADMIN_PASSWORD}'"
+        else:
+            password_hint = f"clave: la de {PASSWORD_ENV_VAR}"
         self.stdout.write(
             self.style.SUCCESS(
                 f"Datos ficticios cargados y superusuario 'admin' ({password_hint}) listo."

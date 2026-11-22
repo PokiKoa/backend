@@ -30,8 +30,8 @@ class SeedDemoCommandTests(TestCase):
             Patient.objects.filter(medical_record_number__startswith="RN-2026").count(), 2
         )
         mateo = Patient.objects.get(medical_record_number="RN-2026-001")
-        self.assertEqual(mateo.mother_rut, "16482937-5")
-        self.assertEqual(mateo.father_phone, "+56955550102")
+        self.assertEqual(mateo.mother_rut, "")
+        self.assertEqual(mateo.father_phone, "+56900000102")
         self.assertTrue(CribMovement.objects.filter(patient=mateo).exists())
 
 

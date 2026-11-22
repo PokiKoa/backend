@@ -69,3 +69,23 @@ class SeedDemoDevelopmentTests(TestCase):
     def test_env_password_also_applies_in_debug(self) -> None:
         _seed(STRONG_PASSWORD)
         self.assertTrue(User.objects.get(username="qf.silva").check_password(STRONG_PASSWORD))
+
+
+@override_settings(DEBUG=True)
+class SeedDemoKeepsExistingPasswordsTests(TestCase):
+    def test_rerun_without_env_var_keeps_existing_passwords(self) -> None:
+        _seed("")
+        for username in DEMO_USERNAMES:
+            user = User.objects.get(username=username)
+            user.set_password(STRONG_PASSWORD)
+            user.save()
+
+        output = _seed("")
+
+        for username in DEMO_USERNAMES:
+            user = User.objects.get(username=username)
+            self.assertTrue(user.check_password(STRONG_PASSWORD), username)
+            self.assertFalse(user.check_password(DEMO_ADMIN_PASSWORD), username)
+            self.assertFalse(user.check_password(DEMO_STAFF_PASSWORD), username)
+        self.assertIn("sin cambios", output)
+        self.assertNotIn(DEMO_ADMIN_PASSWORD, output)

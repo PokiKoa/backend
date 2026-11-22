@@ -242,3 +242,16 @@ classDiagram
 - Autoría: para no cruzar el dibujo, las claves foráneas de autoría (`created_by`, `recorded_by`, `author`, `moved_by`, `discharged_by`, `updated_by`, `acknowledged_by`, `resolved_by`) se muestran como atributos de tipo `User`, con su multiplicidad entre corchetes.
 - Nombre de cada asociación: es el campo del modelo que la implementa.
 - Enumeraciones: en el código son `TextChoices`. Solo se dibujan las tres que ayudan a leer el diagrama; las demás aparecen como tipo de su atributo.
+
+## Correspondencia con el código
+
+| Clase | Archivo |
+|---|---|
+| `User`, `UserRole`, `ShiftAssignment` | `src/accounts/models.py` |
+| `Crib`, `CribStatus` | `src/devices/models.py` |
+| `Patient`, `WeightRecord`, `CarePlan`, `ClinicalObservation`, `CribMovement` | `src/patients/models.py` |
+| `VitalSignReading` | `src/vitals/models.py` |
+| `Alert`, `AlertStatus`, `AlertThresholdConfig` | `src/alerts/models.py` |
+| `MedicationCatalogItem`, `Prescription`, `MedicationAdministration` | `src/medications/models.py` |
+| `AuditLog` | `src/audit/models.py` |
+| `AbstractBaseUser`, `PermissionsMixin` | Django (`django.contrib.auth`), clases base de `User` |

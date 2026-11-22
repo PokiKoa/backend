@@ -185,14 +185,14 @@ User "0..1" --> "0..*" MedicationAdministration : administers
 Patient "1" --> "0..*" WeightRecord : weight history
 User "0..1" --> "0..*" WeightRecord : records
 Patient "1" --> "0..*" CarePlan : care plans
-User "1" --> "0..*" CarePlan : creates
+User "0..1" --> "0..*" CarePlan : creates
 Patient "1" --> "0..*" ClinicalObservation : observations
-User "1" --> "0..*" ClinicalObservation : authors
+User "0..1" --> "0..*" ClinicalObservation : authors
 Patient "1" --> "0..*" CribMovement : movement history
 User "0..1" --> "0..*" CribMovement : moves
 User "1" --> "0..*" ShiftAssignment : assigned user
 Crib "1" --> "0..*" ShiftAssignment : staffed crib
-User "1" --> "0..*" ShiftAssignment : created_by
+User "0..1" --> "0..*" ShiftAssignment : created_by
 User "0..1" --> "0..*" AuditLog : actor
 ```
 

@@ -68,18 +68,18 @@ flowchart LR
     neo --> vitals
     admin --> vitals
 
-    patients -. "<<include>>" .-> auth
-    crib -. "<<include>>" .-> auth
-    plans -. "<<include>>" .-> auth
-    alerts -. "<<include>>" .-> auth
-    prescriptions -. "<<include>>" .-> auth
-    administer -. "<<include>>" .-> auth
-    catalog -. "<<include>>" .-> auth
-    telemetry -. "<<include>>" .-> evaluate
-    evaluate -. "<<include>>" .-> broadcast
-    alerts -. "<<include>>" .-> audit
-    patients -. "<<include>>" .-> audit
-    devices -. "<<include>>" .-> audit
+    patients -.->|"<<include>>"| auth
+    crib -.->|"<<include>>"| auth
+    plans -.->|"<<include>>"| auth
+    alerts -.->|"<<include>>"| auth
+    prescriptions -.->|"<<include>>"| auth
+    administer -.->|"<<include>>"| auth
+    catalog -.->|"<<include>>"| auth
+    telemetry -.->|"<<include>>"| evaluate
+    evaluate -.->|"<<include>>"| broadcast
+    alerts -.->|"<<include>>"| audit
+    patients -.->|"<<include>>"| audit
+    devices -.->|"<<include>>"| audit
 ```
 
 ## Justificación de decisiones

@@ -35,15 +35,50 @@ flowchart TB
       end
     end
 
-    restapi(( "REST /api/v1" ))
-    wsapi(( "WebSocket /ws/v1" ))
-    deviceapi(( "POST telemetry" ))
-    sql(( "SQL / ORM" ))
-    channelif(( "Channel Layer" ))
+    if_rest_prov(("● REST /api/v1\n(provista)"))
+    if_rest_req(["☾ REST /api/v1\n(requerida)"])
+
+    if_iot_prov(("● POST telemetry\n(provista)"))
+    if_iot_req(["☾ POST telemetry\n(requerida)"])
+
+    if_ws_prov(("● WebSocket /ws/v1\n(provista)"))
+    if_ws_req(["☾ WebSocket /ws/v1\n(requerida)"])
+
+    if_sql_prov(("● SQL / ORM\n(provista)"))
+    if_sql_req(["☾ SQL / ORM\n(requerida)"])
+
+    if_chan_prov(("● Channel Layer\n(provista)"))
+    if_chan_req(["☾ Channel Layer\n(requerida)"])
+
+    rest --- if_rest_prov
+    if_rest_prov -.->|consume| if_rest_req
+    frontservices --- if_rest_req
+
+    rest --- if_iot_prov
+    if_iot_prov -.->|consume| if_iot_req
+    iot --- if_iot_req
+
+    ws --- if_ws_prov
+    if_ws_prov -.->|consume| if_ws_req
+    realtimeclient --- if_ws_req
+
+    postgres --- if_sql_prov
+    if_sql_prov -.->|consume| if_sql_req
+    patients --- if_sql_req
+    devices --- if_sql_req
+    vitals --- if_sql_req
+    alerts --- if_sql_req
+    meds --- if_sql_req
+    accounts --- if_sql_req
+    audit --- if_sql_req
+    reports --- if_sql_req
+
+    redis --- if_chan_prov
+    channel --- if_chan_prov
+    if_chan_prov -.->|consume| if_chan_req
+    ws --- if_chan_req
 
     browser --> ui
-    frontservices --> restapi
-    restapi --> rest
     rest --> auth
     rest --> deviceauth
     deviceauth --> devices
@@ -55,8 +90,6 @@ flowchart TB
     rest --> accounts
     rest --> audit
     rest --> reports
-    iot --> deviceapi
-    deviceapi --> rest
     vitals --> alerts
     patients --> audit
     devices --> audit
@@ -64,21 +97,6 @@ flowchart TB
     alerts --> audit
     vitals --> channel
     alerts --> channel
-    channel --> channelif
-    channelif --> redis
-    channelif --> ws
-    realtimeclient --> wsapi
-    wsapi --> ws
-    ws --> channelif
-    patients --> sql
-    devices --> sql
-    vitals --> sql
-    alerts --> sql
-    meds --> sql
-    accounts --> sql
-    audit --> sql
-    reports --> sql
-    sql --> postgres
 ```
 
 ## Interfaces principales
@@ -93,7 +111,7 @@ flowchart TB
 
 ## Justificación de decisiones
 
-El backend se representa como monolito modular y no como microservicios: los dominios son aplicaciones Django dentro del mismo proceso y comparten transacciones y ORM. El frontend está separado porque es un repositorio y una aplicación React independiente que consume REST y WebSocket. Los dispositivos IoT se muestran como externos y utilizan una interfaz de ingesta autenticada con API Key; los usuarios del navegador consumen la API con sesión/JWT. PostgreSQL representa la persistencia principal y Redis la capa de canales para tiempo real en el despliegue Docker Compose documentado. Los módulos `patients`, `devices`, `vitals`, `alerts`, `medications`, `accounts`, `audit` y `reports` se muestran por separado para reflejar sus límites de dominio y sus responsabilidades. Los puntos de conexión nombrados evitan reducir la arquitectura a cajas conectadas por flechas sin contrato: cada interfaz indica qué protocolo o servicio ofrece y quién lo consume.
+El backend se representa como monolito modular y no como microservicios: los dominios son aplicaciones Django dentro del mismo proceso y comparten transacciones y ORM. El frontend está separado porque es un repositorio y una aplicación React independiente que consume REST y WebSocket. Los dispositivos IoT se muestran como externos y utilizan una interfaz de ingesta autenticada con API Key; los usuarios del navegador consumen la API con sesión/JWT. PostgreSQL representa la persistencia principal y Redis la capa de canales para tiempo real en el despliegue Docker Compose documentado. Los módulos `patients`, `devices`, `vitals`, `alerts`, `medications`, `accounts`, `audit` y `reports` se muestran por separado para reflejar sus límites de dominio y sus responsabilidades. Las interfaces nombradas con puerto provisto y requerido explican el contrato entre capas sin reducir la arquitectura a cajas y flechas sin contrato.
 
 ## Componentes externos
 

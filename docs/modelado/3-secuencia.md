@@ -1,6 +1,6 @@
 # 3. Diagrama de secuencia
 
-**Caso elegido:** ingesta de una lectura de telemetría desde una cuna, evaluación de alertas y publicación en tiempo real.
+**Caso elegido:** Enviar telemetría — ingesta de una lectura desde una cuna, validación, evaluación de alertas y publicación en tiempo real.
 
 ```mermaid
 sequenceDiagram
@@ -20,8 +20,10 @@ sequenceDiagram
     API->>Auth: authenticate(request)
     activate Auth
     Auth->>DB: Buscar Crib por api_key_prefix
-    DB-->>Auth: Crib y hash almacenado
-    Auth-->>API: DevicePrincipal autenticado
+    activate DB
+    DB-->>Auth: Fila Crib + api_key_hash + is_device_active
+    deactivate DB
+    Auth-->>API: DevicePrincipal autenticado (crib_id)
     deactivate Auth
 
     API->>VitalSvc: ingest_telemetry(crib, payload, is_device_authenticated=true)
@@ -29,43 +31,74 @@ sequenceDiagram
     VitalSvc->>Rules: validate_telemetry_payload(payload)
     activate Rules
     alt Payload inválido
-        Rules-->>VitalSvc: Error de validación
-        VitalSvc-->>API: DomainError
-        API-->>IoT: Respuesta de error
-    else Payload válido
-        Rules-->>VitalSvc: Lectura validada
+        Rules-->>VitalSvc: Errores de campo / rango fisiológico
         deactivate Rules
+        VitalSvc-->>API: DomainError (motivo de rechazo)
+        API-->>IoT: HTTP 400 + detalle de validación
+    else Payload válido
+        Rules-->>VitalSvc: Lectura normalizada válida
+        deactivate Rules
+
         VitalSvc->>DB: BEGIN + SELECT Crib FOR UPDATE
-        DB-->>VitalSvc: Cuna bloqueada y paciente actual
+        activate DB
+        DB-->>VitalSvc: Crib bloqueada + patient_id actual
+        deactivate DB
+
         VitalSvc->>DB: INSERT VitalSignReading
-        VitalSvc->>DB: UPDATE Crib.last_telemetry_at / status
+        activate DB
+        DB-->>VitalSvc: VitalSignReading creado (reading_id)
+        deactivate DB
+
+        VitalSvc->>DB: UPDATE Crib (last_telemetry_at, status)
+        activate DB
+        DB-->>VitalSvc: Crib actualizada
+        deactivate DB
+
         VitalSvc->>AlertSvc: evaluate_reading_alerts(reading)
         activate AlertSvc
-        AlertSvc->>DB: Leer umbrales efectivos
-        DB-->>AlertSvc: Umbrales globales o del paciente
+        AlertSvc->>DB: Leer umbrales efectivos (paciente o globales)
+        activate DB
+        DB-->>AlertSvc: Umbrales HR, SpO2 y temperatura
+        deactivate DB
+
         AlertSvc->>DB: SELECT alertas abiertas FOR UPDATE
-        DB-->>AlertSvc: Alertas existentes
+        activate DB
+        DB-->>AlertSvc: Alertas activas previas
+        deactivate DB
+
         loop Por cada tipo de anomalía evaluado
-            AlertSvc->>AlertSvc: Crear, deduplicar, escalar o autorresolver
+            AlertSvc->>AlertSvc: Crear, deduplicar, escalar o autorresolver alerta
         end
+
         AlertSvc->>DB: INSERT / UPDATE Alert
-        AlertSvc-->>VitalSvc: Resumen de alertas
+        activate DB
+        DB-->>AlertSvc: Alertas persistidas (activas / resueltas)
+        deactivate DB
+
+        AlertSvc-->>VitalSvc: Resumen de evaluación de alertas
         deactivate AlertSvc
+
         VitalSvc->>DB: COMMIT
-        VitalSvc->>WS: broadcast_telemetry_reading(...)
+        activate DB
+        DB-->>VitalSvc: Transacción confirmada
+        deactivate DB
+
+        VitalSvc->>WS: broadcast_telemetry_reading(reading, alerts)
         activate WS
-        WS-->>UI: telemetry.reading (lectura + alertas activas/resueltas)
+        WS-->>UI: Evento telemetry.reading (lectura + alertas)
+        WS-->>VitalSvc: Broadcast despachado a grupos
         deactivate WS
-        VitalSvc-->>API: (reading, evaluation)
-        API-->>IoT: HTTP 201 + lectura y alertas
+
+        VitalSvc-->>API: (reading, alert_summary)
+        deactivate VitalSvc
+        API-->>IoT: HTTP 201 + lectura y alertas evaluadas
     end
-    deactivate VitalSvc
     deactivate API
 ```
 
 ## Justificación de decisiones
 
-Se escogió la telemetría porque es un flujo central y técnicamente representativo: conecta el dispositivo IoT, la autenticación por API Key, la validación fisiológica, la persistencia, el motor de alertas y la interfaz en tiempo real. El flujo sigue `CribViewSet.telemetry` y `ingest_telemetry`; no se modela como si el dispositivo utilizara JWT de usuario. La transacción bloquea la fila de `Crib` para mantener consistentes el paciente asignado, la última marca de telemetría y el estado de la cuna. Después se evalúan umbrales efectivos y se sincronizan las alertas abiertas, incluyendo deduplicación y autorresolución. La difusión se hace después de la evaluación mediante `broadcast_telemetry_reading`, hacia los grupos de unidad, cuna y paciente. El fragmento `alt` distingue un payload inválido de uno aceptado y el `loop` representa la evaluación de los tipos de anomalía; los retornos muestran resultados que cambian el paso siguiente.
+Se escogió **Enviar telemetría** porque es un flujo central y técnicamente representativo: conecta el dispositivo IoT, la autenticación por API Key, la validación fisiológica, la persistencia, el motor de alertas y la interfaz en tiempo real. El flujo sigue `CribViewSet.telemetry` y `ingest_telemetry`; no se modela como si el dispositivo utilizara JWT de usuario. La transacción bloquea la fila de `Crib` para mantener consistentes el paciente asignado, la última marca de telemetría y el estado de la cuna. Después se evalúan umbrales efectivos y se sincronizan las alertas abiertas, incluyendo deduplicación y autorresolución. La difusión se hace después de la evaluación mediante `broadcast_telemetry_reading`, hacia los grupos de unidad, cuna y paciente. El fragmento `alt` distingue un payload inválido de uno aceptado y el `loop` representa la evaluación de los tipos de anomalía; las barras de activación y retornos muestran el control de ejecución y los datos que condicionan cada paso.
 
 ## Participantes y responsabilidades
 

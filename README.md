@@ -104,6 +104,8 @@ uv run poki_koa spectacular --validate --fail-on-warn --file openapi/schema.yml
 
 ## Documentación del Proyecto
 
+- [docs/modelado/README.md](./docs/modelado/README.md): Modelado UML del sistema (Entrega 3 — casos de uso, clases, secuencia y componentes).
+- **Despliegue del sistema:** `<URL_DEL_DESPLIEGUE>` (ver también [docs/DEPLOYMENT_AND_OPERATIONS.md](./docs/DEPLOYMENT_AND_OPERATIONS.md) y [Ejecución con Docker Compose](#ejecución-con-docker-compose-recomendado)).
 - [AGENTS.md](./AGENTS.md): Guía operativa, reglas de código y convenciones del repositorio.
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md): Arquitectura modular por dominios, reglas fisiológicas y ciclo de vida de alertas.
 - [docs/API_REFERENCE.md](./docs/API_REFERENCE.md): Contrato REST `/api/v1/`, canales WebSocket `/ws/v1/` y formato de errores.

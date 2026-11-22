@@ -112,6 +112,13 @@ class Command(BaseCommand):
               de usuarios existentes salvo que se solicite rotación explícita (Idempotencia).
         """
         admin_password, staff_password = resolve_demo_passwords()
+        assert admin_password and staff_password, (
+            "Invariante roto: Las contraseñas resueltas para el sembrado no pueden estar vacías."
+        )
+        assert settings.DEBUG or (
+            admin_password != DEMO_ADMIN_PASSWORD and staff_password != DEMO_STAFF_PASSWORD
+        ), "Invariante de seguridad roto: No se permiten claves públicas con DEBUG=False."
+
         # Con SEED_DEMO_PASSWORD explícita se rotan las claves; sin ella solo se fijan al crear
         rotate = bool(os.environ.get(PASSWORD_ENV_VAR, ""))
 

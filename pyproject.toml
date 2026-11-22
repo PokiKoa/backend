@@ -106,6 +106,7 @@ ignore = [
     "D105",  # métodos mágicos
     "D106",  # clases Meta anidadas
     "D107",  # __init__ (se documenta en la clase)
+    "D417",  # *args/**kwargs heredados de mixins en vistas DRF
     "D203",
     "D213",
     "D205",

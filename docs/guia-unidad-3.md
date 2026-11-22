@@ -7,7 +7,7 @@ Ficha de evidencias para la Sumativa 3 (ISF224). Cubre los dos repositorios de l
 
 > Estado: **intervenciones implementadas (2026-11-11)**. Pendiente de completar: revisor, responsables, enlaces a los PR y ejecución de CI.
 >
-> **Antes de entregar:** reemplaza los marcadores `<<COMPLETAR: ...>>` por datos reales y completa la [ficha de integración, paquete y cierre](hito3/integracion-y-entrega.md).
+> **Antes de entregar:** revisa que los datos estén completos y consulta la [ficha de integración, paquete y cierre](hito3/integracion-y-entrega.md) para las URLs de CI, el tag y la revisión externa.
 
 ## 0. Preparación y línea base
 

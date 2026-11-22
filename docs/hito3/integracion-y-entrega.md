@@ -2,7 +2,7 @@
 
 Plantilla para completar los requisitos de las secciones 7 y 8 de la *Guía de evaluación del Hito 3 (ISF224)*.
 
-**Instrucción:** reemplaza todos los marcadores `<<COMPLETAR: ...>>` por datos reales antes de la entrega. No inventes resultados: pega la salida que obtuviste. La ficha de las tres intervenciones está en [../guia-unidad-3.md](../guia-unidad-3.md).
+**Instrucción:** antes de la entrega, pega las URLs de las ejecuciones de CI y crea el tag `2.0.0`. No inventes resultados: la salida de las pruebas y de los tres casos ya está registrada más abajo. La ficha de las tres intervenciones está en [../guia-unidad-3.md](../guia-unidad-3.md).
 
 ---
 

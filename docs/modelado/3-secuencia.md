@@ -89,3 +89,7 @@ sequenceDiagram
 | Capa de canales | `src/vitals/realtime.py` (`broadcast_telemetry_reading`), Redis en producción |
 | `TelemetryAlertConsumer` | `src/vitals/consumers.py`, ruta `ws/v1/monitoring/stream/` |
 | `MapaCunasPage` | Frontend: `src/pages/mapa/MapaCunasPage.tsx` y `aplicarEventoCunas` en `src/services/cunasService.ts` |
+
+## Nota de lectura
+
+Elegimos *Registrar telemetría* porque es el único caso de uso que atraviesa todo el sistema: el dispositivo, la API, las reglas fisiológicas, el motor de alertas, la base de datos, el tiempo real y el frontend. También es lo que se ve en la demostración, cuando una alerta aparece en el mapa sin recargar. Al dibujarlo confirmamos una decisión importante: la difusión por WebSocket (mensaje 22) ocurre **después** del `COMMIT` (mensaje 21). Así, la pantalla nunca muestra una lectura que la base terminó rechazando. También encontramos dos cosas para mejorar. La primera es una llamada de más: la lectura y sus alertas se serializan dos veces, una en el servicio para el WebSocket y otra en la vista para la respuesta. La segunda es que una API Key inválida responde `403` y no `401`, porque `DeviceApiKeyAuthentication` no define `authenticate_header`.

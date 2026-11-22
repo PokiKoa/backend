@@ -111,7 +111,7 @@ Variables opcionales relevantes en producción:
 | `TRUSTED_PROXY_COUNT` | `0` | Proxies inversos propios delante de la API. Con `1` (Caddy), la IP del cliente es la última entrada de `X-Forwarded-For`; con `0` se ignora la cabecera. La usan la auditoría y el límite de login (`NUM_PROXIES` de DRF). |
 | `REFRESH_COOKIE_NAME`, `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_DOMAIN` | `poki_refresh`, `Lax`, vacío | Cookie httpOnly del refresh token. En `prod.py` siempre es `Secure`. |
 | `LOG_LEVEL` | `INFO` | Nivel de los logs de consola. |
-| `SEED_DEMO_PASSWORD` | vacío | Contraseña de los usuarios de `seed_demo`. Con `DEBUG=False` es obligatoria para ejecutar el comando. |
+| `SEED_DEMO_PASSWORD` | vacío | Contraseña de los usuarios de `seed_demo`. Con `DEBUG=False` es obligatoria para ejecutar el comando. Si está definida, también rota la clave de los usuarios de demostración que ya existen; sin ella, sus claves no se tocan. |
 
 ### 4.2 Persistencia de conexiones a PostgreSQL (`CONN_MAX_AGE`)
 En [src/poki_koa/settings/prod.py](../src/poki_koa/settings/prod.py), la base de datos define:

@@ -52,7 +52,7 @@ from .throttling import LoginRateThrottle
 
 
 class LoginView(APIView):
-    """Inicio de sesión: entrega el access token y deja el refresh en una cookie httpOnly."""
+    """Endpoint para el inicio de sesión y emisión de credenciales JWT."""
 
     authentication_classes: ClassVar[list] = []
     permission_classes: ClassVar[list] = [AllowAny]
@@ -64,7 +64,15 @@ class LoginView(APIView):
         responses={200: LoginResponseSerializer},
     )
     def post(self, request: Request) -> Response:
-        """Autentica con usuario/correo y contraseña (y código 2FA si aplica); responde 200 con el access token."""
+        """Autentica al usuario mediante usuario/correo, contraseña y código 2FA opcional.
+
+        Args:
+            request: Petición HTTP con las credenciales de acceso.
+
+        Returns:
+            Response: Respuesta HTTP 200 con el access token y perfil de usuario,
+            configurando la cookie segura de refresco.
+        """
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = authenticate_user(
@@ -86,7 +94,7 @@ class LoginView(APIView):
 
 
 class RefreshTokenView(APIView):
-    """Renueva la sesión rotando el refresh token guardado en la cookie."""
+    """Endpoint para la renovación de tokens de acceso mediante rotación de refresh token."""
 
     authentication_classes: ClassVar[list] = []
     permission_classes: ClassVar[list] = [AllowAny]
@@ -97,7 +105,14 @@ class RefreshTokenView(APIView):
         responses={200: TokenRefreshResponseSerializer},
     )
     def post(self, request: Request) -> Response:
-        """Rota el refresh de la cookie y responde 200 con un nuevo access token; 400 si falta y 401 si es inválido."""
+        """Lee la cookie de refresco, la rota y emite un nuevo par de tokens.
+
+        Args:
+            request: Petición HTTP entrante con la cookie httpOnly.
+
+        Returns:
+            Response: Respuesta HTTP 200 con el nuevo access token y cookie de refresco actualizada.
+        """
         tokens = rotate_refresh_token(refresh_token_str=read_refresh_cookie(request))
         response = Response({"access": tokens["access"]}, status=status.HTTP_200_OK)
         set_refresh_cookie(response, tokens["refresh"])
@@ -105,7 +120,7 @@ class RefreshTokenView(APIView):
 
 
 class LogoutView(APIView):
-    """Cierre de sesión: revoca el refresh token y elimina la cookie."""
+    """Endpoint para el cierre de sesión y revocación de tokens."""
 
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
@@ -115,9 +130,15 @@ class LogoutView(APIView):
         responses={204: None},
     )
     def post(self, request: Request) -> Response:
-        """Revoca el refresh de la cookie y responde 204 aunque la cookie esté ausente."""
+        """Invalida el refresh token actual y limpia la cookie de sesión del cliente.
+
+        Args:
+            request: Petición HTTP autenticada.
+
+        Returns:
+            Response: Respuesta HTTP 204 sin contenido y con la cookie eliminada.
+        """
         refresh_token = read_refresh_cookie(request)
-        # Sin cookie no hay sesión que revocar: cerrar sesión es idempotente
         if refresh_token:
             logout_user(
                 refresh_token_str=refresh_token,
@@ -130,7 +151,7 @@ class LogoutView(APIView):
 
 
 class CurrentUserView(APIView):
-    """Perfil del usuario autenticado."""
+    """Endpoint para consultar el perfil del usuario autenticado actual."""
 
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
@@ -139,12 +160,19 @@ class CurrentUserView(APIView):
         responses={200: UserSerializer},
     )
     def get(self, request: Request) -> Response:
-        """Responde 200 con los datos del usuario de la petición."""
+        """Obtiene los datos demográficos y de rol del usuario asociado a la sesión activa.
+
+        Args:
+            request: Petición HTTP autenticada.
+
+        Returns:
+            Response: Respuesta HTTP 200 con la serialización del usuario.
+        """
         return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
 
 
 class ChangePasswordView(APIView):
-    """Cambio de la contraseña propia."""
+    """Endpoint para la modificación de la contraseña propia."""
 
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
@@ -154,7 +182,14 @@ class ChangePasswordView(APIView):
         responses={200: TokenRefreshResponseSerializer},
     )
     def post(self, request: Request) -> Response:
-        """Cambia la contraseña, cierra las demás sesiones y responde 200 con tokens renovados; 400 si la actual es incorrecta."""
+        """Valida la contraseña actual, actualiza a la nueva clave y reemite los tokens de sesión.
+
+        Args:
+            request: Petición HTTP con 'current_password' y 'new_password'.
+
+        Returns:
+            Response: Respuesta HTTP 200 con el nuevo access token y refresh cookie.
+        """
         serializer = ChangePasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         tokens = change_own_password(
@@ -169,7 +204,7 @@ class ChangePasswordView(APIView):
 
 
 class TwoFactorSetupView(APIView):
-    """Paso 1 de 2FA: genera el secreto TOTP."""
+    """Endpoint para iniciar la configuración de la autenticación en dos pasos (2FA)."""
 
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
@@ -179,7 +214,14 @@ class TwoFactorSetupView(APIView):
         responses={200: TwoFactorSetupResponseSerializer},
     )
     def post(self, request: Request) -> Response:
-        """Responde 200 con el secreto y la URI de aprovisionamiento; 409 si 2FA ya está activo."""
+        """Genera el secreto temporal y la URI de aprovisionamiento para código QR.
+
+        Args:
+            request: Petición HTTP autenticada.
+
+        Returns:
+            Response: Respuesta HTTP 200 con el secreto y la URI de configuración.
+        """
         payload = setup_two_factor(
             user=request.user,
             ip_address=get_client_ip(request),
@@ -188,7 +230,7 @@ class TwoFactorSetupView(APIView):
 
 
 class TwoFactorEnableView(APIView):
-    """Paso 2 de 2FA: confirma el código y activa la verificación en dos pasos."""
+    """Endpoint para confirmar y activar definitivamente el 2FA."""
 
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
@@ -198,7 +240,14 @@ class TwoFactorEnableView(APIView):
         responses={200: UserSerializer},
     )
     def post(self, request: Request) -> Response:
-        """Verifica el código TOTP y responde 200 con el usuario; 400 si el código es inválido."""
+        """Valida el código TOTP ingresado y activa el flag de doble factor en la cuenta.
+
+        Args:
+            request: Petición HTTP con el código 'otp_code' de 6 dígitos.
+
+        Returns:
+            Response: Respuesta HTTP 200 con los datos actualizados del usuario.
+        """
         serializer = TwoFactorCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = enable_two_factor(
@@ -210,7 +259,7 @@ class TwoFactorEnableView(APIView):
 
 
 class TwoFactorDisableView(APIView):
-    """Desactiva la verificación en dos pasos."""
+    """Endpoint para desactivar el doble factor de autenticación."""
 
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
@@ -220,7 +269,14 @@ class TwoFactorDisableView(APIView):
         responses={200: UserSerializer},
     )
     def post(self, request: Request) -> Response:
-        """Verifica el código TOTP y responde 200 con el usuario; 409 si 2FA no estaba activo."""
+        """Verifica el código TOTP vigente y deshabilita el 2FA de la cuenta.
+
+        Args:
+            request: Petición HTTP con el código 'otp_code'.
+
+        Returns:
+            Response: Respuesta HTTP 200 con los datos actualizados del usuario.
+        """
         serializer = TwoFactorCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = disable_two_factor(
@@ -238,7 +294,7 @@ class UserViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Gestión de cuentas de usuario (listar, ver, crear y editar) para administradores."""
+    """ViewSet para la gestión administrativa de cuentas de usuario."""
 
     queryset = User.objects.all().order_by("id")
     serializer_class = UserSerializer
@@ -255,7 +311,11 @@ class UserViewSet(
     ordering: ClassVar[list[str]] = ["id"]
 
     def get_serializer_class(self):
-        """Elige el serializer de creación, de edición o de lectura según la acción."""
+        """Selecciona el serializer adecuado según la acción solicitada (creación, edición o lectura).
+
+        Returns:
+            Serializer class: La clase de serialización correspondiente.
+        """
         if self.action == "create":
             return UserCreateSerializer
         if self.action in {"update", "partial_update"}:
@@ -264,7 +324,14 @@ class UserViewSet(
 
     @extend_schema(request=UserCreateSerializer, responses={201: UserSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
-        """Crea una cuenta y responde 201 con el usuario."""
+        """Crea una nueva cuenta de usuario con privilegios administrativos.
+
+        Args:
+            request: Petición HTTP con los datos del nuevo usuario.
+
+        Returns:
+            Response: Respuesta HTTP 201 con el recurso creado.
+        """
         serializer = UserCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = create_user_by_admin(
@@ -282,7 +349,14 @@ class UserViewSet(
 
     @extend_schema(request=UserUpdateSerializer, responses={200: UserSerializer})
     def update(self, request: Request, *args, **kwargs) -> Response:
-        """Reemplaza campos de la cuenta y responde 200."""
+        """Actualiza completamente una cuenta de usuario existente.
+
+        Args:
+            request: Petición HTTP con los datos de reemplazo.
+
+        Returns:
+            Response: Respuesta HTTP 200 con el usuario actualizado.
+        """
         target_user = self.get_object()
         serializer = UserUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -296,14 +370,13 @@ class UserViewSet(
 
     @extend_schema(request=UserUpdateSerializer, responses={200: UserSerializer})
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
-        """Actualiza parcialmente la cuenta (mismo flujo que ``update``)."""
+        """Actualiza parcialmente una cuenta de usuario (delega en ``update``)."""
         return self.update(request, *args, **kwargs)
 
 
 class StaffDirectoryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    """Directorio de personal activo, de solo lectura, para asignar turnos y responsables."""
+    """ViewSet de solo lectura para consultar el directorio público del personal activo."""
 
-    # Directorio mínimo para selectores clínicos (médico tratante, asignaciones) sin datos de cuenta
     queryset = User.objects.filter(is_active=True).order_by("full_name", "id")
     serializer_class = StaffMemberSerializer
     permission_classes: ClassVar[list] = [IsAuthenticated]
@@ -313,7 +386,7 @@ class StaffDirectoryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
 
 class MyShiftSerializer(serializers.Serializer):
-    """Respuesta de ``mine``: día, turno vigente y cunas asignadas al usuario."""
+    """Serializador para estructurar las cunas y turnos asignados al usuario autenticado."""
 
     date = serializers.DateField()
     shift = serializers.ChoiceField(choices=WorkShift.choices)
@@ -321,7 +394,7 @@ class MyShiftSerializer(serializers.Serializer):
 
 
 class ShiftCatalogView(APIView):
-    """Catálogo fijo de turnos con su horario."""
+    """Endpoint para consultar el catálogo fijo de turnos de la clínica."""
 
     permission_classes: ClassVar[list] = [IsAuthenticated]
 
@@ -330,7 +403,14 @@ class ShiftCatalogView(APIView):
         responses={200: ShiftSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
-        """Responde 200 con los turnos y marca cuál está vigente."""
+        """Retorna la lista de turnos disponibles y marca cuál se encuentra activo actualmente.
+
+        Args:
+            request: Petición HTTP autenticada.
+
+        Returns:
+            Response: Respuesta HTTP 200 con el catálogo de turnos.
+        """
         _, active = current_shift()
         shifts = [
             {
@@ -346,7 +426,7 @@ class ShiftCatalogView(APIView):
 
 
 class ShiftAssignmentFilter(django_filters.FilterSet):
-    """Filtros del listado de asignaciones de turno."""
+    """Filtros de búsqueda avanzada para las asignaciones de turnos."""
 
     date_after = django_filters.DateFilter(field_name="date", lookup_expr="gte")
     date_before = django_filters.DateFilter(field_name="date", lookup_expr="lte")
@@ -362,7 +442,7 @@ class ShiftAssignmentViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Asignaciones de profesionales a cunas por día y turno."""
+    """ViewSet para la administración y consulta de asignaciones de turnos a profesionales."""
 
     queryset = ShiftAssignment.objects.select_related("user", "crib").all()
     serializer_class = ShiftAssignmentSerializer
@@ -374,7 +454,14 @@ class ShiftAssignmentViewSet(
         request=ShiftAssignmentCreateSerializer, responses={201: ShiftAssignmentSerializer}
     )
     def create(self, request: Request, *args, **kwargs) -> Response:
-        """Asigna un profesional a una cuna y turno; responde 201."""
+        """Asigna un profesional de salud a una cuna para un día y turno específico.
+
+        Args:
+            request: Petición HTTP con los datos de asignación.
+
+        Returns:
+            Response: Respuesta HTTP 201 con la asignación creada.
+        """
         serializer = ShiftAssignmentCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -392,7 +479,14 @@ class ShiftAssignmentViewSet(
         )
 
     def destroy(self, request: Request, *args, **kwargs) -> Response:
-        """Elimina una asignación y responde 204."""
+        """Elimina una asignación de turno existente.
+
+        Args:
+            request: Petición HTTP de borrado.
+
+        Returns:
+            Response: Respuesta HTTP 204 sin contenido.
+        """
         delete_shift_assignment(
             actor=request.user,
             assignment=self.get_object(),
@@ -406,7 +500,14 @@ class ShiftAssignmentViewSet(
     )
     @action(detail=False, methods=["get"], url_path="mine")
     def mine(self, request: Request) -> Response:
-        """Responde 200 con las cunas asignadas al usuario en el turno vigente y su estado de monitoreo."""
+        """Consulta las cunas supervisadas por el usuario actual durante su turno activo.
+
+        Args:
+            request: Petición HTTP del profesional autenticado.
+
+        Returns:
+            Response: Respuesta HTTP 200 con el resumen de cunas del turno actual.
+        """
         day, shift, crib_ids = assigned_crib_ids(user=request.user)
         overview = build_unit_overview(crib_ids=crib_ids)
         payload = {"date": day, "shift": shift, "cribs": overview.cribs}

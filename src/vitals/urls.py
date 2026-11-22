@@ -1,3 +1,5 @@
+"""Rutas de la API para el monitoreo de signos vitales y telemetría en tiempo real."""
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 

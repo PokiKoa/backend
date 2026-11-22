@@ -95,6 +95,11 @@ class VitalSignReading(models.Model):
         verbose_name_plural = "Lecturas de Signos Vitales"
 
     def __str__(self) -> str:
+        """Representación legible de la lectura de telemetría.
+
+        Returns:
+            Cadena con código de cuna, FC, SpO2, temperatura y marca temporal ISO-8601.
+        """
         return (
             f"[{self.crib.code}] FC={self.heart_rate} SpO2={self.spo2}% "
             f"T={self.temperature}°C ({self.recorded_at.isoformat()})"

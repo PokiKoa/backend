@@ -24,7 +24,17 @@ MAX_SERIES_DAYS = 90
 OPEN_ALERT_STATUSES = (AlertStatus.ACTIVE, AlertStatus.ACKNOWLEDGED)
 
 
-def _counts(queryset, field: str, choices: list[str]) -> dict[str, int]:
+def _counts(queryset: Any, field: str, choices: list[str]) -> dict[str, int]:
+    """Agrupa un queryset por un campo discreto garantizando todas las claves esperadas.
+
+    Args:
+        queryset: Consulta Django sobre la cual contar registros.
+        field: Nombre del campo por el que se agrupa.
+        choices: Lista completa de valores posibles que deben aparecer en el diccionario resultante.
+
+    Returns:
+        Diccionario ``{valor_campo: conteo}`` con ``0`` para las claves sin registros.
+    """
     counts = dict.fromkeys(choices, 0)
     for row in queryset.values(field).annotate(n=Count("id")):
         counts[row[field]] = row["n"]
@@ -32,15 +42,23 @@ def _counts(queryset, field: str, choices: list[str]) -> dict[str, int]:
 
 
 def build_operations_summary(now: datetime | None = None) -> dict[str, Any]:
-    """Construye el resumen operativo de la unidad.
+    """Construye el resumen operativo consolidado de la unidad neonatal.
 
-    Args:
-        now: Instante de referencia; por defecto, ahora.
+    Precondiciones:
+        - ``now`` debe ser ``None`` o una instancia válida de ``datetime`` con zona horaria.
 
-    Returns:
-        Contadores de pacientes, cunas, indicaciones, medicamentos con bajo stock, alertas abiertas, planes de cuidado y personal
-        (incluidas las asignaciones del turno vigente).
+    Postcondiciones:
+        - Devuelve un diccionario con ``generated_at``, ``patients``, ``cribs``, ``prescriptions``,
+          ``medications_low_stock``, ``alerts``, ``care_plans_active`` y ``staff``.
+        - ``patients["total"] == patients["active"] + patients["discharged"]``.
+        - ``0.0 <= cribs["occupancy_percent"] <= 100.0`` y la suma de ``cribs["by_status"]``
+          coincide con ``cribs["total"]``.
+
+    Invariante:
+        - Operación de solo lectura: no modifica pacientes, cunas, alertas, indicaciones ni turnos.
     """
+    assert now is None or isinstance(now, datetime), "now debe ser datetime o None."
+
     now = now or timezone.now()
     today = timezone.localdate(now)
     shift_day, _ = current_shift(now)
@@ -50,7 +68,7 @@ def build_operations_summary(now: datetime | None = None) -> dict[str, Any]:
     cribs_total = sum(cribs.values())
     open_alerts = Alert.objects.filter(status__in=OPEN_ALERT_STATUSES)
 
-    return {
+    summary = {
         "generated_at": now,
         "patients": {
             "total": sum(patients.values()),
@@ -93,27 +111,45 @@ def build_operations_summary(now: datetime | None = None) -> dict[str, Any]:
         },
     }
 
+    assert (
+        summary["patients"]["total"]
+        == summary["patients"]["active"] + summary["patients"]["discharged"]
+    ), "Inconsistencia en el desglose de pacientes activos y egresados."
+    assert 0.0 <= summary["cribs"]["occupancy_percent"] <= 100.0, (
+        "El porcentaje de ocupación de cunas debe estar entre 0.0 y 100.0."
+    )
+    assert sum(summary["cribs"]["by_status"].values()) == summary["cribs"]["total"], (
+        "La suma de cunas por estado debe coincidir con el total."
+    )
+    return summary
+
 
 def build_activity_series(*, days: int = 14, now: datetime | None = None) -> list[dict[str, Any]]:
     """Construye la serie diaria de ingresos de pacientes y alertas disparadas.
 
-    Args:
-        days: Cantidad de días terminando en hoy (1 a ``MAX_SERIES_DAYS``).
-        now: Instante de referencia; por defecto, ahora.
+    Precondiciones:
+        - ``1 <= days <= MAX_SERIES_DAYS`` (si está fuera de rango, lanza ``DomainError``).
+        - ``now`` debe ser ``None`` o una instancia válida de ``datetime``.
 
-    Returns:
-        Un elemento por día, en orden cronológico.
+    Postcondiciones:
+        - Devuelve una lista de exactamente ``days`` elementos ordenados cronológicamente desde
+          ``end - (days - 1)`` hasta ``end`` (fecha local de referencia).
+        - Cada punto contiene ``date``, ``admissions >= 0`` y ``alerts >= 0``.
 
-    Raises:
-        DomainError: Si ``days`` está fuera de rango.
+    Invariante:
+        - Operación de solo lectura que agrupa eventos en la zona horaria local configurada sin
+          alterar registros de pacientes ni alertas.
     """
+    assert isinstance(days, int), "days debe ser un entero."
+    assert now is None or isinstance(now, datetime), "now debe ser datetime o None."
+
     if not 1 <= days <= MAX_SERIES_DAYS:
         raise DomainError(f"El rango debe estar entre 1 y {MAX_SERIES_DAYS} días.")
     end = timezone.localdate(now or timezone.now())
     start = end - timedelta(days=days - 1)
     tz = timezone.get_current_timezone()
 
-    def per_day(queryset, field: str) -> dict[date, int]:
+    def per_day(queryset: Any, field: str) -> dict[date, int]:
         # Agrupa por día local para que la serie coincida con lo que ve la unidad
         return dict(
             queryset.filter(**{f"{field}__date__gte": start})
@@ -125,7 +161,7 @@ def build_activity_series(*, days: int = 14, now: datetime | None = None) -> lis
 
     admissions = per_day(Patient.objects.all(), "admitted_at")
     alerts = per_day(Alert.objects.all(), "triggered_at")
-    return [
+    series = [
         {
             "date": start + timedelta(days=offset),
             "admissions": admissions.get(start + timedelta(days=offset), 0),
@@ -133,3 +169,12 @@ def build_activity_series(*, days: int = 14, now: datetime | None = None) -> lis
         }
         for offset in range(days)
     ]
+
+    assert len(series) == days, "La serie resultante debe contener exactamente 'days' puntos."
+    assert series[0]["date"] == start and series[-1]["date"] == end, (
+        "Los extremos de la serie no coinciden con el rango temporal calculado."
+    )
+    assert all(point["admissions"] >= 0 and point["alerts"] >= 0 for point in series), (
+        "Los conteos diarios de ingresos y alertas no pueden ser negativos."
+    )
+    return series

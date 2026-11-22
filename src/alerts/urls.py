@@ -1,3 +1,5 @@
+"""Configuración de rutas URL para el módulo de alertas y umbrales clínicos."""
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 

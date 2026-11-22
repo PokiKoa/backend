@@ -31,19 +31,27 @@ def ingest_telemetry(
 ) -> tuple[VitalSignReading, AlertEvaluationSummary]:
     """Valida y persiste una lectura de telemetría, evalúa alertas y la difunde en tiempo real.
 
-    Args:
-        crib: Cuna de origen.
-        payload: Cuerpo JSON de la lectura.
-        actor_user: Usuario que envía la lectura (alternativa al dispositivo).
-        is_device_authenticated: Si la petición se autenticó con la API Key de la cuna.
+    Precondiciones:
+        - ``crib`` debe ser una instancia persistente de ``Crib``.
+        - ``payload`` debe ser un diccionario JSON válido.
+        - Debe cumplirse autenticación por dispositivo (``is_device_authenticated=True``) o
+          por un usuario con rol clínico/administrativo autorizado (Admin, Neonatólogo, Enfermera).
 
-    Returns:
-        Tupla ``(lectura, resumen_de_alertas)``.
+    Postcondiciones:
+        - Se crea y persiste una nueva instancia de ``VitalSignReading`` vinculada a la cuna y al paciente actual.
+        - Se actualiza ``last_telemetry_at`` de la cuna y, si estaba en estado ``OFFLINE``, su estado
+          pasa a ``OCCUPIED`` (si tiene paciente) o ``AVAILABLE``.
+        - Se ejecuta la evaluación de alertas y se transmite la telemetría en tiempo real.
+        - Devuelve una tupla ``(lectura, resumen_de_alertas)``.
 
-    Raises:
-        PermissionDomainError: Si no es un dispositivo autenticado ni personal autorizado.
-        DomainError: Si el payload no supera la validación fisiológica.
+    Invariante:
+        - Las operaciones de validación, bloqueo pesimista/optimista y persistencia se ejecutan
+          dentro de una transacción atómica segura.
     """
+    assert isinstance(crib, Crib), "crib debe ser una instancia de Crib."
+    assert isinstance(payload, dict), "payload debe ser un diccionario."
+    assert isinstance(is_device_authenticated, bool), "is_device_authenticated debe ser booleano."
+
     if not is_device_authenticated and not has_role(actor_user, CLINICAL_OR_ADMIN):
         raise PermissionDomainError(
             "Solo un dispositivo autenticado o personal clínico/administrativo puede enviar telemetría."
@@ -95,6 +103,12 @@ def ingest_telemetry(
         patient_id=reading.patient_id,
     )
 
+    assert isinstance(reading, VitalSignReading), (
+        "El resultado debe ser una VitalSignReading creada."
+    )
+    assert isinstance(evaluation, AlertEvaluationSummary), (
+        "La evaluación de alertas debe ser válida."
+    )
     return reading, evaluation
 
 
@@ -103,6 +117,11 @@ SEVERITY_ORDER = (AlertSeverity.CRITICAL, AlertSeverity.WARNING, AlertSeverity.I
 
 
 def _empty_alert_counts() -> dict[str, int]:
+    """Genera un diccionario con contadores de alertas en cero para cada severidad y el total.
+
+    Returns:
+        Diccionario con la estructura base de conteos de alertas inicializada a 0.
+    """
     return {"total": 0, **{severity: 0 for severity in SEVERITY_ORDER}}
 
 
@@ -118,12 +137,21 @@ class UnitOverview:
 def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
     """Arma el panel principal de la unidad con consultas acotadas.
 
-    Args:
-        crib_ids: Limita el resumen a estas cunas; ``None`` incluye todas.
+    Precondiciones:
+        - ``crib_ids`` debe ser ``None`` o una lista de enteros con identificadores de cunas.
 
-    Returns:
-        Cunas ordenadas por código, con su última lectura y alertas abiertas.
+    Postcondiciones:
+        - Devuelve una instancia de ``UnitOverview`` con la marca temporal de generación,
+          la lista de cunas ordenadas por código y el resumen consolidado de la unidad.
+        - El número de cunas en el resumen coincide con la cantidad de elementos retornados.
+
+    Invariante:
+        - Operación de solo lectura basada en subconsultas optimizadas de última lectura y conteo de alertas.
     """
+    assert crib_ids is None or (
+        isinstance(crib_ids, list) and all(isinstance(i, int) for i in crib_ids)
+    ), "crib_ids debe ser None o una lista de enteros."
+
     # Consultas acotadas e independientes del número de cunas para el panel principal
     latest_reading_id = (
         VitalSignReading.objects.filter(crib=OuterRef("pk"))
@@ -160,7 +188,7 @@ def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
         )
         cribs_by_status[crib.status] += 1
 
-    return UnitOverview(
+    overview = UnitOverview(
         generated_at=timezone.now(),
         cribs=cribs,
         summary={
@@ -172,3 +200,9 @@ def build_unit_overview(crib_ids: list[int] | None = None) -> UnitOverview:
             "open_alerts": unit_alerts,
         },
     )
+
+    assert isinstance(overview, UnitOverview), "build_unit_overview debe retornar UnitOverview."
+    assert overview.summary["cribs_total"] == len(overview.cribs), (
+        "El total de cunas en el resumen debe coincidir con la lista de cunas."
+    )
+    return overview

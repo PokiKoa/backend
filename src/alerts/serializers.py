@@ -17,7 +17,7 @@ from .models import Alert, AlertThresholdConfig
 
 
 class AlertSerializer(serializers.ModelSerializer):
-    """Representación de una alerta con su cuna, paciente y trazabilidad de reconocimiento y resolución."""
+    """Representación serializada de una alerta clínica, su cuna, paciente y trazabilidad."""
 
     crib_code = serializers.CharField(source="crib.code", read_only=True)
     patient_name = serializers.CharField(source="patient.full_name", read_only=True, default=None)
@@ -57,7 +57,7 @@ class AlertSerializer(serializers.ModelSerializer):
 
 
 class AlertThresholdConfigSerializer(serializers.ModelSerializer):
-    """Representación de los umbrales de alerta vigentes."""
+    """Representación serializada de los umbrales de alerta vigentes."""
 
     class Meta:
         model = AlertThresholdConfig
@@ -81,7 +81,7 @@ class AlertThresholdConfigSerializer(serializers.ModelSerializer):
 
 
 class AlertThresholdConfigUpdateSerializer(serializers.Serializer):
-    """Entrada para actualizar umbrales; los campos omitidos conservan su valor."""
+    """Validador de entrada para actualizar umbrales clínicos de forma parcial."""
 
     heart_rate_critical_low = serializers.IntegerField(
         min_value=HEART_RATE_MIN, max_value=HEART_RATE_MAX, required=False

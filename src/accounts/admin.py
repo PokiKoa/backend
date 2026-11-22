@@ -6,6 +6,12 @@ from .models import ShiftAssignment, User
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
+    """
+    Configuración de la interfaz de administración para el modelo de usuarios del sistema.
+    Define las columnas visibles, filtros de búsqueda y la agrupación de campos (fieldsets)
+    para la gestión del personal clínico.
+    """
+
     ordering = ("id",)
     list_display = (
         "id",
@@ -60,6 +66,12 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(ShiftAssignment)
 class ShiftAssignmentAdmin(admin.ModelAdmin):
+    """
+    Configuración de la interfaz de administración para la asignación de turnos.
+    Permite visualizar y filtrar fácilmente qué usuario está a cargo de qué cuna
+    en una fecha determinada.
+    """
+
     list_display = ("date", "shift", "user", "crib", "created_by")
     list_filter = ("shift", "date")
     search_fields = ("user__full_name", "crib__code")

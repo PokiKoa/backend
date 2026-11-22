@@ -1,3 +1,5 @@
+"""Configuración base de Django compartida por todos los entornos (apps, middleware, JWT, DRF y Channels)."""
+
 import sys
 from datetime import timedelta
 from pathlib import Path

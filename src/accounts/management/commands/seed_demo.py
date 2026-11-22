@@ -93,7 +93,7 @@ def _set_demo_password(user: User, password: str, *, created: bool, rotate: bool
 
 
 class Command(BaseCommand):
-    """Carga datos ficticios de demostración neonatal y asegura el usuario ``admin``. Solo para desarrollo."""
+    """Comando que carga datos ficticios de demostración neonatal y asegura el usuario ``admin``."""
 
     help = (
         "Carga datos ficticios de demostración neonatal y asegura el superusuario admin "
@@ -101,10 +101,28 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options) -> None:
-        """Crea de forma idempotente usuarios, cunas, pacientes, catálogo, indicaciones y lecturas de ejemplo."""
+        """Crea de forma idempotente usuarios, cunas, pacientes, catálogo, indicaciones y lecturas de ejemplo.
+
+        Contrato de la función:
+            - Precondición: Si ``DEBUG=False``, debe definirse una ``SEED_DEMO_PASSWORD`` válida
+              y distinta de las contraseñas públicas.
+            - Postcondición: Los usuarios base, cunas, pacientes de prueba (RN Mateo/Sofía) y
+              medicamentos base existen en la base de datos con sus relaciones establecidas.
+            - Invariante: La ejecución repetida no duplica registros ni sobrescribe contraseñas
+              de usuarios existentes salvo que se solicite rotación explícita (Idempotencia).
+        """
         admin_password, staff_password = resolve_demo_passwords()
+        assert admin_password and staff_password, (
+            "Invariante roto: Las contraseñas resueltas para el sembrado no pueden estar vacías."
+        )
+        assert settings.DEBUG or (
+            admin_password != DEMO_ADMIN_PASSWORD and staff_password != DEMO_STAFF_PASSWORD
+        ), "Invariante de seguridad roto: No se permiten claves públicas con DEBUG=False."
+
         # Con SEED_DEMO_PASSWORD explícita se rotan las claves; sin ella solo se fijan al crear
         rotate = bool(os.environ.get(PASSWORD_ENV_VAR, ""))
+
+        # --- Creación de Usuarios ---
         admin_user, admin_user_created = User.objects.get_or_create(
             username="admin",
             defaults={
@@ -121,6 +139,11 @@ class Command(BaseCommand):
         admin_user.role = UserRole.ADMIN
         _set_demo_password(admin_user, admin_password, created=admin_user_created, rotate=rotate)
         admin_user.save()
+
+        # Aserción de supuesto interno/invariante
+        assert admin_user.is_superuser, (
+            "Invariante roto: El usuario admin debe tener privilegios de superusuario al iniciar el sistema."
+        )
 
         neo, neo_created = User.objects.get_or_create(
             username="dr.soto",
@@ -161,6 +184,7 @@ class Command(BaseCommand):
         _set_demo_password(pharmacist, staff_password, created=pharmacist_created, rotate=rotate)
         pharmacist.save()
 
+        # --- Creación de Cunas ---
         crib_specs = [
             ("C-01", "Incubadora Giraffe UCI-1", "Sector UCI A"),
             ("C-02", "Incubadora Giraffe UCI-2", "Sector UCI A"),
@@ -179,6 +203,11 @@ class Command(BaseCommand):
                 )
             cribs[code] = existing
 
+        # Aserción de supuesto interno
+        assert len(cribs) >= 4, (
+            "Supuesto interno fallido: No se generaron las 4 cunas base requeridas."
+        )
+
         # Asignaciones para el día del turno vigente y el siguiente, así "Mis cunas" nunca queda vacío
         shift_day, _ = current_shift()
         for offset in (0, 1):
@@ -193,6 +222,8 @@ class Command(BaseCommand):
                     )
 
         today = timezone.localdate()
+
+        # --- Creación de Pacientes ---
         if not Patient.objects.filter(medical_record_number="RN-2026-001").exists():
             p1 = admit_patient(
                 actor=neo,
@@ -206,7 +237,6 @@ class Command(BaseCommand):
                 diagnosis="Prematuridad moderada, síndrome de dificultad respiratoria en resolución",
                 attending_physician_id=neo.id,
                 crib_id=cribs["C-01"].id,
-                # RUT y teléfonos ficticios (dígito verificador válido, números de ejemplo)
                 guardians={
                     "mother_first_names": "Camila Andrea",
                     "mother_last_names": "Rojas Muñoz",
@@ -309,7 +339,6 @@ class Command(BaseCommand):
                     patient_id=p1_obj.id,
                     medication_id=caffeine.id,
                     dose="5 mg/kg IV lento",
-                    # Mantención cada 24 h desde las 08:00 de hoy
                     starts_at=timezone.make_aware(timezone.datetime.combine(today, time(8, 0))),
                     frequency_hours=24,
                     route=AdministrationRoute.IV,
@@ -321,7 +350,6 @@ class Command(BaseCommand):
                     patient_id=p2_obj.id,
                     medication_id=surfactant.id,
                     dose="100 mg/kg endotraqueal",
-                    # Dosis única dentro de una hora
                     starts_at=timezone.now() + timedelta(hours=1),
                     route=AdministrationRoute.ET,
                     units_per_administration=1,

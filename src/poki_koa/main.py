@@ -6,7 +6,11 @@ from pathlib import Path
 
 
 def main() -> None:
-    """Ejecuta un comando de Django (``runserver`` por defecto) con ``settings.dev`` si no se indica otra configuración."""
+    """Ejecuta un comando de Django (``runserver`` por defecto) con ``settings.dev`` si no se indica otra configuración.
+
+    Returns:
+        None: Delega la ejecución del subcomando recibido por ``sys.argv`` a la CLI de Django.
+    """
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "poki_koa.settings.dev")
 
     src_dir = str(Path(__file__).resolve().parent.parent)

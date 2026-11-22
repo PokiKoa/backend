@@ -1,3 +1,5 @@
+"""Enrutamiento principal de Poki Koa: portada HTML, panel de administración y API REST v1."""
+
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView

@@ -44,7 +44,16 @@ class MedicationCatalogFilter(django_filters.FilterSet):
         fields: ClassVar[list[str]] = ["is_active", "unit", "low_stock"]
 
     def filter_low_stock(self, queryset, name: str, value: bool):
-        """``low_stock=true`` devuelve ítems con stock en o bajo su umbral mínimo; ``false``, el resto."""
+        """Filtra medicamentos cuyo stock actual está en o bajo su umbral mínimo de alerta.
+
+        Args:
+            queryset: Consulta base de ``MedicationCatalogItem``.
+            name: Nombre del parámetro de filtro.
+            value: ``True`` para bajo stock; ``False`` para stock sobre el mínimo.
+
+        Returns:
+            QuerySet: Consulta filtrada según el nivel de inventario.
+        """
         if value:
             return queryset.filter(stock__lte=models.F("min_stock_alert"))
         return queryset.filter(stock__gt=models.F("min_stock_alert"))
@@ -76,7 +85,14 @@ class MedicationCatalogViewSet(
         request=MedicationCatalogCreateSerializer, responses={201: MedicationCatalogItemSerializer}
     )
     def create(self, request: Request, *args, **kwargs) -> Response:
-        """Registra un medicamento y responde 201."""
+        """Registra un medicamento y responde 201.
+
+        Args:
+            request: Petición HTTP con los datos del medicamento.
+
+        Returns:
+            Response: HTTP 201 con el ítem registrado en el catálogo.
+        """
         serializer = MedicationCatalogCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         item = create_catalog_item(
@@ -99,7 +115,14 @@ class MedicationCatalogViewSet(
         request=MedicationCatalogUpdateSerializer, responses={200: MedicationCatalogItemSerializer}
     )
     def update(self, request: Request, *args, **kwargs) -> Response:
-        """Actualiza datos o stock y responde 200."""
+        """Actualiza datos o stock y responde 200.
+
+        Args:
+            request: Petición HTTP con los campos a modificar.
+
+        Returns:
+            Response: HTTP 200 con el ítem actualizado.
+        """
         item = self.get_object()
         serializer = MedicationCatalogUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -175,7 +198,14 @@ class PrescriptionViewSet(
 
     @extend_schema(request=PrescriptionCreateSerializer, responses={201: PrescriptionSerializer})
     def create(self, request: Request, *args, **kwargs) -> Response:
-        """Crea una indicación y responde 201."""
+        """Crea una indicación y responde 201.
+
+        Args:
+            request: Petición HTTP con los parámetros clínicos de la prescripción.
+
+        Returns:
+            Response: HTTP 201 con la indicación creada.
+        """
         serializer = PrescriptionCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -208,7 +238,15 @@ class PrescriptionViewSet(
     )
     @action(detail=True, methods=["post"], url_path="administer")
     def administer(self, request: Request, pk=None) -> Response:
-        """Registra la administración de una dosis descontando stock; responde 200 con la administración."""
+        """Registra la administración de una dosis descontando stock; responde 200 con la indicación actualizada.
+
+        Args:
+            request: Petición HTTP con ``scheduled_for`` y ``notes`` opcionales.
+            pk: Identificador primario de la indicación médica.
+
+        Returns:
+            Response: HTTP 200 con el estado actualizado de la indicación.
+        """
         prescription = self.get_object()
         serializer = PrescriptionAdministerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -230,7 +268,15 @@ class PrescriptionViewSet(
     )
     @action(detail=True, methods=["get"], url_path="administrations")
     def administrations(self, request: Request, pk=None) -> Response:
-        """Responde 200 con el historial de dosis administradas de la indicación."""
+        """Responde 200 con el historial de dosis administradas de la indicación.
+
+        Args:
+            request: Petición HTTP paginada.
+            pk: Identificador primario de la indicación médica.
+
+        Returns:
+            Response: HTTP 200 con la lista paginada de administraciones.
+        """
         prescription = self.get_object()
         qs = prescription.administrations.select_related("administered_by").order_by(
             "-scheduled_for", "-id"
@@ -246,7 +292,15 @@ class PrescriptionViewSet(
     )
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request: Request, pk=None) -> Response:
-        """Cancela una indicación vigente y responde 200 con la indicación."""
+        """Cancela una indicación vigente y responde 200 con la indicación.
+
+        Args:
+            request: Petición HTTP con el motivo opcional de cancelación.
+            pk: Identificador primario de la indicación médica.
+
+        Returns:
+            Response: HTTP 200 con la indicación en estado cancelado.
+        """
         prescription = self.get_object()
         serializer = PrescriptionCancelSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

@@ -11,8 +11,12 @@ from patients.models import Patient, PatientStatus
 
 
 def get_clinical_dashboard_stats() -> dict[str, Any]:
-    """Devuelve contadores (pacientes, cunas, alertas, medicamentos con stock bajo e indicaciones vigentes),
-    los 10 últimos pacientes activos y las 6 alertas abiertas más recientes.
+    """Recopila métricas agregadas de la unidad neonatal para la vista general HTML.
+
+    Returns:
+        Diccionario con conteos de pacientes activos/egresados, cunas totales/ocupadas/disponibles,
+        alertas abiertas/críticas/advertencia, medicamentos con stock bajo, prescripciones activas,
+        los últimos 10 pacientes activos y las 6 alertas abiertas más recientes.
     """
     active_patients = list(
         Patient.objects.filter(status=PatientStatus.ACTIVE)

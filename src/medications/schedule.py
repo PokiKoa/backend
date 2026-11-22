@@ -13,6 +13,7 @@ _UNSET = object()
 
 
 def _interval(prescription: Prescription) -> timedelta | None:
+    """Retorna el intervalo temporal entre dosis, o ``None`` si es dosis única."""
     if prescription.frequency_hours is None:
         return None
     return timedelta(hours=prescription.frequency_hours)
@@ -96,15 +97,25 @@ class ScheduleState:
 
 
 def schedule_state(prescription: Prescription, now: datetime) -> ScheduleState:
-    """Resume el estado de la pauta de una indicación.
+    """Resume el estado clínico de la pauta de una indicación médica.
 
-    Args:
-        prescription: Indicación a evaluar; usa las anotaciones del queryset si existen.
-        now: Instante de referencia.
+    Preconditions:
+        - ``prescription`` es una instancia válida de ``Prescription`` con ``starts_at`` definido.
+        - ``now`` es un instante temporal ``datetime`` con zona horaria.
 
-    Returns:
-        El estado de la pauta; solo las indicaciones vigentes tienen próxima dosis.
+    Postconditions:
+        - Retorna un ``ScheduleState`` consistente con el historial de administraciones.
+        - Si la indicación no está en estado ``ACTIVE``, ``next_dose_at`` es ``None`` y ``is_overdue`` es ``False``.
+
+    Invariante:
+        - ``administrations_count >= 0`` y toda próxima dosis programada es mayor o igual a ``starts_at``.
+        - Ninguna dosis atrasada puede existir sin una ``next_dose_at`` definida.
     """
+    assert prescription is not None and prescription.starts_at is not None, (
+        "Precondición fallida: la indicación debe poseer una fecha de inicio válida."
+    )
+    assert now is not None, "Precondición fallida: el instante de referencia es obligatorio."
+
     # Las anotaciones del queryset evitan una consulta por indicación en los listados
     last_given = getattr(prescription, "last_administered_slot", _UNSET)
     count = getattr(prescription, "administrations_count", _UNSET)
@@ -121,9 +132,23 @@ def schedule_state(prescription: Prescription, now: datetime) -> ScheduleState:
     if prescription.status == PrescriptionStatus.ACTIVE:
         next_dose = next_slot_after(prescription, last_given)
 
-    return ScheduleState(
+    state = ScheduleState(
         next_dose_at=next_dose,
         is_overdue=next_dose is not None and next_dose + OVERDUE_GRACE < now,
         last_administered_slot=last_given,
         administrations_count=count,
     )
+
+    assert state.administrations_count >= 0, (
+        "Invariante fallido: el conteo de administraciones no puede ser negativo."
+    )
+    assert not (state.is_overdue and state.next_dose_at is None), (
+        "Invariante fallido: una indicación sin próxima dosis no puede marcarse como atrasada."
+    )
+    assert prescription.status == PrescriptionStatus.ACTIVE or (
+        state.next_dose_at is None and not state.is_overdue
+    ), (
+        "Postcondición fallida: las indicaciones completadas o canceladas no deben tener dosis pendientes."
+    )
+
+    return state

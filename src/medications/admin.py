@@ -1,3 +1,5 @@
+"""Configuración del panel de administración de Django para el catálogo de medicamentos e indicaciones médicas."""
+
 from typing import ClassVar
 
 from django.contrib import admin
@@ -13,6 +15,8 @@ from .models import (
 
 @admin.register(MedicationCatalogItem)
 class MedicationCatalogItemAdmin(admin.ModelAdmin):
+    """Administración visual del catálogo de medicamentos y control de alertas de inventario."""
+
     list_display: ClassVar[list[str]] = [
         "name",
         "active_ingredient",
@@ -28,6 +32,14 @@ class MedicationCatalogItemAdmin(admin.ModelAdmin):
 
     @admin.display(description="Stock Actual")
     def stock_badge(self, obj: MedicationCatalogItem) -> str:
+        """Renderiza una insignia HTML con el nivel de stock actual del medicamento.
+
+        Args:
+            obj: Instancia del medicamento en el catálogo.
+
+        Returns:
+            str: Fragmento HTML seguro con el estado visual del inventario.
+        """
         if obj.stock == 0:
             bg, fg, label = "#fee2e2", "#991b1b", f"{obj.stock} (AGOTADO)"
         elif obj.is_low_stock:
@@ -43,6 +55,8 @@ class MedicationCatalogItemAdmin(admin.ModelAdmin):
 
 
 class MedicationAdministrationInline(admin.TabularInline):
+    """Vista tabular de solo lectura de las dosis administradas dentro de una indicación médica."""
+
     model = MedicationAdministration
     extra = 0
     can_delete = False
@@ -56,12 +70,14 @@ class MedicationAdministrationInline(admin.TabularInline):
     readonly_fields = fields
 
     def has_add_permission(self, request, obj=None) -> bool:
-        # Las dosis solo se registran por el servicio para descontar stock de forma atómica
+        """Bloquea la creación manual desde el admin para garantizar el descuento atómico de stock."""
         return False
 
 
 @admin.register(Prescription)
 class PrescriptionAdmin(admin.ModelAdmin):
+    """Administración de indicaciones médicas y seguimiento de su ciclo de vida."""
+
     inlines: ClassVar[list] = [MedicationAdministrationInline]
     list_display: ClassVar[list[str]] = [
         "id",
@@ -85,6 +101,14 @@ class PrescriptionAdmin(admin.ModelAdmin):
 
     @admin.display(description="Estado")
     def status_badge(self, obj: Prescription) -> str:
+        """Renderiza una insignia HTML con el estado operativo actual de la indicación médica.
+
+        Args:
+            obj: Instancia de la indicación médica.
+
+        Returns:
+            str: Fragmento HTML seguro con la etiqueta de estado.
+        """
         colors = {
             PrescriptionStatus.ACTIVE: ("#fef3c7", "#92400e"),
             PrescriptionStatus.COMPLETED: ("#d1fae5", "#065f46"),

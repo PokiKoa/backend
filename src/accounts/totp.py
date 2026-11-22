@@ -10,7 +10,11 @@ from urllib.parse import quote
 
 
 def generate_totp_secret() -> str:
-    """Genera un secreto aleatorio de 160 bits codificado en Base32 (sin relleno)."""
+    """Genera un secreto criptográfico aleatorio de 160 bits codificado en Base32 (sin caracteres de relleno).
+
+    Returns:
+        str: El secreto Base32 listo para ser almacenado y asociado a la cuenta del usuario.
+    """
     return base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
 
 
@@ -21,19 +25,19 @@ def generate_totp_code(
     step_seconds: int = 30,
     digits: int = 6,
 ) -> str:
-    """Calcula el código TOTP de un instante.
+    """Calcula el código TOTP numérico correspondiente a un instante temporal dado.
 
     Args:
-        secret: Secreto Base32.
-        timestamp: Instante UNIX; por defecto, ahora.
-        step_seconds: Duración de cada ventana.
-        digits: Largo del código.
+        secret: Secreto Base32 del usuario.
+        timestamp: Instante de tiempo UNIX (por defecto, utiliza el tiempo actual).
+        step_seconds: Duración de cada ventana temporal en segundos (por defecto 30).
+        digits: Longitud del código numérico generado (por defecto 6).
 
     Returns:
-        Código numérico con ceros a la izquierda.
+        str: Código numérico TOTP con ceros a la izquierda si es necesario.
 
     Raises:
-        ValueError: Si el secreto está vacío.
+        ValueError: Si el secreto proporcionado se encuentra vacío.
     """
     if not secret:
         raise ValueError("El secreto TOTP no puede estar vacío.")
@@ -60,17 +64,19 @@ def verify_totp_code(
     window: int = 1,
     step_seconds: int = 30,
 ) -> bool:
-    """Verifica un código TOTP tolerando desfase de reloj.
+    """Verifica la validez de un código TOTP ingresado, tolerando desfases de reloj
+    mediante una ventana de tolerancia configurable.
 
     Args:
         secret: Secreto Base32 del usuario.
-        code: Código de 6 dígitos ingresado.
-        timestamp: Instante UNIX; por defecto, ahora.
-        window: Ventanas de tolerancia a cada lado del instante actual.
-        step_seconds: Duración de cada ventana.
+        code: Código de 6 dígitos ingresado por el usuario.
+        timestamp: Instante de tiempo UNIX de referencia (por defecto, el momento actual).
+        window: Número de ventanas de tolerancia a cada lado del instante actual (por defecto 1).
+        step_seconds: Duración de cada ventana temporal en segundos.
 
     Returns:
-        ``True`` si el código coincide; ``False`` también ante entradas vacías o mal formadas.
+        bool: ``True`` si el código coincide dentro de la ventana permitida;
+        ``False`` en caso contrario, incluyendo entradas vacías o mal formadas.
     """
     if not secret or not code or not isinstance(code, str):
         return False
@@ -91,15 +97,16 @@ def verify_totp_code(
 
 
 def build_provisioning_uri(*, secret: str, email: str, issuer: str = "PokiKoa") -> str:
-    """Arma la URI ``otpauth://`` que escanean las apps autenticadoras.
+    """Arma la URI con el esquema ``otpauth://`` optimizada para ser convertida
+    a código QR y escaneada por aplicaciones autenticadoras (ej. Google Authenticator).
 
     Args:
-        secret: Secreto Base32.
-        email: Cuenta que se muestra en la app.
-        issuer: Nombre del emisor.
+        secret: Secreto Base32 del usuario.
+        email: Cuenta o correo electrónico que se muestra en la aplicación.
+        issuer: Nombre comercial o del emisor del servicio (por defecto "PokiKoa").
 
     Returns:
-        URI de aprovisionamiento.
+        str: URI completa de aprovisionamiento.
     """
     label = quote(f"{issuer}:{email}")
     return f"otpauth://totp/{label}?secret={secret}&issuer={quote(issuer)}& digits=6&period=30".replace(

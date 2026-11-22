@@ -14,7 +14,11 @@ class Command(BaseCommand):
     help = "Detecta cunas sin telemetría reciente, actualiza su estado a offline y genera alertas de fallo de señal."
 
     def add_arguments(self, parser) -> None:
-        """Declara ``--timeout-seconds``, ``--every`` y ``--max-runs``."""
+        """Declara los argumentos de línea de comandos soportados (`--timeout-seconds`, `--every`, `--max-runs`).
+
+        Args:
+            parser: Analizador de argumentos del comando de Django.
+        """
         parser.add_argument(
             "--timeout-seconds",
             type=int,
@@ -35,10 +39,14 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options) -> None:
-        """Ejecuta la verificación una vez o la repite cada ``--every`` segundos.
+        """Ejecuta la verificación una sola vez o de forma recurrente según los parámetros recibidos.
+
+        Args:
+            *args: Argumentos posicionales adicionales.
+            **options: Opciones y parámetros de línea de comandos.
 
         Raises:
-            CommandError: Si ``--every`` es negativo.
+            CommandError: Si el intervalo `--every` especificado es negativo.
         """
         timeout_seconds: int = options["timeout_seconds"]
         every: int = options["every"]
@@ -63,6 +71,11 @@ class Command(BaseCommand):
             self.stdout.write("Monitor de cunas detenido.")
 
     def _run_once(self, timeout_seconds: int) -> None:
+        """Ejecuta una única iteración de escaneo de cunas desconectadas.
+
+        Args:
+            timeout_seconds: Segundos de inactividad límite para considerar la cuna offline.
+        """
         offline_cribs = detect_offline_cribs(timeout_seconds=timeout_seconds)
         if offline_cribs:
             codes = ", ".join(c.code for c in offline_cribs)

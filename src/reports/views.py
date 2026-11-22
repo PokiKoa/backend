@@ -25,7 +25,14 @@ class OperationsSummaryView(APIView):
         responses={200: OperationsSummarySerializer},
     )
     def get(self, request: Request) -> Response:
-        """Responde 200 con los contadores del resumen operativo."""
+        """Responde 200 con los contadores del resumen operativo.
+
+        Args:
+            request: Petición HTTP autenticada.
+
+        Returns:
+            Response: Objeto JSON serializado con las métricas consolidadas de la unidad.
+        """
         return Response(
             OperationsSummarySerializer(build_operations_summary()).data,
             status=status.HTTP_200_OK,
@@ -47,7 +54,17 @@ class ActivitySeriesView(APIView):
         responses={200: ActivityPointSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
-        """Responde 200 con la serie de ``days`` días (1 a 90, por defecto 14); 400 si está fuera de rango."""
+        """Responde 200 con la serie de ``days`` días (1 a 90, por defecto 14); 400 si está fuera de rango.
+
+        Args:
+            request: Petición HTTP autenticada con parámetro de consulta opcional ``days``.
+
+        Returns:
+            Response: Lista JSON de puntos diarios con ingresos y alertas en el rango solicitado.
+
+        Raises:
+            DomainError: Si ``days`` no es un entero válido o está fuera del rango permitido (1–90).
+        """
         try:
             days = int(request.query_params.get("days", 14))
         except ValueError as exc:

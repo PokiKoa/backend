@@ -168,6 +168,7 @@ class Patient(models.Model):
         verbose_name_plural = "Pacientes"
 
     def __str__(self) -> str:
+        """Retorna el nombre completo y número de ficha clínica del paciente."""
         return f"{self.full_name} ({self.medical_record_number})"
 
     @property
@@ -234,6 +235,7 @@ class CribMovement(models.Model):
         verbose_name_plural = "Movimientos de cuna"
 
     def __str__(self) -> str:
+        """Retorna el trazado legible de origen y destino del movimiento."""
         origin = self.from_crib_code or "—"
         destination = self.to_crib_code or "—"
         return f"{self.patient_id}: {origin} → {destination} ({self.kind})"
@@ -274,6 +276,7 @@ class WeightRecord(models.Model):
         verbose_name_plural = "Registros de Peso"
 
     def __str__(self) -> str:
+        """Retorna la ficha del paciente junto con el peso registrado."""
         return f"{self.patient.medical_record_number}: {self.weight_g} g"
 
 
@@ -308,6 +311,7 @@ class CarePlan(models.Model):
         verbose_name_plural = "Planes de Cuidado"
 
     def __str__(self) -> str:
+        """Retorna el área de cuidado, paciente y estado del plan."""
         return f"{self.care_area} - {self.patient.full_name} ({self.status})"
 
 
@@ -342,4 +346,5 @@ class ClinicalObservation(models.Model):
         verbose_name_plural = "Observaciones Clínicas"
 
     def __str__(self) -> str:
+        """Retorna la categoría y el nombre del paciente de la observación."""
         return f"[{self.category}] {self.patient.full_name}"

@@ -38,6 +38,12 @@ def root_dashboard_view(request: HttpRequest) -> HttpResponse:
 
 
 def _build_health_payload() -> dict[str, Any]:
+    """Construye la carga útil de diagnóstico del servicio (BD, tiempo real y métricas clínicas).
+
+    Returns:
+        Diccionario con estado general, versión, latencia de base de datos, backend de Channels
+        y contadores operativos de la unidad neonatal.
+    """
     start = time.perf_counter()
     connection.ensure_connection()
     with connection.cursor() as cursor:
@@ -105,7 +111,14 @@ class HealthCheckView(APIView):
         },
     )
     def get(self, request: Request) -> HttpResponse:
-        """Responde 200 con el estado del servicio en JSON, o en HTML si el cliente lo solicita."""
+        """Responde 200 con el estado del servicio en JSON, o en HTML si el cliente lo solicita.
+
+        Args:
+            request: Petición HTTP pública (negocia respuesta HTML o JSON según cabecera ``Accept``).
+
+        Returns:
+            HttpResponse: Render HTML ``poki_koa/health.html`` o respuesta JSON DRF con estado 200.
+        """
         payload = _build_health_payload()
         accept = request.META.get("HTTP_ACCEPT", "")
         wants_html = (

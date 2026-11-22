@@ -18,10 +18,11 @@ class CribStatus(models.TextChoices):
 
 
 def generate_device_api_key() -> tuple[str, str, str]:
-    """Genera una API Key de dispositivo.
+    """Genera una API Key segura para un dispositivo IoT.
 
     Returns:
-        Tupla ``(clave_en_claro, prefijo, hash_sha256)``; solo se persisten el prefijo y el hash.
+        tuple[str, str, str]: Una tupla ``(clave_en_claro, prefijo, hash_sha256)``.
+        Solo se persisten el prefijo y el hash en la base de datos por seguridad.
     """
     prefix_token = secrets.token_hex(4)
     secret_token = secrets.token_hex(24)
@@ -32,14 +33,14 @@ def generate_device_api_key() -> tuple[str, str, str]:
 
 
 def verify_device_api_key(raw_key: str, expected_hash: str) -> bool:
-    """Compara una API Key con su hash en tiempo constante.
+    """Compara una API Key en claro con su hash almacenado utilizando una comprobación en tiempo constante.
 
     Args:
-        raw_key: Clave en claro enviada por el dispositivo.
-        expected_hash: Hash SHA-256 almacenado.
+        raw_key: Clave en claro enviada por el dispositivo en la cabecera.
+        expected_hash: Hash SHA-256 almacenado en el registro de la cuna.
 
     Returns:
-        ``True`` si coinciden; ``False`` ante valores vacíos.
+        bool: ``True`` si coinciden exactamente; ``False`` ante valores vacíos o discrepancias.
     """
     if not raw_key or not expected_hash:
         return False
@@ -48,7 +49,7 @@ def verify_device_api_key(raw_key: str, expected_hash: str) -> bool:
 
 
 class Crib(models.Model):
-    """Cuna con su dispositivo de monitoreo: estado, paciente actual, API Key hasheada y última telemetría."""
+    """Representa una cuna neonatal y su dispositivo de monitoreo asociado."""
 
     code = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=100, blank=True, default="")
@@ -73,4 +74,5 @@ class Crib(models.Model):
         verbose_name_plural = "Cunas"
 
     def __str__(self) -> str:
+        """Retorna una representación legible de la cuna y su estado actual."""
         return f"{self.code} ({self.get_status_display()})"

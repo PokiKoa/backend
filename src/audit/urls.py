@@ -1,3 +1,5 @@
+"""Configuración de rutas URL para el módulo de auditoría clínica."""
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 

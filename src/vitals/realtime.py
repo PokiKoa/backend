@@ -14,20 +14,44 @@ from rest_framework_simplejwt.tokens import AccessToken
 from accounts.models import User
 
 UNIT_STREAM_GROUP = "unit_monitoring_stream"
+WS_AUTH_SUBPROTOCOL = "bearer"
 
 
 def crib_stream_group(crib_id: int) -> str:
-    """Nombre del grupo de canal de una cuna."""
+    """Construye el nombre del grupo de canal asociado a una cuna específica.
+
+    Args:
+        crib_id: Identificador numérico de la cuna.
+
+    Returns:
+        Nombre del grupo de Channels (``crib_stream_<crib_id>``).
+    """
     return f"crib_stream_{crib_id}"
 
 
 def patient_stream_group(patient_id: int) -> str:
-    """Nombre del grupo de canal de un paciente."""
+    """Construye el nombre del grupo de canal asociado a un paciente específico.
+
+    Args:
+        patient_id: Identificador numérico del paciente.
+
+    Returns:
+        Nombre del grupo de Channels (``patient_stream_<patient_id>``).
+    """
     return f"patient_stream_{patient_id}"
 
 
 @database_sync_to_async
 def _get_user_from_access_token(raw_token: str) -> User | AnonymousUser:
+    """Valida un token JWT de acceso y recupera al usuario activo no bloqueado.
+
+    Args:
+        raw_token: Cadena JWT sin el prefijo ``Bearer``.
+
+    Returns:
+        Instancia activa de ``User`` si el token es válido y la cuenta está habilitada;
+        ``AnonymousUser`` en cualquier caso de error, expiración o bloqueo.
+    """
     try:
         validated = AccessToken(raw_token)
         user_id = validated.get("user_id")
@@ -41,10 +65,15 @@ def _get_user_from_access_token(raw_token: str) -> User | AnonymousUser:
         return AnonymousUser()
 
 
-WS_AUTH_SUBPROTOCOL = "bearer"
-
-
 def _extract_token_from_scope(scope: dict[str, Any]) -> str | None:
+    """Extrae el token JWT desde la cabecera ``Authorization`` o los subprotocolos WebSocket.
+
+    Args:
+        scope: Diccionario de alcance ASGI de la conexión entrante.
+
+    Returns:
+        Token JWT sin espacios si se encuentra; ``None`` si la conexión no incluye credenciales.
+    """
     headers = dict(scope.get("headers", []))
     auth_header = headers.get(b"authorization", b"").decode("latin1").strip()
     if auth_header.lower().startswith("bearer "):
@@ -65,10 +94,25 @@ class JwtWebSocketAuthMiddleware:
     """Middleware ASGI que autentica conexiones WebSocket mediante JWT Access Token."""
 
     def __init__(self, app: Any) -> None:
+        """Inicializa el middleware envolviendo la aplicación ASGI interna.
+
+        Args:
+            app: Aplicación o router ASGI siguiente en la cadena de procesamiento.
+        """
         self.app = app
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> Any:
-        """Resuelve el usuario desde el JWT (cabecera o subprotocolo) y lo deja en ``scope['user']``; anónimo si falta o es inválido."""
+        """Resuelve el usuario desde el JWT (cabecera o subprotocolo) y lo deja en ``scope['user']``.
+
+        Args:
+            scope: Diccionario de contexto de la conexión ASGI.
+            receive: Canal asíncrono de recepción de eventos ASGI.
+            send: Canal asíncrono de envío de eventos ASGI.
+
+        Returns:
+            Resultado de delegar la ejecución a ``self.app`` con ``scope['user']`` poblado
+            (``User`` autenticado o ``AnonymousUser``).
+        """
         scope = dict(scope)
         raw_token = _extract_token_from_scope(scope)
         if raw_token:
@@ -99,6 +143,15 @@ class SettingsOriginValidator(OriginValidator):
 
 
 def _send_to_groups(groups: list[str], payload: dict[str, Any]) -> None:
+    """Envía una carga útil JSON a una lista deduplicada de grupos de Channels.
+
+    Args:
+        groups: Nombres de grupos destino en la capa de canales.
+        payload: Diccionario serializable que será reenviado por los consumers.
+
+    Returns:
+        None: Omite el envío de forma segura si ``channel_layer`` no está configurado.
+    """
     channel_layer = get_channel_layer()
     if channel_layer is None:
         return
@@ -126,6 +179,9 @@ def broadcast_telemetry_reading(
         auto_resolved_alerts_data: Alertas resueltas automáticamente.
         crib_id: Cuna de origen.
         patient_id: Paciente asignado, si hay.
+
+    Returns:
+        None
     """
     groups = [UNIT_STREAM_GROUP, crib_stream_group(crib_id)]
     if patient_id is not None:
@@ -158,6 +214,9 @@ def broadcast_alert_event(
         alert_data: Alerta serializada.
         crib_id: Cuna asociada.
         patient_id: Paciente asignado, si hay.
+
+    Returns:
+        None
     """
     groups = [UNIT_STREAM_GROUP, crib_stream_group(crib_id)]
     if patient_id is not None:

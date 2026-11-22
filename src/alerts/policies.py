@@ -35,6 +35,7 @@ def _anomaly(
     measured: Decimal | int,
     threshold: Decimal | int,
 ) -> DetectedAnomaly:
+    """Crea y retorna una instancia de anomalía detectada con valores normalizados a Decimal."""
     return DetectedAnomaly(
         alert_type=alert_type,
         severity=severity,
@@ -45,6 +46,7 @@ def _anomaly(
 
 
 def _evaluate_heart_rate(hr: int, t: AlertThresholdConfig) -> DetectedAnomaly | None:
+    """Evalúa la frecuencia cardíaca frente a los umbrales críticos y de advertencia."""
     critical, warning = AlertSeverity.CRITICAL, AlertSeverity.WARNING
     if hr <= t.heart_rate_critical_low:
         severity, limit = critical, t.heart_rate_critical_low
@@ -64,6 +66,7 @@ def _evaluate_heart_rate(hr: int, t: AlertThresholdConfig) -> DetectedAnomaly | 
 
 
 def _evaluate_spo2(spo2: int, t: AlertThresholdConfig) -> DetectedAnomaly | None:
+    """Evalúa la saturación de oxígeno (SpO2) frente a los umbrales configurados."""
     if spo2 < t.spo2_critical_low:
         limit = t.spo2_critical_low
         message = f"Hipoxemia crítica: SpO2 {spo2}% (umbral < {limit}%)."
@@ -78,6 +81,7 @@ def _evaluate_spo2(spo2: int, t: AlertThresholdConfig) -> DetectedAnomaly | None
 
 
 def _evaluate_temperature(temp: Decimal, t: AlertThresholdConfig) -> DetectedAnomaly | None:
+    """Evalúa la temperatura corporal frente a los umbrales de hipotermia e hipertermia."""
     critical, warning = AlertSeverity.CRITICAL, AlertSeverity.WARNING
     if temp <= t.temp_critical_low:
         severity, limit = critical, t.temp_critical_low
@@ -100,14 +104,17 @@ def evaluate_vital_reading(
     reading: VitalSignReading,
     thresholds: AlertThresholdConfig,
 ) -> dict[str, DetectedAnomaly]:
-    """Evalúa una lectura de signos vitales frente a los umbrales configurados.
+    """Evalúa una lectura de signos vitales frente a los umbrales configurados para detectar anomalías clínicas.
 
-    Args:
-        reading: Lectura recién ingerida (con su cuna cargada).
-        thresholds: Umbrales vigentes de frecuencia cardíaca, SpO2 y temperatura.
-
-    Returns:
-        Anomalías detectadas indexadas por tipo de alerta; vacío si todo está en rango.
+    Precondiciones:
+        - La lectura `reading` debe contener información válida de signos vitales y tener la cuna asociada.
+        - La configuración de umbrales `thresholds` debe estar correctamente inicializada en el sistema.
+    Postcondiciones:
+        - Retorna un diccionario indexado por tipo de alerta que contiene las anomalías detectadas.
+        - Si todos los parámetros vitales están dentro de rango y la cánula está conectada, retorna un diccionario vacío.
+    Invariante:
+        - Todas las anomalías detectadas deben pertenecer a los tipos evaluados válidos y niveles de severidad permitidos.
+        - Los valores medidos y de umbral se representan consistentemente con precisión decimal.
     """
     anomalies: dict[str, DetectedAnomaly] = {}
     detected = (
@@ -127,5 +134,13 @@ def evaluate_vital_reading(
             measured_value=Decimal("0.0"),
             threshold_value=Decimal("1.0"),
         )
+
+    # Aserciones defensivas para proteger la invariante del negocio
+    assert isinstance(anomalies, dict), (
+        "Invariante roto: El resultado de la evaluación debe ser un diccionario."
+    )
+    assert all(isinstance(a, DetectedAnomaly) for a in anomalies.values()), (
+        "Invariante roto: Elemento inválido en las anomalías detectadas."
+    )
 
     return anomalies

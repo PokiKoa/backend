@@ -1,3 +1,5 @@
+"""Configuración de rutas URL para el módulo de cunas y dispositivos IoT."""
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 

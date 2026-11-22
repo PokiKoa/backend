@@ -1,4 +1,6 @@
-from .base import *
+"""Configuración de Django endurecida para el entorno de producción (HTTPS, HSTS, cookies seguras y logging)."""
+
+from .base import *  # noqa: F401, F403
 from .base import REFRESH_COOKIE, env
 
 SECRET_KEY = env("SECRET_KEY")

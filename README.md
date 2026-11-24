@@ -119,16 +119,14 @@ uv run poki_koa spectacular --validate --fail-on-warn --file openapi/schema.yml
 
 ## Evidencias del Hito 3 (Unidad 3)
 
-- [Ficha de intervenciones, modularización y dependencia](./docs/guia-unidad-3.md): tres refactorizaciones, indicadores antes/después, contrato reutilizable y revisión de `drf-spectacular`.
-- [Integración, cobertura, paquete y cierre](./docs/hito3/integracion-y-entrega.md): flujo principal, tres casos ejecutados, resultados de pruebas y cobertura, versión e informe de cierre.
+Todo está en [`hito3/`](./hito3/README.md) (versión `2.1.0`), en orden de lectura: [diagnóstico e intervenciones](./hito3/01-diagnostico-e-intervenciones.md), [modularización](./hito3/02-modularizacion.md), [componente y dependencia](./hito3/03-componente-y-dependencia.md), [integración (3 casos)](./hito3/04-integracion.md), [entrega](./hito3/05-entrega.md) e [informe de cierre](./hito3/06-informe-cierre.md). Licencias de terceros: [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md).
 
 Para extender el sistema, crea una app de dominio en `src/` siguiendo [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (HTTP en `views.py`, negocio en `services.py`, reglas puras en `rules.py`), agrega sus pruebas en `src/<app>/test_*.py` y ejecuta `uv run pytest` y `uv run ruff check src` antes de abrir el PR.
 
 ## Documentación del Proyecto
 
 - [AGENTS.md](./AGENTS.md): Guía operativa, reglas de código y convenciones del repositorio.
-- [docs/guia-unidad-3.md](./docs/guia-unidad-3.md): Ficha de evidencias de la Unidad 3.
-- [docs/hito3/integracion-y-entrega.md](./docs/hito3/integracion-y-entrega.md): Integración, cobertura, paquete, versión e informe de cierre.
+- [hito3/](./hito3/README.md): Evidencias del Hito 3 (intervenciones, modularización, integración, entrega e informe de cierre).
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md): Arquitectura modular por dominios, reglas fisiológicas y ciclo de vida de alertas.
 - [docs/API_REFERENCE.md](./docs/API_REFERENCE.md): Contrato REST `/api/v1/`, canales WebSocket `/ws/v1/` y formato de errores.
 - [docs/SECURITY_AND_RBAC.md](./docs/SECURITY_AND_RBAC.md): Autenticación JWT, matriz de permisos RBAC, API keys por dispositivo y 2FA (TOTP).

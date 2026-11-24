@@ -4,6 +4,7 @@ from typing import Any
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import Http404
 from rest_framework import status
 from rest_framework.exceptions import (
     APIException,
@@ -99,6 +100,7 @@ _API_EXCEPTION_DESCRIPTIONS: tuple[tuple[type[Exception], str, str], ...] = (
     ),
     (PermissionDenied, "permission_denied", "No tiene permisos para realizar esta acción."),
     (NotFound, "not_found", "El recurso solicitado no existe."),
+    (Http404, "not_found", "El recurso solicitado no existe."),
     (MethodNotAllowed, "method_not_allowed", "Método HTTP no permitido en este recurso."),
     (
         Throttled,

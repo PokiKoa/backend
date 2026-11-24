@@ -17,7 +17,7 @@
 **Pendientes priorizados**
 
 1. **Alta:** revisión del paquete por otro equipo ([05 §5](05-entrega.md)); sin ella el criterio 7 no llega al máximo.
-2. **Alta:** cada integrante confirma su aporte en [01](01-diagnostico-e-intervenciones.md) antes de la Sumativa 3.
+2. **Alta:** definir los responsables y el aporte de cada integrante en [01](01-diagnostico-e-intervenciones.md) antes de la Sumativa 3.
 3. **Media:** Redis caído debe degradar sin 500 (`try/except` en `vitals/realtime.py`) y `health/ready` podría medir Redis.
 4. **Media:** dividir `admit_patient`/`discharge_patient` y migrar las 8 páginas con carga manual a `hooks/queries/`.
 5. **Baja:** endpoint CSV de auditoría sin límite de 100; revisar `jsqr` cada trimestre.

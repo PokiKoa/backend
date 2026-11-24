@@ -4,13 +4,13 @@ Se revisó el código del Hito 2 buscando reglas duplicadas, funciones extensas 
 
 ## 1. Las tres intervenciones
 
-| # | Problema | Dónde | Consecuencia | Prioridad | Solución | Responsable | Commits / PR |
-|---|---|---|---|---|---|---|---|
-| 1 | La regla «¿este rol puede hacer esto?» estaba copiada 24 veces | `src/{patients,alerts,medications,devices,accounts}/services.py` y `accounts/permissions.py` | Cambiar quién puede una operación obligaba a editar varios archivos y los conjuntos de roles podían divergir | **Alta** | Módulo `accounts/roles.py` con `require_role` y `has_role` | Ricardo (autor del commit) | `2381602` (prueba), `59374af` (módulo), refactor por app, [PR #84](https://github.com/PokiKoa/backend/pull/84); remate en [PR #110](https://github.com/PokiKoa/backend/pull/110) |
-| 2 | (a) Validación de concentración/stock repetida en crear y actualizar medicamento. (b) El bloque «bloquear paciente activo» repetido en 8 operaciones | `medications/services.py`, `patients/services.py`, `alerts/services.py` | Mensajes y reglas que podían desalinearse; un paciente borrado en paralelo producía error 500 | Media | `parse_concentration_mg`, `parse_stock`, `parse_min_stock_alert` y `patients/locks.py::lock_active_patient` | Ricardo | `8325e36`, `b0f814c` (a); `ea15135`, `57798e1`, `5a5b3d2` (b); PR #84 |
-| 3 | Reportes mezclaba HTTP, generación de CSV y descarga; la auditoría no se podía exportar | Frontend: `services/reportesService.ts`, `pages/registros/RegistrosPage.tsx` | Lógica CSV imposible de reutilizar y sin pruebas propias | Media | `utils/csv.ts` (`toCsv`, `downloadCsv`) con dos consumidores | Ricardo | Frontend `00ff6ac`…`5c2e8bd`, [PR #103](https://github.com/PokiKoa/frontend/pull/103). Detalle en el [hito3 del frontend](https://github.com/PokiKoa/frontend/blob/main/hito3/01-intervencion-csv-y-modularizacion.md) |
+| # | Problema | Dónde | Consecuencia | Prioridad | Solución | Commits / PR |
+|---|---|---|---|---|---|---|
+| 1 | La regla «¿este rol puede hacer esto?» estaba copiada 24 veces | `src/{patients,alerts,medications,devices,accounts}/services.py` y `accounts/permissions.py` | Cambiar quién puede una operación obligaba a editar varios archivos y los conjuntos de roles podían divergir | **Alta** | Módulo `accounts/roles.py` con `require_role` y `has_role` | `2381602` (prueba), `59374af` (módulo), refactor por app, [PR #84](https://github.com/PokiKoa/backend/pull/84); remate en [PR #110](https://github.com/PokiKoa/backend/pull/110) |
+| 2 | (a) Validación de concentración/stock repetida en crear y actualizar medicamento. (b) El bloque «bloquear paciente activo» repetido en 8 operaciones | `medications/services.py`, `patients/services.py`, `alerts/services.py` | Mensajes y reglas que podían desalinearse; un paciente borrado en paralelo producía error 500 | Media | `parse_concentration_mg`, `parse_stock`, `parse_min_stock_alert` y `patients/locks.py::lock_active_patient` | `8325e36`, `b0f814c` (a); `ea15135`, `57798e1`, `5a5b3d2` (b); PR #84 |
+| 3 | Reportes mezclaba HTTP, generación de CSV y descarga; la auditoría no se podía exportar | Frontend: `services/reportesService.ts`, `pages/registros/RegistrosPage.tsx` | Lógica CSV imposible de reutilizar y sin pruebas propias | Media | `utils/csv.ts` (`toCsv`, `downloadCsv`) con dos consumidores | Frontend `00ff6ac`…`5c2e8bd`, [PR #103](https://github.com/PokiKoa/frontend/pull/103). Detalle en el [hito3 del frontend](https://github.com/PokiKoa/frontend/blob/main/hito3/01-intervencion-csv-y-modularizacion.md) |
 
-> **Responsables:** los nombres salen de la autoría de los commits en Git (`git log --format='%h %an' <commit>`). Cada integrante debe confirmar y ampliar su aporte antes de la Sumativa 3; no se asignó a nadie que no figure en el historial.
+> **Responsables:** aún no definidos; se agregarán cuando cada integrante confirme su aporte.
 
 ## 2. Por qué esa prioridad (impacto y esfuerzo)
 
@@ -48,10 +48,10 @@ Al ejecutar el caso 3 de integración (ver [04](04-integracion.md)) un 404 respo
 
 ## 6. Deuda postergada
 
-| Deuda | Motivo | Responsable | Cuándo se revisa |
-|---|---|---|---|
-| Carga manual de datos (`useState` + `Promise.allSettled`) en 8 páginas del frontend | Solo se migró `ReportesPage` para validar el patrón | Ricardo | Al tocar cada página, migrarla a `hooks/queries/` |
-| `admit_patient` y `discharge_patient` extensas (`patients/services.py`) | Necesitan pruebas de caracterización de auditoría antes de dividirlas | Ricardo | Antes de la próxima funcionalidad de pacientes |
-| Exportación de auditoría limitada a 100 filas | `max_page_size` del backend | Ricardo | Si se pide export completo: endpoint CSV en backend |
-| `jsqr` sin versiones recientes | Funciona para el lector QR actual | Ricardo | Revisión trimestral o fallo del escáner |
-| Redis caído: `group_send` sin `try/except` | Ver [04 §4](04-integracion.md); la telemetría respondería 500 | Ricardo | Antes de operar con monitores reales |
+| Deuda | Motivo | Cuándo se revisa |
+|---|---|---|
+| Carga manual de datos (`useState` + `Promise.allSettled`) en 8 páginas del frontend | Solo se migró `ReportesPage` para validar el patrón | Al tocar cada página, migrarla a `hooks/queries/` |
+| `admit_patient` y `discharge_patient` extensas (`patients/services.py`) | Necesitan pruebas de caracterización de auditoría antes de dividirlas | Antes de la próxima funcionalidad de pacientes |
+| Exportación de auditoría limitada a 100 filas | `max_page_size` del backend | Si se pide export completo: endpoint CSV en backend |
+| `jsqr` sin versiones recientes | Funciona para el lector QR actual | Revisión trimestral o fallo del escáner |
+| Redis caído: `group_send` sin `try/except` | Ver [04 §4](04-integracion.md); la telemetría respondería 500 | Antes de operar con monitores reales |
